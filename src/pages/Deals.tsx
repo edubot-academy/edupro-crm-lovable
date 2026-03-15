@@ -8,10 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Card, CardContent } from '@/components/ui/card';
 import { ky } from '@/lib/i18n';
 import { dealsApi } from '@/api/modules';
 import type { Deal } from '@/types';
-import { Plus, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Loader2, User, BookOpen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const mockDeals: Deal[] = [
@@ -88,10 +89,46 @@ export default function DealsPage() {
     },
   ];
 
+  const renderMobileCard = (deal: Deal) => (
+    <Card className="shadow-card border-border/50">
+      <CardContent className="space-y-3 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate font-semibold">{deal.contact?.fullName || '—'}</p>
+            <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+              <BookOpen className="h-3.5 w-3.5" />
+              <span className="truncate">{deal.courseNameSnapshot || '—'}</span>
+            </div>
+          </div>
+          <StatusBadge variant={getLeadStatusVariant(deal.stage)} dot>{ky.dealStage[deal.stage]}</StatusBadge>
+        </div>
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="rounded-md bg-muted/60 p-2">
+            <p className="text-xs text-muted-foreground">{ky.deals.group}</p>
+            <p className="truncate font-medium">{deal.groupNameSnapshot || '—'}</p>
+          </div>
+          <div className="rounded-md bg-muted/60 p-2">
+            <p className="text-xs text-muted-foreground">{ky.deals.amount}</p>
+            <p className="font-medium">{deal.amount.toLocaleString()} {deal.currency || 'сом'}</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <User className="h-3.5 w-3.5" />
+            <span>ID: {deal.contact?.id || '—'}</span>
+          </div>
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(deal); }}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader title={ky.deals.title} actions={<Button onClick={() => setShowCreate(true)}><Plus className="mr-2 h-4 w-4" />{ky.deals.newDeal}</Button>} />
-      <DataTable columns={columns} data={deals} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Келишим издөө..." />
+      <DataTable columns={columns} data={deals} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Келишим издөө..." renderMobileCard={renderMobileCard} />
 
       {/* Create Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>

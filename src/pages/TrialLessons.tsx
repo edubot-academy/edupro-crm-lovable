@@ -8,10 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Card, CardContent } from '@/components/ui/card';
 import { ky } from '@/lib/i18n';
 import type { TrialLesson } from '@/types';
 import { trialLessonsApi } from '@/api/modules';
-import { Plus, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Loader2, CalendarDays, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const trialResultVariant = (s: string) => {
@@ -92,10 +93,39 @@ export default function TrialLessonsPage() {
     },
   ];
 
+  const renderMobileCard = (trial: TrialLesson) => (
+    <Card className="shadow-card border-border/50">
+      <CardContent className="space-y-3 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate font-semibold">{trial.contact?.fullName || '—'}</p>
+            <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+              <CalendarDays className="h-3.5 w-3.5" />
+              <span>{new Date(trial.scheduledAt).toLocaleString('ky-KG', { dateStyle: 'short', timeStyle: 'short' })}</span>
+            </div>
+          </div>
+          <StatusBadge variant={trialResultVariant(trial.result)} dot>{ky.trialResult[trial.result]}</StatusBadge>
+        </div>
+        {trial.notes && (
+          <div className="rounded-md bg-muted/60 p-2 text-sm text-muted-foreground">
+            <div className="mb-1 flex items-center gap-2 text-xs"><FileText className="h-3.5 w-3.5" />{ky.common.notes}</div>
+            <p className="line-clamp-3">{trial.notes}</p>
+          </div>
+        )}
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">Deal ID: {trial.deal?.id || '—'}</span>
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(trial); }}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader title={ky.trialLessons.title} actions={<Button onClick={() => setShowCreate(true)}><Plus className="mr-2 h-4 w-4" />{ky.trialLessons.newTrialLesson}</Button>} />
-      <DataTable columns={columns} data={trials} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Сыноо сабак издөө..." />
+      <DataTable columns={columns} data={trials} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Сыноо сабак издөө..." renderMobileCard={renderMobileCard} />
 
       {/* Create Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>

@@ -3,10 +3,11 @@ import { PageHeader } from '@/components/PageShell';
 import { DataTable, type Column } from '@/components/DataTable';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { ky } from '@/lib/i18n';
 import type { SystemUser } from '@/types';
 import { usersApi } from '@/api/modules';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Mail } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -66,10 +67,30 @@ export default function UsersPage() {
     },
   ];
 
+  const renderMobileCard = (user: SystemUser) => (
+    <Card className="shadow-card border-border/50">
+      <CardContent className="space-y-3 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate font-semibold">{user.fullName}</p>
+            <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+              <Mail className="h-3.5 w-3.5" />
+              <span className="truncate">{user.email}</span>
+            </div>
+          </div>
+          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setDeleteTarget(user); }} className="h-8 w-8 text-destructive hover:text-destructive">
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+        <StatusBadge variant="primary">{ky.userRole[user.role]}</StatusBadge>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader title={ky.users.title} actions={<Button><Plus className="mr-2 h-4 w-4" />{ky.users.newUser}</Button>} />
-      <DataTable columns={columns} data={users} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Колдонуучу издөө..." />
+      <DataTable columns={columns} data={users} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Колдонуучу издөө..." renderMobileCard={renderMobileCard} />
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>

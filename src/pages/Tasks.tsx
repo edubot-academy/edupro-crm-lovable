@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Card, CardContent } from '@/components/ui/card';
 import { ky } from '@/lib/i18n';
 import type { Task } from '@/types';
 import { tasksApi } from '@/api/modules';
@@ -110,6 +111,41 @@ export default function TasksPage() {
     },
   ];
 
+  const renderMobileCard = (task: Task) => (
+    <Card className="shadow-card border-border/50">
+      <CardContent className="space-y-3 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate font-semibold">{task.title}</p>
+            {task.description && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{task.description}</p>}
+          </div>
+          <StatusBadge variant={taskStatusVariant(task.status)} dot>{ky.taskStatus[task.status]}</StatusBadge>
+        </div>
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="rounded-md bg-muted/60 p-2">
+            <p className="text-xs text-muted-foreground">{ky.tasks.assignedUser}</p>
+            <p className="truncate font-medium">{task.assignedTo?.fullName || '—'}</p>
+          </div>
+          <div className="rounded-md bg-muted/60 p-2">
+            <p className="text-xs text-muted-foreground">{ky.tasks.dueAt}</p>
+            <p className="font-medium">{task.dueAt ? new Date(task.dueAt).toLocaleDateString('ky-KG') : '—'}</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-between">
+          {task.status !== 'done' && task.status !== 'cancelled' ? (
+            <Button variant="outline" size="sm" onClick={(e) => e.stopPropagation()}>
+              <CheckCircle className="mr-2 h-4 w-4" />
+              Белгилөө
+            </Button>
+          ) : <span />}
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(task); }}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader title={ky.tasks.title} actions={<Button onClick={() => setShowCreate(true)}><Plus className="mr-2 h-4 w-4" />{ky.tasks.newTask}</Button>} />
@@ -123,7 +159,7 @@ export default function TasksPage() {
           </SelectContent>
         </Select>
       </div>
-      <DataTable columns={columns} data={filtered} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Тапшырма издөө..." />
+      <DataTable columns={columns} data={filtered} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Тапшырма издөө..." renderMobileCard={renderMobileCard} />
 
       {/* Create Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>

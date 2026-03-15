@@ -195,21 +195,21 @@ export default function ReportsPage() {
             <DateRangePicker from={dateFrom} to={dateTo} onChange={(f, t) => { setDateFrom(f); setDateTo(t); }} />
             <Separator orientation="vertical" className="h-8 hidden sm:block" />
             <Select value={sourceFilter} onValueChange={setSourceFilter}>
-              <SelectTrigger className="w-[150px] h-9 text-xs"><SelectValue placeholder="Булак" /></SelectTrigger>
+              <SelectTrigger className="h-9 w-full text-xs sm:w-[150px]"><SelectValue placeholder="Булак" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Бардык булактар</SelectItem>
                 {stats.leadsBySource.map((s) => <SelectItem key={s.source} value={s.source}>{s.source}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={managerFilter} onValueChange={setManagerFilter}>
-              <SelectTrigger className="w-[150px] h-9 text-xs"><SelectValue placeholder="Менеджер" /></SelectTrigger>
+              <SelectTrigger className="h-9 w-full text-xs sm:w-[150px]"><SelectValue placeholder="Менеджер" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Бардык менеджерлер</SelectItem>
                 {stats.managerPerformance.map((m) => <SelectItem key={m.manager} value={m.manager}>{m.manager}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={courseFilter} onValueChange={setCourseFilter}>
-              <SelectTrigger className="w-[150px] h-9 text-xs"><SelectValue placeholder="Курс" /></SelectTrigger>
+              <SelectTrigger className="h-9 w-full text-xs sm:w-[150px]"><SelectValue placeholder="Курс" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Бардык курстар</SelectItem>
                 {stats.popularCourses.map((c) => <SelectItem key={c.course} value={c.course}>{c.course}</SelectItem>)}
@@ -226,7 +226,7 @@ export default function ReportsPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+        <TabsList className="flex w-full min-w-max items-center justify-start gap-1 overflow-x-auto rounded-lg p-1 lg:inline-grid lg:w-auto lg:grid-cols-4">
           <TabsTrigger value="overview" className="text-xs gap-1.5"><BarChart3 className="h-3.5 w-3.5" />Жалпы</TabsTrigger>
           <TabsTrigger value="sales" className="text-xs gap-1.5"><TrendingUp className="h-3.5 w-3.5" />Сатуу</TabsTrigger>
           <TabsTrigger value="courses" className="text-xs gap-1.5"><GraduationCap className="h-3.5 w-3.5" />Курстар</TabsTrigger>

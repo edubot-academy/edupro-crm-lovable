@@ -5,6 +5,7 @@ import { StatusBadge, getRiskSeverityVariant } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Card, CardContent } from '@/components/ui/card';
 import { ky } from '@/lib/i18n';
 import type { RetentionCase } from '@/types';
 import { retentionApi } from '@/api/modules';
@@ -83,6 +84,39 @@ export default function RetentionPage() {
     )},
   ];
 
+  const renderMobileCard = (retentionCase: RetentionCase) => (
+    <Card className="shadow-card border-border/50">
+      <CardContent className="space-y-3 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate font-semibold">{retentionCase.summary || '—'}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{ky.issueType[retentionCase.issueType]}</p>
+          </div>
+          <StatusBadge variant={getRiskSeverityVariant(retentionCase.severity)} dot>{ky.riskSeverity[retentionCase.severity]}</StatusBadge>
+        </div>
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="rounded-md bg-muted/60 p-2">
+            <p className="text-xs text-muted-foreground">{ky.common.status}</p>
+            <p className="font-medium">{caseStatusLabel[retentionCase.status]}</p>
+          </div>
+          <div className="rounded-md bg-muted/60 p-2">
+            <p className="text-xs text-muted-foreground">{ky.retention.lastActivity}</p>
+            <p className="font-medium">{retentionCase.lastActivityAt ? new Date(retentionCase.lastActivityAt).toLocaleDateString('ky-KG') : '—'}</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="text-xs text-muted-foreground">{retentionCase.assignedTo?.fullName || 'Менеджер жок'}</div>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title={ky.retention.contactStudent} onClick={(e) => e.stopPropagation()}><Phone className="h-3.5 w-3.5" /></Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(retentionCase); }}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader title={ky.retention.title} />
@@ -96,7 +130,7 @@ export default function RetentionPage() {
           </SelectContent>
         </Select>
       </div>
-      <DataTable columns={columns} data={filtered} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Учур издөө..." />
+      <DataTable columns={columns} data={filtered} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Учур издөө..." renderMobileCard={renderMobileCard} />
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>

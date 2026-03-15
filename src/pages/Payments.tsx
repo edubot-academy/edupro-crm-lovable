@@ -8,11 +8,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { ky } from '@/lib/i18n';
 import type { Payment } from '@/types';
 import { paymentsApi } from '@/api/modules';
-import { Plus, CheckCircle, Loader2 } from 'lucide-react';
+import { Plus, CheckCircle, Loader2, Wallet } from 'lucide-react';
 
 const mockPayments: Payment[] = [
   { id: 1, amount: 15000, method: 'card', paidAt: '2024-03-10', status: 'confirmed', user: { id: 1, fullName: 'Элнура Турдалиева' } },
@@ -91,10 +92,43 @@ export default function PaymentsPage() {
     )},
   ];
 
+  const renderMobileCard = (payment: Payment) => (
+    <Card className="shadow-card border-border/50">
+      <CardContent className="space-y-3 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate font-semibold">{payment.user?.fullName || '—'}</p>
+            <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+              <Wallet className="h-3.5 w-3.5" />
+              <span>{payment.amount.toLocaleString()} сом</span>
+            </div>
+          </div>
+          <StatusBadge variant={getPaymentStatusVariant(payment.status)} dot>{ky.paymentStatus[payment.status]}</StatusBadge>
+        </div>
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="rounded-md bg-muted/60 p-2">
+            <p className="text-xs text-muted-foreground">{ky.payments.method}</p>
+            <p className="font-medium">{ky.paymentMethod[payment.method]}</p>
+          </div>
+          <div className="rounded-md bg-muted/60 p-2">
+            <p className="text-xs text-muted-foreground">{ky.payments.paidAt}</p>
+            <p className="font-medium">{payment.paidAt ? new Date(payment.paidAt).toLocaleDateString('ky-KG') : '—'}</p>
+          </div>
+        </div>
+        {payment.status === 'submitted' && (
+          <Button variant="outline" size="sm" className="w-full" onClick={(e) => { e.stopPropagation(); setConfirmTarget(payment); }}>
+            <CheckCircle className="mr-2 h-4 w-4" />
+            {ky.payments.confirmPayment}
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader title={ky.payments.title} actions={<Button onClick={() => setShowCreate(true)}><Plus className="mr-2 h-4 w-4" />{ky.payments.submitPayment}</Button>} />
-      <DataTable columns={columns} data={payments} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Төлөм издөө..." />
+      <DataTable columns={columns} data={payments} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Төлөм издөө..." renderMobileCard={renderMobileCard} />
 
       {/* Create Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>

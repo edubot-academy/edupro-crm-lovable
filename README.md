@@ -20,7 +20,7 @@ The app runs on `http://localhost:8080` by default.
 
 The frontend uses `VITE_API_BASE_URL` when provided. Without it, the app defaults to:
 
-- development: `http://localhost:4000`
+- development: `/api` via the Vite dev proxy to `http://localhost:4000`
 - production: `https://api.edupro.edubot.it.com`
 
 ## Scripts

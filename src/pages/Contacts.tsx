@@ -8,10 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Card, CardContent } from '@/components/ui/card';
 import { ky } from '@/lib/i18n';
 import { contactApi } from '@/api/modules';
 import type { Contact } from '@/types';
-import { Plus, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Loader2, Mail, Phone, IdCard } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const mockContacts: Contact[] = [
@@ -90,13 +91,37 @@ export default function ContactsPage() {
     },
   ];
 
+  const renderMobileCard = (contact: Contact) => (
+    <Card className="shadow-card border-border/50">
+      <CardContent className="space-y-3 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate font-semibold">{contact.fullName}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {new Date(contact.createdAt).toLocaleDateString('ky-KG')}
+            </p>
+          </div>
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(contact); }}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="space-y-2 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5" /><span>{contact.phone}</span></div>
+          {contact.email && <div className="flex items-center gap-2"><Mail className="h-3.5 w-3.5" /><span className="truncate">{contact.email}</span></div>}
+          <div className="flex items-center gap-2"><IdCard className="h-3.5 w-3.5" /><span>{contact.lmsStudentId || 'LMS ID жок'}</span></div>
+        </div>
+        {contact.notes && <p className="rounded-md bg-muted/60 p-2 text-xs text-muted-foreground line-clamp-3">{contact.notes}</p>}
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title={ky.contacts.title}
         actions={<Button onClick={() => setShowCreate(true)}><Plus className="mr-2 h-4 w-4" />{ky.contacts.newContact}</Button>}
       />
-      <DataTable columns={columns} data={contacts} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Байланыш издөө..." onRowClick={(c) => navigate(`/contacts/${c.id}`)} />
+      <DataTable columns={columns} data={contacts} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Байланыш издөө..." onRowClick={(c) => navigate(`/contacts/${c.id}`)} renderMobileCard={renderMobileCard} />
 
       {/* Create Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
