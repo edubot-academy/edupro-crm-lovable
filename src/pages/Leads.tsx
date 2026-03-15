@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/PageShell';
 import { DataTable, type Column } from '@/components/DataTable';
+import { KanbanBoard, type KanbanColumn } from '@/components/KanbanBoard';
 import { StatusBadge, getLeadStatusVariant } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,10 +11,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Card, CardContent } from '@/components/ui/card';
 import { ky } from '@/lib/i18n';
 import { leadsApi } from '@/api/modules';
 import type { Lead, LeadSource } from '@/types';
-import { Plus, Filter, Trash2, Loader2, Save } from 'lucide-react';
+import { Plus, Filter, Trash2, Loader2, Save, Phone, Mail, UserRound } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const mockLeads: Lead[] = [
@@ -39,6 +41,7 @@ export default function LeadsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newLead, setNewLead] = useState({ fullName: '', phone: '', email: '', source: '' as LeadSource | '', notes: '' });
+  const [activeColumn, setActiveColumn] = useState<string>('new');
 
   const fetchLeads = () => {
     setIsLoading(true);
@@ -105,6 +108,71 @@ export default function LeadsPage() {
     },
   ];
 
+  const mobileColumns: KanbanColumn<Lead>[] = Object.entries(ky.leadStatus).map(([status, label]) => ({
+    id: status,
+    title: label,
+    items: filtered.filter((lead) => lead.status === status),
+  }));
+
+  const renderLeadCard = (lead: Lead) => (
+    <Card className="shadow-soft border-border/50 hover:shadow-medium transition-shadow">
+      <CardContent className="space-y-3 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold">{lead.fullName}</p>
+            <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+              <span>{ky.leadSource[lead.source]}</span>
+              {lead.interestedCourseId && <span>• {lead.interestedCourseId}</span>}
+            </div>
+          </div>
+          <StatusBadge variant={getLeadStatusVariant(lead.status)} dot>
+            {ky.leadStatus[lead.status]}
+          </StatusBadge>
+        </div>
+
+        <div className="space-y-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <Phone className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{lead.phone}</span>
+          </div>
+          {lead.email && (
+            <div className="flex items-center gap-2">
+              <Mail className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{lead.email}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <UserRound className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{lead.assignedManager?.fullName || '—'}</span>
+          </div>
+        </div>
+
+        {lead.notes && (
+          <p className="line-clamp-2 rounded-md bg-muted/60 px-2.5 py-2 text-xs text-muted-foreground">
+            {lead.notes}
+          </p>
+        )}
+
+        <div className="flex items-center justify-between pt-1">
+          <span className="text-xs text-muted-foreground">
+            {new Date(lead.createdAt).toLocaleDateString('ky-KG')}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-destructive hover:text-destructive"
+            onClick={(e) => {
+              e.stopPropagation();
+              setDeleteTarget(lead);
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
@@ -134,15 +202,46 @@ export default function LeadsPage() {
         </div>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={filtered}
-        isLoading={isLoading}
-        searchValue={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Лид издөө..."
-        onRowClick={(lead) => navigate(`/leads/${lead.id}`)}
-      />
+      <div className="md:hidden">
+        <div className="mb-3">
+          <div className="relative max-w-sm">
+            <Input
+              placeholder="Лид издөө..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+            <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted-foreground">
+              <Filter className="h-4 w-4" />
+            </span>
+          </div>
+        </div>
+        {isLoading ? (
+          <div className="flex h-40 items-center justify-center rounded-lg border bg-card shadow-card">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : (
+          <KanbanBoard
+            columns={mobileColumns}
+            renderCard={renderLeadCard}
+            activeColumn={activeColumn}
+            onColumnChange={setActiveColumn}
+            onCardClick={(lead) => navigate(`/leads/${lead.id}`)}
+          />
+        )}
+      </div>
+
+      <div className="hidden md:block">
+        <DataTable
+          columns={columns}
+          data={filtered}
+          isLoading={isLoading}
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Лид издөө..."
+          onRowClick={(lead) => navigate(`/leads/${lead.id}`)}
+        />
+      </div>
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
