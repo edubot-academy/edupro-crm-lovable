@@ -1,0 +1,232 @@
+import { apiClient } from './client';
+import type {
+  LmsCourse, LmsGroup, Payment, TrialLesson, Task,
+  TimelineEvent, RetentionCase, DashboardStats,
+  SystemUser, AssignableUser, Company, Lead, Contact, ContactNote, Deal, PaginatedResponse,
+  TelegramLinkResponse, TelegramStatusResponse,
+} from '@/types';
+import type {
+  LmsCourseListParams, LmsGroupListParams,
+  CreateEnrollmentRequest, ActivateEnrollmentRequest, PauseEnrollmentRequest,
+  LmsEnrollmentResponse, LmsStudentSummary,
+} from '@/types/lms';
+
+// ==================== COMPANIES ====================
+export const companiesApi = {
+  list: () => apiClient.get<Company[]>('/api/companies'),
+  get: (id: number) => apiClient.get<Company>(`/api/companies/${id}`),
+  create: (data: { name: string; industry: 'education' | 'retail' }) => apiClient.post<Company>('/api/companies', data),
+};
+
+// ==================== USERS ====================
+export const usersApi = {
+  list: (params?: Record<string, string | number | undefined>) =>
+    apiClient.get<PaginatedResponse<SystemUser>>('/api/users', params),
+  get: (id: number) => apiClient.get<SystemUser>(`/api/users/${id}`),
+  create: (data: { fullName: string; email: string; role: import('@/types').UserRole }) =>
+    apiClient.post<SystemUser>('/api/users', data),
+  update: (id: number, data: { isActive?: boolean; fullName?: string; email?: string; role?: import('@/types').UserRole }) =>
+    apiClient.patch<SystemUser>(`/api/users/${id}`, data),
+  assignables: (params?: { roles?: string; q?: string }) =>
+    apiClient.get<AssignableUser[]>('/api/users/assignables', params as Record<string, string | number | undefined>),
+  softDelete: (data: { ids: number[]; anonymize?: boolean }) =>
+    apiClient.post<{ success: boolean }>('/api/users/soft-delete', data),
+  hardDelete: (data: { ids: number[]; reassignToUserId?: number }) =>
+    apiClient.post<{ success: boolean }>('/api/users/hard-delete', data),
+};
+
+// ==================== PAYMENTS ====================
+export const paymentsApi = {
+  list: (params?: Record<string, string | number | undefined>) =>
+    apiClient.get<PaginatedResponse<Payment>>('/api/payment', params),
+  get: (id: number) => apiClient.get<Payment>(`/api/payment/${id}`),
+  create: (data: { amount: number; method: import('@/types').PaymentMethod; status?: import('@/types').PaymentStatus; lmsEnrollmentId?: string; verified?: boolean }) =>
+    apiClient.post<Payment>('/api/payment', data),
+  update: (id: number, data: { status: import('@/types').PaymentStatus; lmsEnrollmentId?: string }) =>
+    apiClient.patch<Payment>(`/api/payment/${id}`, data),
+};
+
+// ==================== LEADS ====================
+export const leadsApi = {
+  list: (params?: Record<string, string | number | undefined>) =>
+    apiClient.get<PaginatedResponse<Lead>>('/api/leads', params),
+  get: (id: number) => apiClient.get<Lead>(`/api/leads/${id}`),
+  create: (data: Partial<Lead>) => apiClient.post<Lead>('/api/leads', data),
+  update: (id: number, data: Partial<Lead>) => apiClient.patch<Lead>(`/api/leads/${id}`, data),
+  delete: (id: number) => apiClient.delete<{ success: boolean }>(`/api/leads/${id}`),
+  importFromContact: (contactId: number) =>
+    apiClient.post<Lead>(`/api/leads/import-from-contact/${contactId}`),
+};
+
+// ==================== CONTACTS ====================
+export const contactsApi = {
+  list: (params?: Record<string, string | number | undefined>) =>
+    apiClient.get<PaginatedResponse<Contact>>('/api/contacts', params),
+  get: (id: number) => apiClient.get<Contact>(`/api/contacts/${id}`),
+  /** Public lead capture (no auth required) */
+  create: (data: Partial<Contact> & { message?: string; captchaToken?: string; consent?: boolean; utmSource?: string; utmMedium?: string; utmCampaign?: string; courseType?: string; courseName?: string }) =>
+    apiClient.post<Contact>('/api/contacts', data),
+  /** Authenticated manual contact creation */
+  createManual: (data: Partial<Contact>) =>
+    apiClient.post<Contact>('/api/contacts/manual', data),
+  update: (id: number, data: Partial<Contact>) => apiClient.patch<Contact>(`/api/contacts/${id}`, data),
+  delete: (id: number) => apiClient.delete<{ success: boolean }>(`/api/contacts/${id}`),
+  /** Assign/unassign contact owner */
+  assign: (data: { contactId: number; userId?: number | null }) =>
+    apiClient.post<Contact>('/api/contacts/assign', data),
+  /** Quick self-assignment */
+  selfAssign: (id: number) => apiClient.patch<Contact>(`/api/contacts/${id}/self-assign`),
+  /** Soft-delete contacts in bulk */
+  bulkDelete: (data: { ids: number[] }) =>
+    apiClient.post<{ success: boolean }>('/api/contacts/bulk-delete', data),
+  /** Hard purge contacts (superadmin) */
+  purge: (data: { ids: number[] }) =>
+    apiClient.post<{ success: boolean }>('/api/contacts/purge', data),
+  /** Delete all test contacts */
+  deleteTests: () =>
+    apiClient.post<{ success: boolean }>('/api/contacts/delete-tests'),
+  /** Create DEPOSIT payment for contact */
+  deposit: (id: number, data: Record<string, unknown>) =>
+    apiClient.post<Payment>(`/api/contacts/${id}/deposit`, data),
+  /** Create ENROLLMENT payment for contact */
+  enroll: (id: number, data: Record<string, unknown>) =>
+    apiClient.post<Payment>(`/api/contacts/${id}/enroll`, data),
+  /** List contact notes */
+  listNotes: (contactId: number, params?: { before?: string; limit?: number }) =>
+    apiClient.get<ContactNote[]>(`/api/contacts/${contactId}/notes`, params as Record<string, string | number | undefined>),
+  /** Append contact note */
+  addNote: (contactId: number, data: { body: string }) =>
+    apiClient.post<ContactNote>(`/api/contacts/${contactId}/notes`, data),
+};
+
+// ==================== CONTACT (Compact CRUD) ====================
+export const contactApi = {
+  list: (params?: Record<string, string | number | undefined>) =>
+    apiClient.get<PaginatedResponse<Contact>>('/api/contact', params),
+  get: (id: number) => apiClient.get<Contact>(`/api/contact/${id}`),
+  create: (data: Partial<Contact>) => apiClient.post<Contact>('/api/contact', data),
+  update: (id: number, data: Partial<Contact>) => apiClient.patch<Contact>(`/api/contact/${id}`, data),
+  delete: (id: number) => apiClient.delete<{ success: boolean }>(`/api/contact/${id}`),
+};
+
+// ==================== CONTACT AUDIT ====================
+export const contactAuditApi = {
+  getLogs: (contactId: number) =>
+    apiClient.get<unknown[]>(`/api/audit/contacts/${contactId}/logs`),
+  addLog: (contactId: number, data: { note?: string; followUpDate?: string }) =>
+    apiClient.post<unknown>(`/api/audit/contacts/${contactId}/log`, data),
+};
+
+// ==================== DEALS ====================
+export const dealsApi = {
+  list: (params?: Record<string, string | number | undefined>) =>
+    apiClient.get<PaginatedResponse<Deal>>('/api/deals', params),
+  get: (id: number) => apiClient.get<Deal>(`/api/deals/${id}`),
+  create: (data: Partial<Deal> & { contactId: number }) => apiClient.post<Deal>('/api/deals', data),
+  update: (id: number, data: Partial<Deal>) => apiClient.patch<Deal>(`/api/deals/${id}`, data),
+  delete: (id: number) => apiClient.delete<{ success: boolean }>(`/api/deals/${id}`),
+};
+
+// ==================== TRIAL LESSONS ====================
+export const trialLessonsApi = {
+  list: (params?: Record<string, string | number | undefined>) =>
+    apiClient.get<PaginatedResponse<TrialLesson>>('/api/trial-lessons', params),
+  get: (id: number) => apiClient.get<TrialLesson>(`/api/trial-lessons/${id}`),
+  create: (data: { contactId: number; dealId?: number; scheduledAt: string; result?: string; notes?: string }) =>
+    apiClient.post<TrialLesson>('/api/trial-lessons', data),
+  update: (id: number, data: Partial<TrialLesson>) =>
+    apiClient.patch<TrialLesson>(`/api/trial-lessons/${id}`, data),
+  delete: (id: number) => apiClient.delete<{ success: boolean }>(`/api/trial-lessons/${id}`),
+};
+
+// ==================== TASKS ====================
+export const tasksApi = {
+  list: (params?: Record<string, string | number | undefined>) =>
+    apiClient.get<PaginatedResponse<Task>>('/api/tasks', params),
+  get: (id: number) => apiClient.get<Task>(`/api/tasks/${id}`),
+  create: (data: Partial<Task> & { title: string }) => apiClient.post<Task>('/api/tasks', data),
+  update: (id: number, data: Partial<Task>) => apiClient.patch<Task>(`/api/tasks/${id}`, data),
+  delete: (id: number) => apiClient.delete<{ success: boolean }>(`/api/tasks/${id}`),
+};
+
+// ==================== COMMUNICATION TIMELINE ====================
+export const timelineApi = {
+  list: (params?: Record<string, string | number | undefined>) =>
+    apiClient.get<PaginatedResponse<TimelineEvent>>('/api/communication-timeline', params),
+  add: (data: { type: string; message: string; contactId?: number; dealId?: number; retentionCaseId?: number; meta?: Record<string, unknown> }) =>
+    apiClient.post<TimelineEvent>('/api/communication-timeline', data),
+};
+
+// ==================== RETENTION CASES ====================
+export const retentionApi = {
+  list: (params?: Record<string, string | number | undefined>) =>
+    apiClient.get<PaginatedResponse<RetentionCase>>('/api/retention-cases', params),
+  get: (id: number) => apiClient.get<RetentionCase>(`/api/retention-cases/${id}`),
+  create: (data: { lmsStudentId: string; lmsEnrollmentId: string; issueType: import('@/types').IssueType; severity: import('@/types').RiskSeverity; summary: string; contactId?: number; lmsCourseId?: string; lmsGroupId?: string; status?: string; metrics?: Record<string, unknown>; assignedToId?: number }) =>
+    apiClient.post<RetentionCase>('/api/retention-cases', data),
+  update: (id: number, data: Partial<RetentionCase>) =>
+    apiClient.patch<RetentionCase>(`/api/retention-cases/${id}`, data),
+  delete: (id: number) => apiClient.delete<{ success: boolean }>(`/api/retention-cases/${id}`),
+};
+
+// ==================== NOTIFICATIONS (Telegram) ====================
+export const notificationsApi = {
+  /** Get Telegram linking URL for current user */
+  getTelegramLink: () =>
+    apiClient.get<TelegramLinkResponse>('/api/notifications/telegram/link'),
+  /** Get Telegram link status */
+  getTelegramStatus: () =>
+    apiClient.get<TelegramStatusResponse>('/api/notifications/telegram/status'),
+  /** Send test Telegram message */
+  sendTestMessage: () =>
+    apiClient.post<void>('/api/notifications/telegram/test'),
+};
+
+// ==================== DASHBOARD ====================
+export const dashboardApi = {
+  getStats: () => apiClient.get<DashboardStats>('/api/dashboard/stats'),
+};
+
+// ==================== PROFILE ====================
+export const profileApi = {
+  get: () => apiClient.get<SystemUser>('/api/users/me'),
+  update: (data: { fullName?: string; email?: string }) =>
+    apiClient.patch<SystemUser>('/api/users/me', data),
+};
+
+
+// ==================== LMS INTEGRATION ====================
+// NOTE: All LMS endpoints require X-Company-Id header.
+// companyId must be provided by the caller (from user context or app state).
+
+function lmsHeaders(companyId?: string): Record<string, string> {
+  return companyId ? { 'X-Company-Id': companyId } : {};
+}
+
+export const lmsApi = {
+  getCourses: (params?: LmsCourseListParams, companyId?: string) =>
+    apiClient.get<PaginatedResponse<LmsCourse>>('/api/integrations/lms/courses', params as Record<string, string | number | undefined>, lmsHeaders(companyId)),
+
+  getGroups: (params?: LmsGroupListParams, companyId?: string) =>
+    apiClient.get<PaginatedResponse<LmsGroup>>('/api/integrations/lms/groups', params as Record<string, string | number | undefined>, lmsHeaders(companyId)),
+
+  createEnrollment: (data: CreateEnrollmentRequest, companyId?: string) =>
+    apiClient.post<LmsEnrollmentResponse>('/api/integrations/lms/enrollments', data, { extraHeaders: lmsHeaders(companyId) }),
+
+  activateEnrollment: (enrollmentId: string, data: ActivateEnrollmentRequest, companyId?: string) =>
+    apiClient.patch<LmsEnrollmentResponse>(`/api/integrations/lms/enrollments/${enrollmentId}/activate`, data, lmsHeaders(companyId)),
+
+  pauseEnrollment: (enrollmentId: string, data: PauseEnrollmentRequest, companyId?: string) =>
+    apiClient.patch<LmsEnrollmentResponse>(`/api/integrations/lms/enrollments/${enrollmentId}/pause`, data, lmsHeaders(companyId)),
+
+  getStudentSummary: (studentId: string, companyId?: string) =>
+    apiClient.get<LmsStudentSummary>(`/api/integrations/lms/students/${studentId}/summary`, undefined, lmsHeaders(companyId)),
+};
+
+// ==================== INTEGRATION ADMIN ====================
+export const lmsAdminApi = {
+  riskScan: (companyId?: string) => apiClient.post<Record<string, unknown>>('/api/integrations/lms/admin/risk-scan', undefined, { extraHeaders: lmsHeaders(companyId) }),
+  testRiskAlert: (companyId?: string) => apiClient.post<Record<string, unknown>>('/api/integrations/lms/admin/test-risk-alert', undefined, { extraHeaders: lmsHeaders(companyId) }),
+  dispatchWebhooks: (companyId?: string) => apiClient.post<Record<string, unknown>>('/api/integrations/lms/admin/dispatch-webhooks', undefined, { extraHeaders: lmsHeaders(companyId) }),
+  health: (companyId?: string) => apiClient.get<Record<string, unknown>>('/api/integrations/lms/admin/health', undefined, lmsHeaders(companyId)),
+};

@@ -1,0 +1,541 @@
+import { useState, useEffect, useCallback } from 'react';
+import { format } from 'date-fns';
+import { PageHeader, PageLoading } from '@/components/PageShell';
+import { StatCard } from '@/components/StatCard';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
+import { ky } from '@/lib/i18n';
+import { dashboardApi } from '@/api/modules';
+import type { DashboardStats } from '@/types';
+import {
+  Users, UserPlus, TrendingUp, Target, CreditCard, Trophy,
+  AlertTriangle, CalendarIcon, Download, RefreshCw, GraduationCap,
+  BarChart3, PieChart as PieChartIcon, Activity,
+} from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, LineChart, Line, Legend, CartesianGrid,
+  RadialBarChart, RadialBar,
+} from 'recharts';
+
+const COLORS = [
+  'hsl(220, 70%, 50%)', 'hsl(167, 65%, 44%)', 'hsl(38, 92%, 50%)',
+  'hsl(0, 72%, 51%)', 'hsl(200, 80%, 50%)', 'hsl(280, 60%, 50%)',
+  'hsl(140, 60%, 45%)', 'hsl(30, 80%, 55%)',
+];
+
+const mockStats: DashboardStats = {
+  totalLeads: 342, newLeads: 28, conversionRate: 23.5,
+  trialToSaleConversion: 67.8, paymentPendingCount: 12,
+  wonDeals: 156, openRetentionCases: 8,
+  leadsBySource: [
+    { source: 'Instagram', count: 89 }, { source: 'Telegram', count: 72 },
+    { source: 'WhatsApp', count: 56 }, { source: 'Веб-сайт', count: 48 },
+    { source: 'Телефон', count: 42 }, { source: 'Сунуштоо', count: 35 },
+  ],
+  managerPerformance: [
+    { manager: 'Айбек', leads: 45, deals: 12, conversion: 26.7 },
+    { manager: 'Нургуль', leads: 38, deals: 14, conversion: 36.8 },
+    { manager: 'Эрлан', leads: 52, deals: 11, conversion: 21.2 },
+    { manager: 'Жылдыз', leads: 33, deals: 9, conversion: 27.3 },
+  ],
+  popularCourses: [
+    { course: 'Python', enrollments: 45 }, { course: 'JavaScript', enrollments: 38 },
+    { course: 'UI/UX Design', enrollments: 29 }, { course: 'Data Science', enrollments: 22 },
+    { course: 'English B1', enrollments: 18 },
+  ],
+};
+
+function DateRangePicker({
+  from, to, onChange,
+}: {
+  from: Date | undefined;
+  to: Date | undefined;
+  onChange: (from: Date | undefined, to: Date | undefined) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" size="sm" className={cn('w-[140px] justify-start text-left font-normal text-xs', !from && 'text-muted-foreground')}>
+            <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
+            {from ? format(from, 'dd.MM.yyyy') : 'Баштоо'}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar mode="single" selected={from} onSelect={(d) => onChange(d, to)} initialFocus className="p-3 pointer-events-auto" />
+        </PopoverContent>
+      </Popover>
+      <span className="text-xs text-muted-foreground">—</span>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" size="sm" className={cn('w-[140px] justify-start text-left font-normal text-xs', !to && 'text-muted-foreground')}>
+            <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
+            {to ? format(to, 'dd.MM.yyyy') : 'Аяктоо'}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar mode="single" selected={to} onSelect={(d) => onChange(from, d)} initialFocus className="p-3 pointer-events-auto" />
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
+// CSV export helper
+function exportCSV(stats: DashboardStats) {
+  const rows: string[] = [];
+  rows.push('Метрика,Маани');
+  rows.push(`Жалпы лидтер,${stats.totalLeads}`);
+  rows.push(`Жаңы лидтер,${stats.newLeads}`);
+  rows.push(`Конверсия %,${stats.conversionRate}`);
+  rows.push(`Сыноодон сатуу %,${stats.trialToSaleConversion}`);
+  rows.push(`Төлөм күтүлүүдө,${stats.paymentPendingCount}`);
+  rows.push(`Утулган келишимдер,${stats.wonDeals}`);
+  rows.push(`Ачык тобокелдик,${stats.openRetentionCases}`);
+  rows.push('');
+  rows.push('Булак,Саны');
+  stats.leadsBySource.forEach((s) => rows.push(`${s.source},${s.count}`));
+  rows.push('');
+  rows.push('Менеджер,Лидтер,Келишимдер,Конверсия %');
+  stats.managerPerformance.forEach((m) => rows.push(`${m.manager},${m.leads},${m.deals},${m.conversion}`));
+  rows.push('');
+  rows.push('Курс,Каттоолор');
+  stats.popularCourses.forEach((c) => rows.push(`${c.course},${c.enrollments}`));
+
+  const blob = new Blob(['\uFEFF' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `report-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export default function ReportsPage() {
+  const [stats, setStats] = useState<DashboardStats>(mockStats);
+  const [isLoading, setIsLoading] = useState(true);
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
+  const [sourceFilter, setSourceFilter] = useState('all');
+  const [managerFilter, setManagerFilter] = useState('all');
+  const [courseFilter, setCourseFilter] = useState('all');
+
+  const fetchStats = useCallback(() => {
+    setIsLoading(true);
+    const params: Record<string, string | number | undefined> = {};
+    if (dateFrom) params.from = format(dateFrom, 'yyyy-MM-dd');
+    if (dateTo) params.to = format(dateTo, 'yyyy-MM-dd');
+    if (sourceFilter !== 'all') params.source = sourceFilter;
+    if (managerFilter !== 'all') params.manager = managerFilter;
+    if (courseFilter !== 'all') params.course = courseFilter;
+
+    dashboardApi.getStats()
+      .then(setStats)
+      .catch(() => setStats(mockStats))
+      .finally(() => setIsLoading(false));
+  }, [dateFrom, dateTo, sourceFilter, managerFilter, courseFilter]);
+
+  useEffect(() => { fetchStats(); }, [fetchStats]);
+
+  // Filtered data for client-side filtering
+  const filteredSources = sourceFilter === 'all'
+    ? stats.leadsBySource
+    : stats.leadsBySource.filter((s) => s.source === sourceFilter);
+
+  const filteredManagers = managerFilter === 'all'
+    ? stats.managerPerformance
+    : stats.managerPerformance.filter((m) => m.manager === managerFilter);
+
+  const filteredCourses = courseFilter === 'all'
+    ? stats.popularCourses
+    : stats.popularCourses.filter((c) => c.course === courseFilter);
+
+  // Derived metrics
+  const totalFromSources = filteredSources.reduce((s, x) => s + x.count, 0);
+  const avgConversion = filteredManagers.length
+    ? (filteredManagers.reduce((s, m) => s + m.conversion, 0) / filteredManagers.length).toFixed(1)
+    : '0';
+  const totalEnrollments = filteredCourses.reduce((s, c) => s + c.enrollments, 0);
+
+  // Radial data for trial conversion
+  const trialRadial = [
+    { name: 'Конверсия', value: stats.trialToSaleConversion, fill: 'hsl(167, 65%, 44%)' },
+  ];
+
+  if (isLoading) return <PageLoading />;
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
+      <PageHeader
+        title={ky.reports.title}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={fetchStats}>
+              <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Жаңыртуу
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => exportCSV(stats)}>
+              <Download className="mr-1.5 h-3.5 w-3.5" /> CSV Экспорт
+            </Button>
+          </div>
+        }
+      />
+
+      {/* Filters Bar */}
+      <Card className="shadow-card border-border/50">
+        <CardContent className="p-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <DateRangePicker from={dateFrom} to={dateTo} onChange={(f, t) => { setDateFrom(f); setDateTo(t); }} />
+            <Separator orientation="vertical" className="h-8 hidden sm:block" />
+            <Select value={sourceFilter} onValueChange={setSourceFilter}>
+              <SelectTrigger className="w-[150px] h-9 text-xs"><SelectValue placeholder="Булак" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Бардык булактар</SelectItem>
+                {stats.leadsBySource.map((s) => <SelectItem key={s.source} value={s.source}>{s.source}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={managerFilter} onValueChange={setManagerFilter}>
+              <SelectTrigger className="w-[150px] h-9 text-xs"><SelectValue placeholder="Менеджер" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Бардык менеджерлер</SelectItem>
+                {stats.managerPerformance.map((m) => <SelectItem key={m.manager} value={m.manager}>{m.manager}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={courseFilter} onValueChange={setCourseFilter}>
+              <SelectTrigger className="w-[150px] h-9 text-xs"><SelectValue placeholder="Курс" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Бардык курстар</SelectItem>
+                {stats.popularCourses.map((c) => <SelectItem key={c.course} value={c.course}>{c.course}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {(dateFrom || dateTo || sourceFilter !== 'all' || managerFilter !== 'all' || courseFilter !== 'all') && (
+              <Button variant="ghost" size="sm" className="text-xs h-9" onClick={() => { setDateFrom(undefined); setDateTo(undefined); setSourceFilter('all'); setManagerFilter('all'); setCourseFilter('all'); }}>
+                Тазалоо
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Tabs */}
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+          <TabsTrigger value="overview" className="text-xs gap-1.5"><BarChart3 className="h-3.5 w-3.5" />Жалпы</TabsTrigger>
+          <TabsTrigger value="sales" className="text-xs gap-1.5"><TrendingUp className="h-3.5 w-3.5" />Сатуу</TabsTrigger>
+          <TabsTrigger value="courses" className="text-xs gap-1.5"><GraduationCap className="h-3.5 w-3.5" />Курстар</TabsTrigger>
+          <TabsTrigger value="retention" className="text-xs gap-1.5"><Activity className="h-3.5 w-3.5" />Тобокелдик</TabsTrigger>
+        </TabsList>
+
+        {/* ===== OVERVIEW TAB ===== */}
+        <TabsContent value="overview" className="space-y-6">
+          {/* KPI Cards */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard title={ky.dashboard.totalLeads} value={stats.totalLeads} icon={Users} variant="primary" />
+            <StatCard title={ky.dashboard.newLeads} value={stats.newLeads} icon={UserPlus} variant="info" />
+            <StatCard title={ky.dashboard.conversionRate} value={`${stats.conversionRate}%`} icon={TrendingUp} variant="success" />
+            <StatCard title={ky.dashboard.wonDeals} value={stats.wonDeals} icon={Trophy} variant="success" />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <StatCard title={ky.dashboard.trialConversion} value={`${stats.trialToSaleConversion}%`} icon={Target} variant="success" />
+            <StatCard title={ky.dashboard.paymentPending} value={stats.paymentPendingCount} icon={CreditCard} variant="warning" />
+            <StatCard title={ky.dashboard.openRetention} value={stats.openRetentionCases} icon={AlertTriangle} variant="destructive" />
+          </div>
+
+          {/* Leads by Source — Pie + Bar */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card className="shadow-card border-border/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <PieChartIcon className="h-4 w-4 text-primary" />
+                  {ky.dashboard.leadsBySource}
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">Жалпы: {totalFromSources} лид</p>
+              </CardHeader>
+              <CardContent>
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={filteredSources} dataKey="count" nameKey="source" cx="50%" cy="50%" outerRadius={100} innerRadius={50} paddingAngle={2}
+                        label={({ source, percent }) => `${source} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                        {filteredSources.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                      </Pie>
+                      <Tooltip formatter={(v: number) => `${v} лид`} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-card border-border/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">{ky.dashboard.leadsBySource} — Деталдуу</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={filteredSources}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="source" tick={{ fontSize: 11 }} />
+                      <YAxis />
+                      <Tooltip formatter={(v: number) => `${v} лид`} />
+                      <Bar dataKey="count" radius={[4, 4, 0, 0]} name="Лидтер">
+                        {filteredSources.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* ===== SALES TAB ===== */}
+        <TabsContent value="sales" className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <StatCard title="Жалпы лидтер" value={filteredManagers.reduce((s, m) => s + m.leads, 0)} icon={Users} variant="primary" />
+            <StatCard title="Жалпы келишимдер" value={filteredManagers.reduce((s, m) => s + m.deals, 0)} icon={Trophy} variant="success" />
+            <StatCard title="Орточо конверсия" value={`${avgConversion}%`} icon={TrendingUp} variant="info" />
+          </div>
+
+          {/* Manager Performance */}
+          <Card className="shadow-card border-border/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">{ky.dashboard.managerPerformance}</CardTitle>
+              <p className="text-xs text-muted-foreground">{filteredManagers.length} менеджер</p>
+            </CardHeader>
+            <CardContent>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={filteredManagers} barGap={4}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="manager" tick={{ fontSize: 12 }} />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="leads" fill="hsl(220, 70%, 50%)" radius={[4, 4, 0, 0]} name="Лидтер" />
+                    <Bar dataKey="deals" fill="hsl(167, 65%, 44%)" radius={[4, 4, 0, 0]} name="Келишимдер" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Conversion by Manager */}
+          <Card className="shadow-card border-border/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Конверсия пайызы (менеджер боюнча)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={filteredManagers} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis type="number" domain={[0, 100]} unit="%" />
+                    <YAxis type="category" dataKey="manager" width={80} tick={{ fontSize: 12 }} />
+                    <Tooltip formatter={(v: number) => `${v}%`} />
+                    <Bar dataKey="conversion" radius={[0, 4, 4, 0]} name="Конверсия">
+                      {filteredManagers.map((m, i) => (
+                        <Cell key={i} fill={m.conversion >= 30 ? 'hsl(167, 65%, 44%)' : m.conversion >= 20 ? 'hsl(38, 92%, 50%)' : 'hsl(0, 72%, 51%)'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Manager Table */}
+          <Card className="shadow-card border-border/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Менеджер жыйынтык таблицасы</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Менеджер</th>
+                      <th className="text-right py-2 px-3 font-medium text-muted-foreground">Лидтер</th>
+                      <th className="text-right py-2 px-3 font-medium text-muted-foreground">Келишимдер</th>
+                      <th className="text-right py-2 px-3 font-medium text-muted-foreground">Конверсия</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredManagers.map((m) => (
+                      <tr key={m.manager} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
+                        <td className="py-2.5 px-3 font-medium">{m.manager}</td>
+                        <td className="py-2.5 px-3 text-right">{m.leads}</td>
+                        <td className="py-2.5 px-3 text-right">{m.deals}</td>
+                        <td className="py-2.5 px-3 text-right">
+                          <span className={cn('font-semibold', m.conversion >= 30 ? 'text-success' : m.conversion >= 20 ? 'text-warning' : 'text-destructive')}>
+                            {m.conversion}%
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ===== COURSES TAB ===== */}
+        <TabsContent value="courses" className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <StatCard title="Жалпы каттоолор" value={totalEnrollments} icon={GraduationCap} variant="primary" />
+            <StatCard title="Курстар саны" value={filteredCourses.length} icon={GraduationCap} variant="info" />
+            <StatCard title="Сыноодон сатуу" value={`${stats.trialToSaleConversion}%`} icon={Target} variant="success" />
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Popular Courses Bar */}
+            <Card className="shadow-card border-border/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">{ky.dashboard.popularCourses}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={filteredCourses} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis type="number" />
+                      <YAxis type="category" dataKey="course" width={110} tick={{ fontSize: 12 }} />
+                      <Tooltip formatter={(v: number) => `${v} каттоо`} />
+                      <Bar dataKey="enrollments" radius={[0, 4, 4, 0]} name="Каттоолор">
+                        {filteredCourses.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Trial Conversion Radial */}
+            <Card className="shadow-card border-border/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">Сыноо сабак конверсиясы</CardTitle>
+                <p className="text-xs text-muted-foreground">Сыноодон катталганга өтүү пайызы</p>
+              </CardHeader>
+              <CardContent className="flex flex-col items-center justify-center">
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadialBarChart cx="50%" cy="50%" innerRadius="60%" outerRadius="90%" startAngle={180} endAngle={0} data={trialRadial} barSize={20}>
+                      <RadialBar dataKey="value" cornerRadius={10} background={{ fill: 'hsl(var(--muted))' }} />
+                    </RadialBarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="-mt-16 text-center">
+                  <p className="text-3xl font-bold text-success">{stats.trialToSaleConversion}%</p>
+                  <p className="text-xs text-muted-foreground mt-1">Сыноодон → катталуу</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Courses Table */}
+          <Card className="shadow-card border-border/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Курстар боюнча деталдуу</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">#</th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Курс</th>
+                      <th className="text-right py-2 px-3 font-medium text-muted-foreground">Каттоолор</th>
+                      <th className="text-right py-2 px-3 font-medium text-muted-foreground">Үлүш</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredCourses
+                      .sort((a, b) => b.enrollments - a.enrollments)
+                      .map((c, i) => (
+                        <tr key={c.course} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
+                          <td className="py-2.5 px-3 text-muted-foreground">{i + 1}</td>
+                          <td className="py-2.5 px-3 font-medium">{c.course}</td>
+                          <td className="py-2.5 px-3 text-right">{c.enrollments}</td>
+                          <td className="py-2.5 px-3 text-right text-muted-foreground">
+                            {totalEnrollments > 0 ? ((c.enrollments / totalEnrollments) * 100).toFixed(1) : 0}%
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ===== RETENTION TAB ===== */}
+        <TabsContent value="retention" className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <StatCard title={ky.dashboard.openRetention} value={stats.openRetentionCases} icon={AlertTriangle} variant="destructive" />
+            <StatCard title={ky.dashboard.paymentPending} value={stats.paymentPendingCount} icon={CreditCard} variant="warning" />
+            <StatCard title="Конверсия" value={`${stats.conversionRate}%`} icon={TrendingUp} variant="success" />
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Retention Overview */}
+            <Card className="shadow-card border-border/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">Тобокелдик сводкасы</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  {[
+                    { label: 'Ачык учурлар', value: stats.openRetentionCases, color: 'bg-destructive' },
+                    { label: 'Төлөм күтүлүүдө', value: stats.paymentPendingCount, color: 'bg-warning' },
+                    { label: 'Жаңы лидтер (иштетилбеген)', value: stats.newLeads, color: 'bg-info' },
+                  ].map((item) => (
+                    <div key={item.label} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className={cn('h-2.5 w-2.5 rounded-full', item.color)} />
+                        <span className="text-sm">{item.label}</span>
+                      </div>
+                      <span className="text-sm font-semibold">{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Payment Status */}
+            <Card className="shadow-card border-border/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">Төлөм аналитикасы</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  {[
+                    { label: 'Ырасталган келишимдер', value: stats.wonDeals, pct: stats.totalLeads ? ((stats.wonDeals / stats.totalLeads) * 100).toFixed(1) : '0' },
+                    { label: 'Күтүлүүдө', value: stats.paymentPendingCount, pct: stats.totalLeads ? ((stats.paymentPendingCount / stats.totalLeads) * 100).toFixed(1) : '0' },
+                  ].map((item) => (
+                    <div key={item.label}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm">{item.label}</span>
+                        <span className="text-sm font-medium">{item.value} ({item.pct}%)</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${item.pct}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
