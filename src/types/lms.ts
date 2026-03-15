@@ -31,7 +31,8 @@ export interface CreateEnrollmentRequest {
     email?: string | null;
   };
   courseId: string;
-  groupId: string;
+  courseType?: LmsCourseType;
+  groupId?: string | null;
   paymentStatus: 'submitted' | 'confirmed' | 'failed' | 'refunded' | 'overdue';
   enrollmentStatus?: LmsEnrollmentStatus;
   sourceSystem: LmsSourceSystem;

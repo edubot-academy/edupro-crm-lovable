@@ -11,8 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { ky } from '@/lib/i18n';
-import { dashboardApi } from '@/api/modules';
-import type { DashboardStats } from '@/types';
+import { reportsApi } from '@/api/modules';
+import type { DashboardStats, DashboardStatsQueryParams } from '@/types';
 import {
   Users, UserPlus, TrendingUp, Target, CreditCard, Trophy,
   AlertTriangle, CalendarIcon, Download, RefreshCw, GraduationCap,
@@ -129,14 +129,14 @@ export default function ReportsPage() {
 
   const fetchStats = useCallback(() => {
     setIsLoading(true);
-    const params: Record<string, string | number | undefined> = {};
+    const params: DashboardStatsQueryParams = {};
     if (dateFrom) params.from = format(dateFrom, 'yyyy-MM-dd');
     if (dateTo) params.to = format(dateTo, 'yyyy-MM-dd');
     if (sourceFilter !== 'all') params.source = sourceFilter;
     if (managerFilter !== 'all') params.manager = managerFilter;
     if (courseFilter !== 'all') params.course = courseFilter;
 
-    dashboardApi.getStats()
+    reportsApi.getStats(params)
       .then(setStats)
       .catch(() => setStats(mockStats))
       .finally(() => setIsLoading(false));

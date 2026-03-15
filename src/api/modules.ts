@@ -1,7 +1,7 @@
 import { apiClient } from './client';
 import type {
   LmsCourse, LmsGroup, Payment, TrialLesson, Task,
-  TimelineEvent, RetentionCase, DashboardStats,
+  TimelineEvent, RetentionCase, DashboardStats, DashboardStatsQueryParams,
   SystemUser, AssignableUser, Company, Lead, Contact, ContactNote, Deal, PaginatedResponse,
   TelegramLinkResponse, TelegramStatusResponse,
 } from '@/types';
@@ -184,7 +184,13 @@ export const notificationsApi = {
 
 // ==================== DASHBOARD ====================
 export const dashboardApi = {
-  getStats: () => apiClient.get<DashboardStats>('/api/dashboard/stats'),
+  getStats: (params?: DashboardStatsQueryParams) =>
+    apiClient.get<DashboardStats>('/api/dashboard/stats', params),
+};
+
+export const reportsApi = {
+  getStats: (params?: DashboardStatsQueryParams) =>
+    apiClient.get<DashboardStats>('/api/reports/stats', params),
 };
 
 // ==================== PROFILE ====================
@@ -196,37 +202,44 @@ export const profileApi = {
 
 
 // ==================== LMS INTEGRATION ====================
-// NOTE: All LMS endpoints require X-Company-Id header.
-// companyId must be provided by the caller (from user context or app state).
+const DEFAULT_LMS_COMPANY_ID = import.meta.env.VITE_LMS_COMPANY_ID || 'default';
 
-function lmsHeaders(companyId?: string): Record<string, string> {
-  return companyId ? { 'X-Company-Id': companyId } : {};
+function lmsRequestOptions(companyId?: string, idempotencyKey?: string) {
+  return {
+    extraHeaders: {
+      'X-Company-Id': companyId || DEFAULT_LMS_COMPANY_ID,
+      ...(idempotencyKey ? { 'X-Idempotency-Key': idempotencyKey } : {}),
+    },
+    getAttemptHeaders: () => ({
+      'X-Request-Id': crypto.randomUUID(),
+    }),
+  };
 }
 
 export const lmsApi = {
   getCourses: (params?: LmsCourseListParams, companyId?: string) =>
-    apiClient.get<PaginatedResponse<LmsCourse>>('/api/integrations/lms/courses', params as Record<string, string | number | undefined>, lmsHeaders(companyId)),
+    apiClient.get<PaginatedResponse<LmsCourse>>('/api/integrations/lms/courses', params as Record<string, string | number | undefined>, lmsRequestOptions(companyId)),
 
   getGroups: (params?: LmsGroupListParams, companyId?: string) =>
-    apiClient.get<PaginatedResponse<LmsGroup>>('/api/integrations/lms/groups', params as Record<string, string | number | undefined>, lmsHeaders(companyId)),
+    apiClient.get<PaginatedResponse<LmsGroup>>('/api/integrations/lms/groups', params as Record<string, string | number | undefined>, lmsRequestOptions(companyId)),
 
-  createEnrollment: (data: CreateEnrollmentRequest, companyId?: string) =>
-    apiClient.post<LmsEnrollmentResponse>('/api/integrations/lms/enrollments', data, { extraHeaders: lmsHeaders(companyId) }),
+  createEnrollment: (data: CreateEnrollmentRequest, options?: { companyId?: string; idempotencyKey?: string }) =>
+    apiClient.post<LmsEnrollmentResponse>('/api/integrations/lms/enrollments', data, lmsRequestOptions(options?.companyId, options?.idempotencyKey)),
 
-  activateEnrollment: (enrollmentId: string, data: ActivateEnrollmentRequest, companyId?: string) =>
-    apiClient.patch<LmsEnrollmentResponse>(`/api/integrations/lms/enrollments/${enrollmentId}/activate`, data, lmsHeaders(companyId)),
+  activateEnrollment: (enrollmentId: string, data: ActivateEnrollmentRequest, options?: { companyId?: string; idempotencyKey?: string }) =>
+    apiClient.patch<LmsEnrollmentResponse>(`/api/integrations/lms/enrollments/${enrollmentId}/activate`, data, lmsRequestOptions(options?.companyId, options?.idempotencyKey)),
 
-  pauseEnrollment: (enrollmentId: string, data: PauseEnrollmentRequest, companyId?: string) =>
-    apiClient.patch<LmsEnrollmentResponse>(`/api/integrations/lms/enrollments/${enrollmentId}/pause`, data, lmsHeaders(companyId)),
+  pauseEnrollment: (enrollmentId: string, data: PauseEnrollmentRequest, options?: { companyId?: string; idempotencyKey?: string }) =>
+    apiClient.patch<LmsEnrollmentResponse>(`/api/integrations/lms/enrollments/${enrollmentId}/pause`, data, lmsRequestOptions(options?.companyId, options?.idempotencyKey)),
 
   getStudentSummary: (studentId: string, companyId?: string) =>
-    apiClient.get<LmsStudentSummary>(`/api/integrations/lms/students/${studentId}/summary`, undefined, lmsHeaders(companyId)),
+    apiClient.get<LmsStudentSummary>(`/api/integrations/lms/students/${studentId}/summary`, undefined, lmsRequestOptions(companyId)),
 };
 
 // ==================== INTEGRATION ADMIN ====================
 export const lmsAdminApi = {
-  riskScan: (companyId?: string) => apiClient.post<Record<string, unknown>>('/api/integrations/lms/admin/risk-scan', undefined, { extraHeaders: lmsHeaders(companyId) }),
-  testRiskAlert: (companyId?: string) => apiClient.post<Record<string, unknown>>('/api/integrations/lms/admin/test-risk-alert', undefined, { extraHeaders: lmsHeaders(companyId) }),
-  dispatchWebhooks: (companyId?: string) => apiClient.post<Record<string, unknown>>('/api/integrations/lms/admin/dispatch-webhooks', undefined, { extraHeaders: lmsHeaders(companyId) }),
-  health: (companyId?: string) => apiClient.get<Record<string, unknown>>('/api/integrations/lms/admin/health', undefined, lmsHeaders(companyId)),
+  riskScan: (companyId?: string) => apiClient.post<Record<string, unknown>>('/api/integrations/lms/admin/risk-scan', undefined, lmsRequestOptions(companyId)),
+  testRiskAlert: (companyId?: string) => apiClient.post<Record<string, unknown>>('/api/integrations/lms/admin/test-risk-alert', undefined, lmsRequestOptions(companyId)),
+  dispatchWebhooks: (companyId?: string) => apiClient.post<Record<string, unknown>>('/api/integrations/lms/admin/dispatch-webhooks', undefined, lmsRequestOptions(companyId)),
+  health: (companyId?: string) => apiClient.get<Record<string, unknown>>('/api/integrations/lms/admin/health', undefined, lmsRequestOptions(companyId)),
 };

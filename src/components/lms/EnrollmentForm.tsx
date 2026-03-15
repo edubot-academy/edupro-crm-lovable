@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,6 +34,7 @@ export function EnrollmentForm() {
   const [dealId, setDealId] = useState('');
   const [notes, setNotes] = useState('');
   const [groupError, setGroupError] = useState('');
+  const idempotencyRef = useRef<{ signature: string; key: string } | null>(null);
 
   const { data: coursesData, isLoading: coursesLoading } = useLmsCourses({ isActive: 'true' });
   const courses = coursesData?.items ?? [];
@@ -84,7 +85,8 @@ export function EnrollmentForm() {
         email: studentEmail || null,
       },
       courseId,
-      groupId: isVideo ? '' : groupId,
+      courseType: selectedCourse?.courseType,
+      groupId: isVideo ? null : groupId,
       paymentStatus: 'submitted',
       enrollmentStatus: 'pending_activation',
       sourceSystem: 'crm',
@@ -95,7 +97,12 @@ export function EnrollmentForm() {
       },
     };
 
-    createMutation.mutate(payload, {
+    const signature = JSON.stringify(payload);
+    if (idempotencyRef.current?.signature !== signature) {
+      idempotencyRef.current = { signature, key: crypto.randomUUID() };
+    }
+
+    createMutation.mutate({ data: payload, idempotencyKey: idempotencyRef.current.key }, {
       onSuccess: () => {
         setCourseId('');
         setGroupId('');
@@ -106,6 +113,7 @@ export function EnrollmentForm() {
         setDealId('');
         setNotes('');
         setGroupError('');
+        idempotencyRef.current = null;
       },
     });
   };

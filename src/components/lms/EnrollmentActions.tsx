@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,22 +15,33 @@ export function ActivateEnrollmentDialog({ enrollmentId, contactId }: { enrollme
   const [open, setOpen] = useState(false);
   const [paymentId, setPaymentId] = useState('');
   const [notes, setNotes] = useState('');
+  const idempotencyRef = useRef<{ signature: string; key: string } | null>(null);
   const mutation = useActivateEnrollment();
 
   const handleActivate = () => {
     if (!user) return;
+    const data = {
+      crmContactId: contactId,
+      crmPaymentId: paymentId || null,
+      paymentStatus: 'confirmed' as PaymentStatus,
+      activatedByUserId: String(user.id),
+      activatedByName: user.fullName,
+      notes: notes || null,
+    };
+    const signature = JSON.stringify({ enrollmentId, data });
+    if (idempotencyRef.current?.signature !== signature) {
+      idempotencyRef.current = { signature, key: crypto.randomUUID() };
+    }
+
     mutation.mutate({
       enrollmentId,
-      data: {
-        crmContactId: contactId,
-        crmPaymentId: paymentId || null,
-        paymentStatus: 'confirmed' as PaymentStatus,
-        activatedByUserId: String(user.id),
-        activatedByName: user.fullName,
-        notes: notes || null,
-      },
+      data,
+      idempotencyKey: idempotencyRef.current.key,
     }, {
-      onSuccess: () => setOpen(false),
+      onSuccess: () => {
+        idempotencyRef.current = null;
+        setOpen(false);
+      },
     });
   };
 
@@ -69,19 +80,30 @@ export function PauseEnrollmentDialog({ enrollmentId }: { enrollmentId: string }
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
+  const idempotencyRef = useRef<{ signature: string; key: string } | null>(null);
   const mutation = usePauseEnrollment();
 
   const handlePause = () => {
     if (!user || !reason.trim()) return;
+    const data = {
+      reason,
+      pausedByUserId: String(user.id),
+      pausedByName: user.fullName,
+    };
+    const signature = JSON.stringify({ enrollmentId, data });
+    if (idempotencyRef.current?.signature !== signature) {
+      idempotencyRef.current = { signature, key: crypto.randomUUID() };
+    }
+
     mutation.mutate({
       enrollmentId,
-      data: {
-        reason,
-        pausedByUserId: String(user.id),
-        pausedByName: user.fullName,
-      },
+      data,
+      idempotencyKey: idempotencyRef.current.key,
     }, {
-      onSuccess: () => setOpen(false),
+      onSuccess: () => {
+        idempotencyRef.current = null;
+        setOpen(false);
+      },
     });
   };
 

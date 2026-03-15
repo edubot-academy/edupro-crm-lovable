@@ -1,7 +1,7 @@
 // API client - uses production URL in production, localhost in development
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.PROD ? "https://api.edupro.edubot.it.com" : "http://localhost:4000");
+  (import.meta.env.PROD ? "https://api.edupro.edubot.it.com" : "");
 
 interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | undefined>;
@@ -9,6 +9,8 @@ interface RequestOptions extends RequestInit {
   skipAuthRefresh?: boolean;
   /** Extra headers to merge (e.g. X-Company-Id). */
   extraHeaders?: Record<string, string>;
+  /** Headers regenerated for each network attempt (e.g. X-Request-Id). */
+  getAttemptHeaders?: (() => Record<string, string>) | undefined;
 }
 
 // This will be set by AuthContext after mount
@@ -35,8 +37,24 @@ class ApiClient {
     return url.toString();
   }
 
+  private async performFetch(
+    url: string,
+    fetchOptions: RequestInit,
+    baseHeaders: Record<string, string>,
+    getAttemptHeaders?: (() => Record<string, string>) | undefined,
+  ): Promise<Response> {
+    const attemptHeaders = getAttemptHeaders ? getAttemptHeaders() : {};
+    return fetch(url, {
+      ...fetchOptions,
+      headers: {
+        ...baseHeaders,
+        ...attemptHeaders,
+      },
+    });
+  }
+
   private async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-    const { params, skipAuthRefresh, extraHeaders, ...fetchOptions } = options;
+    const { params, skipAuthRefresh, extraHeaders, getAttemptHeaders, ...fetchOptions } = options;
 
     // Get token from in-memory provider (which handles refresh)
     let token: string | null = null;
@@ -51,42 +69,53 @@ class ApiClient {
       ...((fetchOptions.headers as Record<string, string>) || {}),
     };
 
-    const response = await fetch(this.buildUrl(path, params), {
-      ...fetchOptions,
-      headers,
-    });
+    const url = this.buildUrl(path, params);
+    const response = await this.performFetch(url, fetchOptions, headers, getAttemptHeaders);
 
     if (response.status === 401 && !skipAuthRefresh && getAccessTokenFn) {
       // Try refresh once
       const newToken = await getAccessTokenFn();
       if (newToken) {
         headers.Authorization = `Bearer ${newToken}`;
-        const retryResponse = await fetch(this.buildUrl(path, params), {
-          ...fetchOptions,
-          headers,
-        });
+        const retryResponse = await this.performFetch(url, fetchOptions, headers, getAttemptHeaders);
         if (retryResponse.ok) {
           if (retryResponse.status === 204) return undefined as T;
           return retryResponse.json();
         }
+        const retryError = await retryResponse.json().catch(() => undefined);
+        throw {
+          message: retryError?.error?.message || retryError?.message || 'Request failed',
+          status: retryResponse.status,
+          code: retryError?.error?.code || retryError?.code,
+          details: retryError?.error?.details || retryError?.details,
+          requestId: retryError?.requestId || retryResponse.headers.get('X-Request-Id') || undefined,
+          success: retryError?.success,
+        };
       }
       throw { message: "Unauthorized", status: 401 };
     }
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: "Request failed" }));
-      throw { message: error.message || "Request failed", status: response.status, code: error.code };
+      const error = await response.json().catch(() => undefined);
+      throw {
+        message: error?.error?.message || error?.message || 'Request failed',
+        status: response.status,
+        code: error?.error?.code || error?.code,
+        details: error?.error?.details || error?.details,
+        requestId: error?.requestId || response.headers.get('X-Request-Id') || undefined,
+        success: error?.success,
+      };
     }
 
     if (response.status === 204) return undefined as T;
     return response.json();
   }
 
-  get<T>(path: string, params?: Record<string, string | number | undefined>, extraHeaders?: Record<string, string>): Promise<T> {
-    return this.request<T>(path, { method: "GET", params, extraHeaders });
+  get<T>(path: string, params?: Record<string, string | number | undefined>, options?: { extraHeaders?: Record<string, string>; getAttemptHeaders?: (() => Record<string, string>) | undefined }): Promise<T> {
+    return this.request<T>(path, { method: "GET", params, ...options });
   }
 
-  post<T>(path: string, body?: unknown, options?: { skipAuthRefresh?: boolean; extraHeaders?: Record<string, string> }): Promise<T> {
+  post<T>(path: string, body?: unknown, options?: { skipAuthRefresh?: boolean; extraHeaders?: Record<string, string>; getAttemptHeaders?: (() => Record<string, string>) | undefined }): Promise<T> {
     return this.request<T>(path, {
       method: "POST",
       body: body ? JSON.stringify(body) : undefined,
@@ -94,16 +123,16 @@ class ApiClient {
     });
   }
 
-  put<T>(path: string, body?: unknown, extraHeaders?: Record<string, string>): Promise<T> {
-    return this.request<T>(path, { method: "PUT", body: body ? JSON.stringify(body) : undefined, extraHeaders });
+  put<T>(path: string, body?: unknown, options?: { extraHeaders?: Record<string, string>; getAttemptHeaders?: (() => Record<string, string>) | undefined }): Promise<T> {
+    return this.request<T>(path, { method: "PUT", body: body ? JSON.stringify(body) : undefined, ...options });
   }
 
-  patch<T>(path: string, body?: unknown, extraHeaders?: Record<string, string>): Promise<T> {
-    return this.request<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined, extraHeaders });
+  patch<T>(path: string, body?: unknown, options?: { extraHeaders?: Record<string, string>; getAttemptHeaders?: (() => Record<string, string>) | undefined }): Promise<T> {
+    return this.request<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined, ...options });
   }
 
-  delete<T>(path: string, extraHeaders?: Record<string, string>): Promise<T> {
-    return this.request<T>(path, { method: "DELETE", extraHeaders });
+  delete<T>(path: string, options?: { extraHeaders?: Record<string, string>; getAttemptHeaders?: (() => Record<string, string>) | undefined }): Promise<T> {
+    return this.request<T>(path, { method: "DELETE", ...options });
   }
 }
 

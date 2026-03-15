@@ -12,7 +12,7 @@ export const ky = {
     tasks: 'Тапшырмалар',
     timeline: 'Байланыш тарыхы',
     retention: 'Тобокелдик учурлар',
-    reports: 'Отчёттор',
+    reports: 'Эсептер',
     notifications: 'Билдирүүлөр',
     users: 'Колдонуучулар',
     settings: 'Жөндөөлөр',
@@ -246,7 +246,7 @@ export const ky = {
   } as Record<string, string>,
   // Reports
   reports: {
-    title: 'Отчёттор',
+    title: 'Эсептер',
   },
   // Settings
   settings: {

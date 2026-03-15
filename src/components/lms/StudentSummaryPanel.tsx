@@ -87,6 +87,11 @@ export function StudentSummaryPanel() {
         {isError && (
           <div className="text-sm text-destructive bg-destructive/10 rounded-md p-3">
             {(error as { message?: string })?.message || 'Студент маалыматын жүктөөдө ката кетти'}
+            {(error as { requestId?: string })?.requestId && (
+              <div className="mt-1 text-xs text-destructive/80">
+                Request ID: {(error as { requestId?: string }).requestId}
+              </div>
+            )}
           </div>
         )}
 

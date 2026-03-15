@@ -1,10 +1,29 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { lmsApi } from '@/api/modules';
+import type { ApiError } from '@/types';
 import type {
   LmsCourseListParams, LmsGroupListParams,
   CreateEnrollmentRequest, ActivateEnrollmentRequest, PauseEnrollmentRequest,
 } from '@/types/lms';
 import { useToast } from '@/hooks/use-toast';
+
+function invalidateLmsQueries(queryClient: ReturnType<typeof useQueryClient>) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: ['lms-courses'] }),
+    queryClient.invalidateQueries({ queryKey: ['lms-groups'] }),
+    queryClient.invalidateQueries({ queryKey: ['lms-student-summary'] }),
+  ]);
+}
+
+function formatLmsError(err: unknown, fallback: string) {
+  const apiError = (typeof err === 'object' && err !== null ? err as ApiError : null);
+  const message = apiError?.message || fallback;
+  const requestId = apiError?.requestId;
+  return {
+    title: requestId ? `${message} [Request ID: ${requestId}]` : message,
+    requestId,
+  };
+}
 
 // ==================== QUERIES (with retry) ====================
 
@@ -44,19 +63,16 @@ export function useCreateEnrollment() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: (data: CreateEnrollmentRequest) => lmsApi.createEnrollment(data),
+    mutationFn: ({ data, idempotencyKey }: { data: CreateEnrollmentRequest; idempotencyKey: string }) =>
+      lmsApi.createEnrollment(data, { idempotencyKey }),
     retry: false,
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({ title: 'Каттоо ийгиликтүү түзүлдү' });
-      queryClient.invalidateQueries({ queryKey: ['lms-'] });
+      await invalidateLmsQueries(queryClient);
     },
     onError: (err: unknown) => {
-      const message = err instanceof Error
-        ? err.message
-        : typeof err === 'object' && err !== null && 'message' in err
-          ? String((err as { message: string }).message)
-          : 'Каттоо түзүүдө ката кетти';
-      toast({ title: message, variant: 'destructive' });
+      const error = formatLmsError(err, 'Каттоо түзүүдө ката кетти');
+      toast({ title: error.title, variant: 'destructive' });
     },
   });
 }
@@ -66,20 +82,16 @@ export function useActivateEnrollment() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: ({ enrollmentId, data }: { enrollmentId: string; data: ActivateEnrollmentRequest }) =>
-      lmsApi.activateEnrollment(enrollmentId, data),
+    mutationFn: ({ enrollmentId, data, idempotencyKey }: { enrollmentId: string; data: ActivateEnrollmentRequest; idempotencyKey: string }) =>
+      lmsApi.activateEnrollment(enrollmentId, data, { idempotencyKey }),
     retry: false,
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({ title: 'Каттоо активдештирилди' });
-      queryClient.invalidateQueries({ queryKey: ['lms-'] });
+      await invalidateLmsQueries(queryClient);
     },
     onError: (err: unknown) => {
-      const message = err instanceof Error
-        ? err.message
-        : typeof err === 'object' && err !== null && 'message' in err
-          ? String((err as { message: string }).message)
-          : 'Активдештирүүдө ката кетти';
-      toast({ title: message, variant: 'destructive' });
+      const error = formatLmsError(err, 'Активдештирүүдө ката кетти');
+      toast({ title: error.title, variant: 'destructive' });
     },
   });
 }
@@ -89,20 +101,16 @@ export function usePauseEnrollment() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: ({ enrollmentId, data }: { enrollmentId: string; data: PauseEnrollmentRequest }) =>
-      lmsApi.pauseEnrollment(enrollmentId, data),
+    mutationFn: ({ enrollmentId, data, idempotencyKey }: { enrollmentId: string; data: PauseEnrollmentRequest; idempotencyKey: string }) =>
+      lmsApi.pauseEnrollment(enrollmentId, data, { idempotencyKey }),
     retry: false,
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({ title: 'Каттоо тындырылды' });
-      queryClient.invalidateQueries({ queryKey: ['lms-'] });
+      await invalidateLmsQueries(queryClient);
     },
     onError: (err: unknown) => {
-      const message = err instanceof Error
-        ? err.message
-        : typeof err === 'object' && err !== null && 'message' in err
-          ? String((err as { message: string }).message)
-          : 'Тындырууда ката кетти';
-      toast({ title: message, variant: 'destructive' });
+      const error = formatLmsError(err, 'Тындырууда ката кетти');
+      toast({ title: error.title, variant: 'destructive' });
     },
   });
 }

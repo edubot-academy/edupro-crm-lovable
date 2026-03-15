@@ -11,6 +11,9 @@ export interface ApiError {
   message: string;
   status: number;
   code?: string;
+  details?: unknown;
+  requestId?: string;
+  success?: boolean;
 }
 
 export interface SelectOption {
@@ -279,6 +282,14 @@ export interface DashboardStats {
   leadsBySource: { source: string; count: number }[];
   managerPerformance: { manager: string; leads: number; deals: number; conversion: number }[];
   popularCourses: { course: string; enrollments: number }[];
+}
+
+export interface DashboardStatsQueryParams {
+  from?: string;
+  to?: string;
+  source?: string;
+  manager?: string;
+  course?: string;
 }
 
 // ==================== LMS (consumed from LMS API) ====================
