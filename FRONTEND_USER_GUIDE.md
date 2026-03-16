@@ -17,7 +17,6 @@ Visible to authenticated users:
 
 - `Dashboard`
 - `Leads`
-- `Contacts`
 - `Deals`
 - `Pipeline`
 - `Trial Lessons`
@@ -26,6 +25,10 @@ Visible to authenticated users:
 - `Tasks`
 - `Timeline`
 - `Retention`
+
+Visible only to `superadmin`:
+
+- `Contacts Data`
 
 Visible only to `admin` and `superadmin`:
 
@@ -80,21 +83,20 @@ Current frontend behavior:
 - lead status can be filtered
 - mobile view shows one status column at a time
 
-## 4. Contacts
+## 4. Contacts Data
 
 Current frontend behavior:
 
 - searchable list
-- create dialog
-- delete action
 - row click opens contact details
+- import-to-lead action
+- legacy-data warning banner
 
-### Current create fields in UI
+Important:
 
-- `Name`
-- `Phone`
-- `Email`
-- `Notes`
+- this page is superadmin-only
+- it is not part of the daily operational workflow
+- it exists for historical inspection and controlled migration
 
 ### Current visible contact data
 
@@ -114,14 +116,14 @@ Current frontend behavior:
 
 ### Current create fields in UI
 
-- `Student ID`
+- `Lead ID`
 - `Course`
 - `Amount`
 - `Stage`
 
 ### Important current UI note
 
-`Student ID` in the form means CRM contact ID.
+`Lead ID` in the form means CRM lead ID.
 
 ### Current deal stages in UI
 
@@ -154,13 +156,13 @@ Current frontend behavior:
 
 ### Current create fields in UI
 
-- `Student ID`
+- `Lead ID`
 - `Scheduled At`
 - `Notes`
 
 Important:
 
-- the current UI uses CRM contact ID here
+- the current UI uses CRM lead ID here
 
 ## 8. Payments
 
@@ -192,7 +194,7 @@ Current frontend behavior:
 
 Important:
 
-- current create dialog does not ask for contact ID directly
+- current create dialog does not ask for lead ID directly
 - payment confirmation is available from the list for submitted payments
 
 ## 9. LMS Enrollment
@@ -211,7 +213,7 @@ Current frontend behavior:
 - `Student Name`
 - `Phone`
 - `Email`
-- `CRM Contact ID`
+- `CRM Lead ID`
 - `Deal ID`
 - `Notes`
 
@@ -223,6 +225,7 @@ Current frontend behavior:
 
 ### Current activation dialog fields
 
+- `CRM Lead ID`
 - `Payment ID`
 - `Notes`
 
@@ -413,13 +416,24 @@ This section explains how the current frontend expects IDs.
 
 Used in:
 
-- deals form
-- trial lesson form
-- enrollment form
+- legacy contacts migration only
 
 Meaning:
 
-- internal contact record ID in CRM
+- historical contact record ID in CRM
+
+### CRM Lead ID
+
+Used in:
+
+- deals form
+- trial lesson form
+- enrollment form
+- enrollment activation dialog
+
+Meaning:
+
+- internal active lead record ID in CRM
 
 ### Deal ID
 

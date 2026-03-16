@@ -127,7 +127,7 @@ export function StudentSummaryPanel() {
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       {e.status === 'pending_activation' && (
-                        <ActivateEnrollmentDialog enrollmentId={e.enrollmentId} contactId={summary.studentId} />
+                        <ActivateEnrollmentDialog enrollmentId={e.enrollmentId} />
                       )}
                       {e.status === 'active' && (
                         <PauseEnrollmentDialog enrollmentId={e.enrollmentId} />

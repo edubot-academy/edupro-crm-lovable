@@ -4,7 +4,7 @@ export const ky = {
   nav: {
     dashboard: 'Башкы бет',
     leads: 'Лидтер',
-    contacts: 'Байланыштар',
+    contacts: 'Contacts Data',
     deals: 'Келишимдер',
     pipeline: 'Сатуу воронкасы',
     trialLessons: 'Сыноо сабактары',
@@ -260,8 +260,8 @@ export const ky = {
   },
   // Contacts
   contacts: {
-    title: 'Байланыштар / Студенттер',
-    newContact: 'Жаңы байланыш',
+    title: 'Contacts Data / Legacy Records',
+    newContact: 'Legacy байланыш',
     lmsId: 'LMS ID',
     deleteConfirmTitle: 'Байланышты өчүрүү',
     deleteConfirmDesc: 'Бул байланышты чын эле өчүргүңүз келеби? Бул аракетти кайтаруу мүмкүн эмес.',

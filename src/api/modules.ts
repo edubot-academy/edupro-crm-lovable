@@ -54,6 +54,10 @@ export const leadsApi = {
   create: (data: Partial<Lead>) => apiClient.post<Lead>('/api/leads', data),
   update: (id: number, data: Partial<Lead>) => apiClient.patch<Lead>(`/api/leads/${id}`, data),
   delete: (id: number) => apiClient.delete<{ success: boolean }>(`/api/leads/${id}`),
+  listNotes: (leadId: number, params?: { before?: string; limit?: number }) =>
+    apiClient.get<ContactNote[]>(`/api/leads/${leadId}/notes`, params as Record<string, string | number | undefined>),
+  addNote: (leadId: number, data: { body: string }) =>
+    apiClient.post<ContactNote>(`/api/leads/${leadId}/notes`, data),
   importFromContact: (contactId: number) =>
     apiClient.post<Lead>(`/api/leads/import-from-contact/${contactId}`),
 };
@@ -91,12 +95,6 @@ export const contactsApi = {
   /** Create ENROLLMENT payment for contact */
   enroll: (id: number, data: Record<string, unknown>) =>
     apiClient.post<Payment>(`/api/contacts/${id}/enroll`, data),
-  /** List contact notes */
-  listNotes: (contactId: number, params?: { before?: string; limit?: number }) =>
-    apiClient.get<ContactNote[]>(`/api/contacts/${contactId}/notes`, params as Record<string, string | number | undefined>),
-  /** Append contact note */
-  addNote: (contactId: number, data: { body: string }) =>
-    apiClient.post<ContactNote>(`/api/contacts/${contactId}/notes`, data),
 };
 
 // ==================== CONTACT (Compact CRUD) ====================
@@ -109,12 +107,12 @@ export const contactApi = {
   delete: (id: number) => apiClient.delete<{ success: boolean }>(`/api/contact/${id}`),
 };
 
-// ==================== CONTACT AUDIT ====================
-export const contactAuditApi = {
-  getLogs: (contactId: number) =>
-    apiClient.get<unknown[]>(`/api/audit/contacts/${contactId}/logs`),
-  addLog: (contactId: number, data: { note?: string; followUpDate?: string }) =>
-    apiClient.post<unknown>(`/api/audit/contacts/${contactId}/log`, data),
+// ==================== LEAD AUDIT ====================
+export const leadAuditApi = {
+  getLogs: (leadId: number) =>
+    apiClient.get<unknown[]>(`/api/audit/leads/${leadId}/logs`),
+  addLog: (leadId: number, data: { note?: string; followUpDate?: string }) =>
+    apiClient.post<unknown>(`/api/audit/leads/${leadId}/log`, data),
 };
 
 // ==================== DEALS ====================
@@ -122,7 +120,7 @@ export const dealsApi = {
   list: (params?: Record<string, string | number | undefined>) =>
     apiClient.get<PaginatedResponse<Deal>>('/api/deals', params),
   get: (id: number) => apiClient.get<Deal>(`/api/deals/${id}`),
-  create: (data: Partial<Deal> & { contactId: number }) => apiClient.post<Deal>('/api/deals', data),
+  create: (data: Partial<Deal> & { leadId: number }) => apiClient.post<Deal>('/api/deals', data),
   update: (id: number, data: Partial<Deal>) => apiClient.patch<Deal>(`/api/deals/${id}`, data),
   delete: (id: number) => apiClient.delete<{ success: boolean }>(`/api/deals/${id}`),
 };
@@ -132,7 +130,7 @@ export const trialLessonsApi = {
   list: (params?: Record<string, string | number | undefined>) =>
     apiClient.get<PaginatedResponse<TrialLesson>>('/api/trial-lessons', params),
   get: (id: number) => apiClient.get<TrialLesson>(`/api/trial-lessons/${id}`),
-  create: (data: { contactId: number; dealId?: number; scheduledAt: string; result?: string; notes?: string }) =>
+  create: (data: { leadId: number; dealId?: number; scheduledAt: string; result?: string; notes?: string }) =>
     apiClient.post<TrialLesson>('/api/trial-lessons', data),
   update: (id: number, data: Partial<TrialLesson>) =>
     apiClient.patch<TrialLesson>(`/api/trial-lessons/${id}`, data),
@@ -153,7 +151,7 @@ export const tasksApi = {
 export const timelineApi = {
   list: (params?: Record<string, string | number | undefined>) =>
     apiClient.get<PaginatedResponse<TimelineEvent>>('/api/communication-timeline', params),
-  add: (data: { type: string; message: string; contactId?: number; dealId?: number; retentionCaseId?: number; meta?: Record<string, unknown> }) =>
+  add: (data: { type: string; message: string; leadId?: number; dealId?: number; retentionCaseId?: number; meta?: Record<string, unknown> }) =>
     apiClient.post<TimelineEvent>('/api/communication-timeline', data),
 };
 
@@ -162,7 +160,7 @@ export const retentionApi = {
   list: (params?: Record<string, string | number | undefined>) =>
     apiClient.get<PaginatedResponse<RetentionCase>>('/api/retention-cases', params),
   get: (id: number) => apiClient.get<RetentionCase>(`/api/retention-cases/${id}`),
-  create: (data: { lmsStudentId: string; lmsEnrollmentId: string; issueType: import('@/types').IssueType; severity: import('@/types').RiskSeverity; summary: string; contactId?: number; lmsCourseId?: string; lmsGroupId?: string; status?: string; metrics?: Record<string, unknown>; assignedToId?: number }) =>
+  create: (data: { lmsStudentId: string; lmsEnrollmentId: string; issueType: import('@/types').IssueType; severity: import('@/types').RiskSeverity; summary: string; leadId?: number; lmsCourseId?: string; lmsGroupId?: string; status?: string; metrics?: Record<string, unknown>; assignedToId?: number }) =>
     apiClient.post<RetentionCase>('/api/retention-cases', data),
   update: (id: number, data: Partial<RetentionCase>) =>
     apiClient.patch<RetentionCase>(`/api/retention-cases/${id}`, data),

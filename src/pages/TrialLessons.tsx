@@ -20,12 +20,12 @@ const trialResultVariant = (s: string) => {
 };
 
 const mockTrials: TrialLesson[] = [
-  { id: 1, contact: { id: 1, fullName: 'Азамат Токтогулов' }, deal: { id: 1 }, scheduledAt: '2024-03-10T14:00', result: 'pending', createdAt: '2024-03-01' },
-  { id: 2, contact: { id: 3, fullName: 'Бакыт Жумалиев' }, deal: { id: 3 }, scheduledAt: '2024-03-08T16:00', result: 'attended', notes: 'Абдан жакты, катталгысы келет', createdAt: '2024-03-03' },
-  { id: 3, contact: { id: 4, fullName: 'Гүлнара Касымова' }, deal: { id: 4 }, scheduledAt: '2024-03-09T10:00', result: 'missed', createdAt: '2024-03-04' },
+  { id: 1, leadId: 1, lead: { id: 1, fullName: 'Азамат Токтогулов' }, deal: { id: 1 }, scheduledAt: '2024-03-10T14:00', result: 'pending', createdAt: '2024-03-01' },
+  { id: 2, leadId: 3, lead: { id: 3, fullName: 'Бакыт Жумалиев' }, deal: { id: 3 }, scheduledAt: '2024-03-08T16:00', result: 'attended', notes: 'Абдан жакты, катталгысы келет', createdAt: '2024-03-03' },
+  { id: 3, leadId: 4, lead: { id: 4, fullName: 'Гүлнара Касымова' }, deal: { id: 4 }, scheduledAt: '2024-03-09T10:00', result: 'missed', createdAt: '2024-03-04' },
 ];
 
-const emptyForm = { contactId: '', scheduledAt: '', notes: '' };
+const emptyForm = { leadId: '', scheduledAt: '', notes: '' };
 
 export default function TrialLessonsPage() {
   const { toast } = useToast();
@@ -49,10 +49,10 @@ export default function TrialLessonsPage() {
   useEffect(() => { fetchTrials(); }, [search]);
 
   const handleCreate = async () => {
-    if (!form.contactId || !form.scheduledAt) return;
+    if (!form.leadId || !form.scheduledAt) return;
     setIsCreating(true);
     try {
-      await trialLessonsApi.create({ contactId: Number(form.contactId), scheduledAt: form.scheduledAt, notes: form.notes || undefined });
+      await trialLessonsApi.create({ leadId: Number(form.leadId), scheduledAt: form.scheduledAt, notes: form.notes || undefined });
       toast({ title: 'Сыноо сабак ийгиликтүү кошулду' });
       setShowCreate(false);
       setForm(emptyForm);
@@ -80,7 +80,7 @@ export default function TrialLessonsPage() {
   };
 
   const columns: Column<TrialLesson>[] = [
-    { key: 'contact', header: 'Студент', render: (t) => <span className="font-medium">{t.contact?.fullName || '—'}</span> },
+    { key: 'lead', header: 'Лид', render: (t) => <span className="font-medium">{t.lead?.fullName || t.contact?.fullName || '—'}</span> },
     { key: 'scheduledAt', header: ky.trialLessons.scheduledAt, render: (t) => new Date(t.scheduledAt).toLocaleString('ky-KG', { dateStyle: 'short', timeStyle: 'short' }) },
     { key: 'result', header: ky.trialLessons.result, render: (t) => <StatusBadge variant={trialResultVariant(t.result)} dot>{ky.trialResult[t.result]}</StatusBadge> },
     { key: 'notes', header: ky.common.notes, render: (t) => <span className="text-sm text-muted-foreground truncate max-w-[200px] block">{t.notes || '—'}</span>, className: 'hidden md:table-cell' },
@@ -98,7 +98,7 @@ export default function TrialLessonsPage() {
       <CardContent className="space-y-3 p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="truncate font-semibold">{trial.contact?.fullName || '—'}</p>
+            <p className="truncate font-semibold">{trial.lead?.fullName || trial.contact?.fullName || '—'}</p>
             <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
               <CalendarDays className="h-3.5 w-3.5" />
               <span>{new Date(trial.scheduledAt).toLocaleString('ky-KG', { dateStyle: 'short', timeStyle: 'short' })}</span>
@@ -133,8 +133,8 @@ export default function TrialLessonsPage() {
           <DialogHeader><DialogTitle>{ky.trialLessons.newTrialLesson}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Студент ID *</Label>
-              <Input value={form.contactId} onChange={(e) => setForm({ ...form, contactId: e.target.value })} placeholder="Байланыш ID" type="number" />
+              <Label>Lead ID *</Label>
+              <Input value={form.leadId} onChange={(e) => setForm({ ...form, leadId: e.target.value })} placeholder="Лид ID" type="number" />
             </div>
             <div className="space-y-2">
               <Label>{ky.trialLessons.scheduledAt} *</Label>
@@ -147,7 +147,7 @@ export default function TrialLessonsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreate(false)}>{ky.common.cancel}</Button>
-            <Button onClick={handleCreate} disabled={isCreating || !form.contactId || !form.scheduledAt}>
+            <Button onClick={handleCreate} disabled={isCreating || !form.leadId || !form.scheduledAt}>
               {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {ky.common.create}
             </Button>

@@ -3,25 +3,25 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Loader2, Play, Pause } from 'lucide-react';
 import { useActivateEnrollment, usePauseEnrollment } from '@/hooks/use-lms';
 import { useAuth } from '@/contexts/AuthContext';
 import type { PaymentStatus } from '@/types';
 
-export function ActivateEnrollmentDialog({ enrollmentId, contactId }: { enrollmentId: string; contactId: string }) {
+export function ActivateEnrollmentDialog({ enrollmentId }: { enrollmentId: string }) {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
+  const [leadId, setLeadId] = useState('');
   const [paymentId, setPaymentId] = useState('');
   const [notes, setNotes] = useState('');
   const idempotencyRef = useRef<{ signature: string; key: string } | null>(null);
   const mutation = useActivateEnrollment();
 
   const handleActivate = () => {
-    if (!user) return;
+    if (!user || !leadId.trim()) return;
     const data = {
-      crmContactId: contactId,
+      crmLeadId: leadId.trim(),
       crmPaymentId: paymentId || null,
       paymentStatus: 'confirmed' as PaymentStatus,
       activatedByUserId: String(user.id),
@@ -40,6 +40,9 @@ export function ActivateEnrollmentDialog({ enrollmentId, contactId }: { enrollme
     }, {
       onSuccess: () => {
         idempotencyRef.current = null;
+        setLeadId('');
+        setPaymentId('');
+        setNotes('');
         setOpen(false);
       },
     });
@@ -59,6 +62,10 @@ export function ActivateEnrollmentDialog({ enrollmentId, contactId }: { enrollme
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <div className="space-y-2">
+            <Label>CRM Lead ID *</Label>
+            <Input value={leadId} onChange={(e) => setLeadId(e.target.value)} placeholder="Lead ID" />
+          </div>
+          <div className="space-y-2">
             <Label>Төлөм ID (милдеттүү эмес)</Label>
             <Input value={paymentId} onChange={(e) => setPaymentId(e.target.value)} placeholder="Payment ID" />
           </div>
@@ -66,7 +73,7 @@ export function ActivateEnrollmentDialog({ enrollmentId, contactId }: { enrollme
             <Label>Эскертүү</Label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </div>
-          <Button onClick={handleActivate} disabled={mutation.isPending} className="w-full">
+          <Button onClick={handleActivate} disabled={mutation.isPending || !leadId.trim()} className="w-full">
             {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Активдештирүү
           </Button>

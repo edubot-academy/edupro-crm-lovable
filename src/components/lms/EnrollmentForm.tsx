@@ -30,7 +30,7 @@ export function EnrollmentForm() {
   const [studentName, setStudentName] = useState('');
   const [studentPhone, setStudentPhone] = useState('');
   const [studentEmail, setStudentEmail] = useState('');
-  const [contactId, setContactId] = useState('');
+  const [leadId, setLeadId] = useState('');
   const [dealId, setDealId] = useState('');
   const [notes, setNotes] = useState('');
   const [groupError, setGroupError] = useState('');
@@ -64,7 +64,7 @@ export function EnrollmentForm() {
     (isVideo || groupId) &&
     studentName &&
     studentPhone &&
-    contactId &&
+    leadId &&
     !createMutation.isPending;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -77,7 +77,7 @@ export function EnrollmentForm() {
     }
 
     const payload: CreateEnrollmentRequest = {
-      crmContactId: contactId,
+      crmLeadId: leadId,
       crmDealId: dealId || null,
       student: {
         fullName: studentName,
@@ -109,7 +109,7 @@ export function EnrollmentForm() {
         setStudentName('');
         setStudentPhone('');
         setStudentEmail('');
-        setContactId('');
+        setLeadId('');
         setDealId('');
         setNotes('');
         setGroupError('');
@@ -214,8 +214,8 @@ export function EnrollmentForm() {
               <Input type="email" value={studentEmail} onChange={(e) => setStudentEmail(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>CRM Байланыш ID *</Label>
-              <Input value={contactId} onChange={(e) => setContactId(e.target.value)} required placeholder="Contact ID" />
+              <Label>CRM Lead ID *</Label>
+              <Input value={leadId} onChange={(e) => setLeadId(e.target.value)} required placeholder="Lead ID" />
             </div>
           </div>
 

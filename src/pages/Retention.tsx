@@ -18,10 +18,10 @@ const caseStatusVariant = (s: string) => {
 const caseStatusLabel: Record<string, string> = { open: 'Ачык', contacted: 'Байланышылды', monitoring: 'Көзөмөлдө', resolved: 'Чечилди', escalated: 'Жогорулатылды' };
 
 const mockCases: RetentionCase[] = [
-  { id: 1, contactId: 1, lmsStudentId: 's1', lmsCourseId: 'c1', lmsGroupId: 'g1', issueType: 'low_attendance', severity: 'high', lastActivityAt: '2024-03-05', assignedTo: { id: 2, fullName: 'Айбек' }, status: 'open', summary: 'Катышуу төмөн', createdAt: '2024-03-09', updatedAt: '2024-03-09' },
-  { id: 2, contactId: 2, lmsStudentId: 's2', lmsCourseId: 'c2', lmsGroupId: 'g2', issueType: 'low_homework_completion', severity: 'medium', lastActivityAt: '2024-03-07', assignedTo: { id: 1, fullName: 'Нургуль' }, status: 'contacted', summary: 'Үй тапшырма аткаруусу төмөн', createdAt: '2024-03-08', updatedAt: '2024-03-09' },
-  { id: 3, contactId: 3, lmsStudentId: 's3', lmsCourseId: 'c4', lmsGroupId: 'g3', issueType: 'inactive_student', severity: 'critical', lastActivityAt: '2024-02-28', assignedTo: { id: 4, fullName: 'Жылдыз' }, status: 'escalated', summary: 'Активдүү эмес', createdAt: '2024-03-07', updatedAt: '2024-03-09' },
-  { id: 4, contactId: 4, lmsStudentId: 's4', lmsCourseId: 'c3', lmsGroupId: 'g4', issueType: 'low_quiz_participation', severity: 'low', lastActivityAt: '2024-03-08', assignedTo: { id: 3, fullName: 'Эрлан' }, status: 'resolved', summary: 'Кошумча сабактар жардам берди', createdAt: '2024-03-06', updatedAt: '2024-03-09' },
+  { id: 1, leadId: 1, lmsStudentId: 's1', lmsCourseId: 'c1', lmsGroupId: 'g1', issueType: 'low_attendance', severity: 'high', lastActivityAt: '2024-03-05', assignedTo: { id: 2, fullName: 'Айбек' }, status: 'open', summary: 'Катышуу төмөн', createdAt: '2024-03-09', updatedAt: '2024-03-09' },
+  { id: 2, leadId: 2, lmsStudentId: 's2', lmsCourseId: 'c2', lmsGroupId: 'g2', issueType: 'low_homework_completion', severity: 'medium', lastActivityAt: '2024-03-07', assignedTo: { id: 1, fullName: 'Нургуль' }, status: 'contacted', summary: 'Үй тапшырма аткаруусу төмөн', createdAt: '2024-03-08', updatedAt: '2024-03-09' },
+  { id: 3, leadId: 3, lmsStudentId: 's3', lmsCourseId: 'c4', lmsGroupId: 'g3', issueType: 'inactive_student', severity: 'critical', lastActivityAt: '2024-02-28', assignedTo: { id: 4, fullName: 'Жылдыз' }, status: 'escalated', summary: 'Активдүү эмес', createdAt: '2024-03-07', updatedAt: '2024-03-09' },
+  { id: 4, leadId: 4, lmsStudentId: 's4', lmsCourseId: 'c3', lmsGroupId: 'g4', issueType: 'low_quiz_participation', severity: 'low', lastActivityAt: '2024-03-08', assignedTo: { id: 3, fullName: 'Эрлан' }, status: 'resolved', summary: 'Кошумча сабактар жардам берди', createdAt: '2024-03-06', updatedAt: '2024-03-09' },
 ];
 
 export default function RetentionPage() {

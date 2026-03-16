@@ -16,11 +16,11 @@ import { Plus, Trash2, Loader2, User, BookOpen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const mockDeals: Deal[] = [
-  { id: 1, contact: { id: 1, fullName: 'Элнура Турдалиева' }, lmsCourseId: 'c1', courseNameSnapshot: 'Python', lmsGroupId: 'g1', groupNameSnapshot: 'PY-24-1', amount: 15000, currency: 'KGS', stage: 'won', createdAt: '2024-02-20', updatedAt: '2024-03-10' },
-  { id: 2, contact: { id: 2, fullName: 'Данияр Абдыраев' }, lmsCourseId: 'c2', courseNameSnapshot: 'Data Science', lmsGroupId: 'g2', groupNameSnapshot: 'DS-24-1', amount: 20000, currency: 'KGS', stage: 'payment_pending', createdAt: '2024-03-01', updatedAt: '2024-03-08' },
+  { id: 1, leadId: 1, lead: { id: 1, fullName: 'Элнура Турдалиева' }, lmsCourseId: 'c1', courseNameSnapshot: 'Python', lmsGroupId: 'g1', groupNameSnapshot: 'PY-24-1', amount: 15000, currency: 'KGS', stage: 'won', createdAt: '2024-02-20', updatedAt: '2024-03-10' },
+  { id: 2, leadId: 2, lead: { id: 2, fullName: 'Данияр Абдыраев' }, lmsCourseId: 'c2', courseNameSnapshot: 'Data Science', lmsGroupId: 'g2', groupNameSnapshot: 'DS-24-1', amount: 20000, currency: 'KGS', stage: 'payment_pending', createdAt: '2024-03-01', updatedAt: '2024-03-08' },
 ];
 
-const emptyForm = { contactId: '', amount: '', currency: 'KGS', stage: 'new_lead' as string, courseNameSnapshot: '' };
+const emptyForm = { leadId: '', amount: '', currency: 'KGS', stage: 'new_lead' as string, courseNameSnapshot: '' };
 
 export default function DealsPage() {
   const { toast } = useToast();
@@ -44,10 +44,10 @@ export default function DealsPage() {
   useEffect(() => { fetchDeals(); }, [search]);
 
   const handleCreate = async () => {
-    if (!form.contactId || !form.amount) return;
+    if (!form.leadId || !form.amount) return;
     setIsCreating(true);
     try {
-      await dealsApi.create({ contactId: Number(form.contactId), amount: Number(form.amount), currency: form.currency, stage: form.stage as Deal['stage'], courseNameSnapshot: form.courseNameSnapshot || undefined });
+      await dealsApi.create({ leadId: Number(form.leadId), amount: Number(form.amount), currency: form.currency, stage: form.stage as Deal['stage'], courseNameSnapshot: form.courseNameSnapshot || undefined });
       toast({ title: 'Келишим ийгиликтүү кошулду' });
       setShowCreate(false);
       setForm(emptyForm);
@@ -75,7 +75,7 @@ export default function DealsPage() {
   };
 
   const columns: Column<Deal>[] = [
-    { key: 'contact', header: 'Студент', render: (d) => <span className="font-medium">{d.contact?.fullName || '—'}</span> },
+    { key: 'lead', header: 'Лид', render: (d) => <span className="font-medium">{d.lead?.fullName || d.contact?.fullName || '—'}</span> },
     { key: 'courseNameSnapshot', header: ky.deals.course, render: (d) => d.courseNameSnapshot || '—' },
     { key: 'groupNameSnapshot', header: ky.deals.group, render: (d) => d.groupNameSnapshot || '—' },
     { key: 'amount', header: ky.deals.amount, render: (d) => <span className="font-medium">{d.amount.toLocaleString()} {d.currency || 'сом'}</span> },
@@ -94,7 +94,7 @@ export default function DealsPage() {
       <CardContent className="space-y-3 p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="truncate font-semibold">{deal.contact?.fullName || '—'}</p>
+            <p className="truncate font-semibold">{deal.lead?.fullName || deal.contact?.fullName || '—'}</p>
             <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
               <BookOpen className="h-3.5 w-3.5" />
               <span className="truncate">{deal.courseNameSnapshot || '—'}</span>
@@ -115,7 +115,7 @@ export default function DealsPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <User className="h-3.5 w-3.5" />
-            <span>ID: {deal.contact?.id || '—'}</span>
+            <span>Lead ID: {deal.leadId || deal.lead?.id || deal.contact?.id || '—'}</span>
           </div>
           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(deal); }}>
             <Trash2 className="h-4 w-4" />
@@ -136,8 +136,8 @@ export default function DealsPage() {
           <DialogHeader><DialogTitle>{ky.deals.newDeal}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Студент ID *</Label>
-              <Input value={form.contactId} onChange={(e) => setForm({ ...form, contactId: e.target.value })} placeholder="Байланыш ID" type="number" />
+              <Label>Lead ID *</Label>
+              <Input value={form.leadId} onChange={(e) => setForm({ ...form, leadId: e.target.value })} placeholder="Лид ID" type="number" />
             </div>
             <div className="space-y-2">
               <Label>{ky.deals.course}</Label>
@@ -159,7 +159,7 @@ export default function DealsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreate(false)}>{ky.common.cancel}</Button>
-            <Button onClick={handleCreate} disabled={isCreating || !form.contactId || !form.amount}>
+            <Button onClick={handleCreate} disabled={isCreating || !form.leadId || !form.amount}>
               {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {ky.common.create}
             </Button>

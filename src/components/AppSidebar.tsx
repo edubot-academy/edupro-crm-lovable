@@ -4,7 +4,6 @@ import {
   AlertTriangle, BarChart3, Bell, Settings, UserCog, LogOut, BookOpen,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
-import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { ky } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
@@ -24,7 +23,6 @@ import {
 const mainNav = [
   { title: ky.nav.dashboard, url: '/', icon: LayoutDashboard },
   { title: ky.nav.leads, url: '/leads', icon: Users },
-  { title: ky.nav.contacts, url: '/contacts', icon: UserCheck },
   { title: ky.nav.deals, url: '/deals', icon: Handshake },
   { title: ky.nav.pipeline, url: '/pipeline', icon: GitBranch },
   { title: ky.nav.trialLessons, url: '/trial-lessons', icon: GraduationCap },
@@ -45,9 +43,11 @@ const systemNav = [
   { title: ky.nav.settings, url: '/settings', icon: Settings },
 ];
 
-function NavSection({ label, items, collapsed }: { label: string; items: { title: string; url: string; icon: React.ElementType }[]; collapsed: boolean }) {
-  const location = useLocation();
+const legacyNav = [
+  { title: ky.nav.contacts, url: '/contacts', icon: UserCheck },
+];
 
+function NavSection({ label, items, collapsed }: { label: string; items: { title: string; url: string; icon: React.ElementType }[]; collapsed: boolean }) {
   return (
     <SidebarGroup>
       {!collapsed && <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">{label}</SidebarGroupLabel>}
@@ -81,6 +81,7 @@ export function AppSidebar() {
   const collapsed = state === 'collapsed';
   const { user, logout } = useAuth();
   const isSystemAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+  const isSuperAdmin = user?.role === 'superadmin';
   const visibleSystemNav = systemNav.filter((item) => !['/users', '/reports', '/notifications', '/settings'].includes(item.url) || isSystemAdmin);
 
   return (
@@ -99,6 +100,7 @@ export function AppSidebar() {
       <SidebarContent className="px-2 py-2">
         <NavSection label="Негизги" items={mainNav} collapsed={collapsed} />
         <NavSection label="Операциялар" items={operationsNav} collapsed={collapsed} />
+        {isSuperAdmin && <NavSection label="Legacy Data" items={legacyNav} collapsed={collapsed} />}
         <NavSection label="Система" items={visibleSystemNav} collapsed={collapsed} />
       </SidebarContent>
 

@@ -31,8 +31,8 @@ System sections visible only to `admin` and `superadmin`:
 
 Recommended day-to-day usage:
 
-- `sales`: Leads, Contacts, Deals, Trial Lessons, Payments, Tasks, Timeline
-- `assistant`: Contacts, Trial Lessons, LMS Enrollment, Payments, Timeline, Tasks
+- `sales`: Leads, Deals, Trial Lessons, Payments, Tasks, Timeline
+- `assistant`: Leads, Trial Lessons, LMS Enrollment, Payments, Timeline, Tasks
 - `manager`: Pipeline, Deals, Retention, team oversight
 - `admin` and `superadmin`: full operational access plus system sections
 
@@ -42,7 +42,7 @@ Main operational sections:
 
 - `Dashboard`
 - `Leads`
-- `Contacts`
+- `Contacts Data`
 - `Deals`
 - `Pipeline`
 - `Trial Lessons`
@@ -65,7 +65,7 @@ Use this flow for most students:
 
 1. Create a record in `Leads` when a new person shows interest.
 2. Update the lead status as communication progresses.
-3. Create or use a record in `Contacts` once the person becomes qualified, trial-ready, or sales-ready.
+3. Keep the active workflow on the same record in `Leads`.
 4. Create a `Deal` when you are discussing a real course and price.
 5. Schedule a `Trial Lesson` if needed.
 6. Record a `Payment` when money is submitted.
@@ -76,7 +76,7 @@ Use this flow for most students:
 Simple explanation for staff:
 
 - `Leads` = new interest
-- `Contacts` = stable person record
+- `Contacts Data` = old historical records only
 - `Deals` = sales process
 - `Payments` = money tracking
 - `LMS Enrollment` = actual course access
@@ -151,37 +151,32 @@ Use `Leads` when the person is still in early communication and is not yet a sta
 - `won`
 - `lost`
 
-### When to move from Lead to Contact
+### Important operational rule
 
-Create or use a `Contact` when one of these becomes true:
+Do not move active work into `Contacts Data`.
 
-- the person is qualified and actively being worked
-- a trial lesson is being scheduled
-- a deal is being opened
-- the person is already becoming an active student record
+Use `Lead ID` for:
 
-## 6. Contacts
+- deals
+- trial lessons
+- LMS enrollment
+- tasks
+- timeline
+- retention
+
+## 6. Contacts Data
+
+Role:
+
+- `superadmin` only
 
 Purpose:
 
-- store stable CRM records for people
-- connect CRM records with LMS student data
+- inspect old historical contact records
+- access legacy LMS-linked data
+- import old records into the lead-first workflow
 
-Use `Contacts` as the main long-term person record.
-
-### Fields in "New Contact"
-
-`Name`
-- Enter the person's full name.
-
-`Phone`
-- Enter the active phone number.
-
-`Email`
-- Optional.
-
-`Notes`
-- Add operational notes, student context, history, or reminders.
+Do not use `Contacts Data` in daily sales work.
 
 ### Important linked fields
 
@@ -195,7 +190,7 @@ Use `Contacts` as the main long-term person record.
 
 ### Contact ID
 
-`Contact ID` is the internal CRM identifier for a contact.
+`Contact ID` is the internal legacy identifier for a historical contact record.
 
 You can get it from:
 
@@ -204,13 +199,9 @@ You can get it from:
 - the create response
 - linked records elsewhere in the app
 
-This ID is later used in:
+This ID is used only for controlled migration:
 
-- deals
-- trial lessons
-- payments
-- LMS enrollment
-- tasks and timeline links
+- `POST /leads/import-from-contact/:contactId`
 
 ## 7. Deals
 
@@ -221,9 +212,9 @@ Purpose:
 
 ### Fields in "New Deal"
 
-`CRM Contact ID`
-- This must be the `Contact ID`.
-- Do not enter `lmsStudentId` here.
+`Lead ID`
+- This must be the `Lead ID`.
+- Do not enter `Contact ID` or `lmsStudentId` here.
 
 `Course`
 - Enter or select the human-readable course name.
@@ -270,9 +261,9 @@ Purpose:
 
 ### Fields in "New Trial Lesson"
 
-`CRM Contact ID`
-- Use the CRM `Contact ID`.
-- Do not use `lmsStudentId`.
+`Lead ID`
+- Use the CRM `Lead ID`.
+- Do not use `Contact ID` or `lmsStudentId`.
 
 `Deal ID`
 - Optional if the trial is linked to a deal.
@@ -299,9 +290,6 @@ Purpose:
 - track payment verification state
 
 ### Fields in "New Payment"
-
-`CRM Contact ID`
-- Use the CRM `Contact ID`.
 
 `Amount`
 - Enter the payment amount.
@@ -335,7 +323,7 @@ Purpose:
 
 Purpose:
 
-- enroll CRM contacts into LMS courses and groups
+- enroll CRM leads into LMS courses and groups
 - activate or pause enrollments
 - inspect LMS student summary
 
@@ -359,8 +347,8 @@ Purpose:
 `Email`
 - Optional.
 
-`CRM Contact ID`
-- This is the CRM `Contact ID`.
+`CRM Lead ID`
+- This is the CRM `Lead ID`.
 
 `Deal ID`
 - Optional CRM `Deal ID`.
@@ -381,8 +369,8 @@ If `courseType = offline` or `courseType = online_live`
 
 ### What the IDs mean
 
-`crmContactId`
-- CRM contact identifier
+`crmLeadId`
+- CRM lead identifier
 
 `crmDealId`
 - CRM deal identifier if the enrollment is tied to a deal
@@ -398,8 +386,8 @@ If `courseType = offline` or `courseType = online_live`
 
 ### Where to get IDs
 
-`Contact ID`
-- from `Contacts`
+`Lead ID`
+- from `Leads`
 
 `Deal ID`
 - from `Deals`
@@ -417,7 +405,7 @@ If `courseType = offline` or `courseType = online_live`
 
 Fields:
 
-`CRM Contact ID`
+`CRM Lead ID`
 - required for activation request
 
 `Payment ID`
@@ -476,7 +464,7 @@ Purpose:
 ### Optional linked fields
 
 - `assignedToId`
-- `contactId`
+- `leadId`
 - `dealId`
 - `retentionCaseId`
 
@@ -507,7 +495,7 @@ Purpose:
 
 ### Optional linked fields
 
-- `contactId`
+- `leadId`
 - `dealId`
 - `retentionCaseId`
 - `meta`
@@ -734,7 +722,7 @@ This is the most common source of confusion.
 
 What it is:
 
-- internal CRM ID of a contact
+- legacy historical contact ID
 
 Where to get it:
 
@@ -745,11 +733,7 @@ Where to get it:
 
 Where it is used:
 
-- deals
-- trial lessons
-- payments
-- LMS enrollment
-- tasks and timeline links
+- only for legacy import from contacts into leads
 
 ### Lead ID
 
@@ -853,7 +837,8 @@ Where used:
 
 ## 21. Common Mistakes To Avoid
 
-- Do not use `lmsStudentId` in places that ask for `Contact ID`.
+- Do not use `lmsStudentId` where the system asks for a historical `Contact ID` during legacy import.
+- Do not use legacy `Contact ID` in places that ask for `Lead ID`.
 - Do not type IDs manually if the page already has a selector.
 - Do not create a deal before the person exists as a proper contact record.
 - Do not forget `groupId` for `offline` and `online_live` courses.
@@ -864,7 +849,7 @@ Where used:
 
 Use this rule:
 
-- if the field asks for a CRM ID, get it from CRM records such as Contacts, Deals, or Payments
+- if the field asks for a CRM ID in active workflow, get it from Leads, Deals, or Payments
 - if the field asks for an LMS ID, get it from LMS selectors, LMS records, or synced LMS fields
 - if a selector exists, use the selector instead of typing IDs manually
 
@@ -872,7 +857,7 @@ Use this rule:
 
 Use this explanation when onboarding staff:
 
-"We start with `Leads` because that is where new interest comes in. Once the person becomes qualified or ready for trial or sale, we work through `Contacts`. A `Deal` is the sales record, a `Payment` is the money record, and `LMS Enrollment` is what actually gives the student access to the course. If the student later shows attendance, homework, or payment risk, we manage that in `Retention`."
+"We start with `Leads` because that is where new interest comes in. We keep the active workflow on the lead record and use `Lead ID` in deals, trial lessons, payments, and LMS enrollment. `Contacts Data` is only for old historical records and controlled migration. A `Deal` is the sales record, a `Payment` is the money record, and `LMS Enrollment` is what actually gives the student access to the course. If the student later shows attendance, homework, or payment risk, we manage that in `Retention`."
 
 Most important rule to repeat:
 

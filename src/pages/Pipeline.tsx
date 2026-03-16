@@ -21,14 +21,14 @@ const stages: { id: DealStage; title: string }[] = [
 ];
 
 const mockDeals: Deal[] = [
-  { id: 1, contact: { id: 1, fullName: 'Азамат Токтогулов' }, courseNameSnapshot: 'Python', groupNameSnapshot: 'PY-24-1', amount: 15000, currency: 'KGS', stage: 'new_lead', createdAt: '2024-03-01', updatedAt: '2024-03-01' },
-  { id: 2, contact: { id: 2, fullName: 'Айгерим Сатыбалдиева' }, courseNameSnapshot: 'JavaScript', groupNameSnapshot: 'JS-24-1', amount: 16000, currency: 'KGS', stage: 'contacted', createdAt: '2024-03-02', updatedAt: '2024-03-02' },
-  { id: 3, contact: { id: 3, fullName: 'Бакыт Жумалиев' }, courseNameSnapshot: 'UI/UX', groupNameSnapshot: 'UX-24-1', amount: 18000, currency: 'KGS', stage: 'trial_booked', createdAt: '2024-03-03', updatedAt: '2024-03-03' },
-  { id: 4, contact: { id: 4, fullName: 'Гүлнара Касымова' }, courseNameSnapshot: 'English B1', groupNameSnapshot: 'EN-24-1', amount: 12000, currency: 'KGS', stage: 'offer_sent', createdAt: '2024-03-04', updatedAt: '2024-03-04' },
-  { id: 5, contact: { id: 5, fullName: 'Данияр Абдыраев' }, courseNameSnapshot: 'Data Science', groupNameSnapshot: 'DS-24-1', amount: 20000, currency: 'KGS', stage: 'payment_pending', createdAt: '2024-03-05', updatedAt: '2024-03-05' },
-  { id: 6, contact: { id: 6, fullName: 'Элнура Турдалиева' }, courseNameSnapshot: 'Python', groupNameSnapshot: 'PY-24-1', amount: 15000, currency: 'KGS', stage: 'won', createdAt: '2024-02-20', updatedAt: '2024-03-10' },
-  { id: 7, contact: { id: 7, fullName: 'Жаныл Бекова' }, courseNameSnapshot: 'JavaScript', groupNameSnapshot: 'JS-24-1', amount: 16000, currency: 'KGS', stage: 'negotiation', createdAt: '2024-03-06', updatedAt: '2024-03-06' },
-  { id: 8, contact: { id: 8, fullName: 'Кайрат Орозбеков' }, courseNameSnapshot: 'UI/UX', amount: 18000, currency: 'KGS', stage: 'lost', createdAt: '2024-03-07', updatedAt: '2024-03-07' },
+  { id: 1, leadId: 1, lead: { id: 1, fullName: 'Азамат Токтогулов' }, courseNameSnapshot: 'Python', groupNameSnapshot: 'PY-24-1', amount: 15000, currency: 'KGS', stage: 'new_lead', createdAt: '2024-03-01', updatedAt: '2024-03-01' },
+  { id: 2, leadId: 2, lead: { id: 2, fullName: 'Айгерим Сатыбалдиева' }, courseNameSnapshot: 'JavaScript', groupNameSnapshot: 'JS-24-1', amount: 16000, currency: 'KGS', stage: 'contacted', createdAt: '2024-03-02', updatedAt: '2024-03-02' },
+  { id: 3, leadId: 3, lead: { id: 3, fullName: 'Бакыт Жумалиев' }, courseNameSnapshot: 'UI/UX', groupNameSnapshot: 'UX-24-1', amount: 18000, currency: 'KGS', stage: 'trial_booked', createdAt: '2024-03-03', updatedAt: '2024-03-03' },
+  { id: 4, leadId: 4, lead: { id: 4, fullName: 'Гүлнара Касымова' }, courseNameSnapshot: 'English B1', groupNameSnapshot: 'EN-24-1', amount: 12000, currency: 'KGS', stage: 'offer_sent', createdAt: '2024-03-04', updatedAt: '2024-03-04' },
+  { id: 5, leadId: 5, lead: { id: 5, fullName: 'Данияр Абдыраев' }, courseNameSnapshot: 'Data Science', groupNameSnapshot: 'DS-24-1', amount: 20000, currency: 'KGS', stage: 'payment_pending', createdAt: '2024-03-05', updatedAt: '2024-03-05' },
+  { id: 6, leadId: 6, lead: { id: 6, fullName: 'Элнура Турдалиева' }, courseNameSnapshot: 'Python', groupNameSnapshot: 'PY-24-1', amount: 15000, currency: 'KGS', stage: 'won', createdAt: '2024-02-20', updatedAt: '2024-03-10' },
+  { id: 7, leadId: 7, lead: { id: 7, fullName: 'Жаныл Бекова' }, courseNameSnapshot: 'JavaScript', groupNameSnapshot: 'JS-24-1', amount: 16000, currency: 'KGS', stage: 'negotiation', createdAt: '2024-03-06', updatedAt: '2024-03-06' },
+  { id: 8, leadId: 8, lead: { id: 8, fullName: 'Кайрат Орозбеков' }, courseNameSnapshot: 'UI/UX', amount: 18000, currency: 'KGS', stage: 'lost', createdAt: '2024-03-07', updatedAt: '2024-03-07' },
 ];
 
 export default function PipelinePage() {
@@ -55,7 +55,7 @@ export default function PipelinePage() {
       <CardContent className="p-3 space-y-2">
         <div className="flex items-center gap-2">
           <User className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-sm font-medium truncate">{deal.contact?.fullName || '—'}</span>
+          <span className="text-sm font-medium truncate">{deal.lead?.fullName || deal.contact?.fullName || '—'}</span>
         </div>
         <div className="flex items-center gap-2">
           <BookOpen className="h-3.5 w-3.5 text-muted-foreground" />

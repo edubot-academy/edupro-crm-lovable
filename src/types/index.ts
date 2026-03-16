@@ -169,6 +169,8 @@ export interface Deal {
   courseNameSnapshot?: string;
   groupNameSnapshot?: string;
   notes?: string;
+  leadId?: number;
+  lead?: { id: number; fullName: string };
   contact?: { id: number; fullName: string };
   company?: CompanyRef;
   createdAt: string;
@@ -183,6 +185,8 @@ export interface TrialLesson {
   scheduledAt: string;
   result: TrialResult;
   notes?: string;
+  leadId?: number;
+  lead?: { id: number; fullName: string };
   contact?: { id: number; fullName: string };
   deal?: { id: number };
   company?: CompanyRef;
@@ -215,7 +219,7 @@ export interface Task {
   description?: string;
   status: TaskStatus;
   dueAt?: string;
-  contactId?: number;
+  leadId?: number;
   dealId?: number;
   retentionCaseId?: number;
   assignedTo?: { id: number; fullName: string };
@@ -230,7 +234,7 @@ export type TimelineEventType = 'call' | 'email' | 'sms' | 'whatsapp' | 'telegra
 
 export interface TimelineEvent {
   id: number;
-  contactId?: number;
+  leadId?: number;
   dealId?: number;
   retentionCaseId?: number;
   type: TimelineEventType;
@@ -247,7 +251,7 @@ export type RetentionCaseStatus = 'open' | 'contacted' | 'monitoring' | 'resolve
 
 export interface RetentionCase {
   id: number;
-  contactId?: number;
+  leadId?: number;
   lmsStudentId?: string;
   lmsEnrollmentId?: string;
   lmsCourseId?: string;

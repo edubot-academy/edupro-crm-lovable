@@ -22,7 +22,7 @@ export interface LmsGroupListParams {
 }
 
 export interface CreateEnrollmentRequest {
-  crmContactId: string;
+  crmLeadId: string;
   crmDealId?: string | null;
   crmPaymentId?: string | null;
   student: {
@@ -44,7 +44,7 @@ export interface CreateEnrollmentRequest {
 }
 
 export interface ActivateEnrollmentRequest {
-  crmContactId: string;
+  crmLeadId: string;
   crmPaymentId?: string | null;
   paymentStatus: 'submitted' | 'confirmed' | 'failed' | 'refunded' | 'overdue';
   activatedByUserId?: string | null;
