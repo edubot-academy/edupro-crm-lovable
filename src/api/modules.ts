@@ -2,7 +2,7 @@ import { apiClient } from './client';
 import type {
   LmsCourse, LmsGroup, Payment, TrialLesson, Task,
   TimelineEvent, RetentionCase, DashboardStats, DashboardStatsQueryParams,
-  SystemUser, AssignableUser, Company, Lead, Contact, ContactNote, Deal, PaginatedResponse,
+  SystemUser, CreatedUserResponse, AssignableUser, Company, Lead, Contact, ContactNote, Deal, PaginatedResponse,
   TelegramLinkResponse, TelegramStatusResponse,
 } from '@/types';
 import type {
@@ -24,7 +24,7 @@ export const usersApi = {
     apiClient.get<PaginatedResponse<SystemUser>>('/api/users', params),
   get: (id: number) => apiClient.get<SystemUser>(`/api/users/${id}`),
   create: (data: { fullName: string; email: string; role: import('@/types').UserRole }) =>
-    apiClient.post<SystemUser>('/api/users', data),
+    apiClient.post<CreatedUserResponse>('/api/users', data),
   update: (id: number, data: { isActive?: boolean; fullName?: string; email?: string; role?: import('@/types').UserRole }) =>
     apiClient.patch<SystemUser>(`/api/users/${id}`, data),
   assignables: (params?: { roles?: string; q?: string }) =>

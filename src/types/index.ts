@@ -76,6 +76,11 @@ export interface SystemUser {
   company?: CompanyRef;
 }
 
+export interface CreatedUserResponse extends SystemUser {
+  inviteUrl?: string;
+  inviteToken?: string;
+}
+
 export interface AssignableUser {
   id: number;
   fullName: string;

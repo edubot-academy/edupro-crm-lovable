@@ -80,6 +80,8 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const { user, logout } = useAuth();
+  const isSystemAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+  const visibleSystemNav = systemNav.filter((item) => !['/users', '/reports', '/notifications', '/settings'].includes(item.url) || isSystemAdmin);
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
@@ -97,7 +99,7 @@ export function AppSidebar() {
       <SidebarContent className="px-2 py-2">
         <NavSection label="Негизги" items={mainNav} collapsed={collapsed} />
         <NavSection label="Операциялар" items={operationsNav} collapsed={collapsed} />
-        <NavSection label="Система" items={systemNav} collapsed={collapsed} />
+        <NavSection label="Система" items={visibleSystemNav} collapsed={collapsed} />
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-3">
