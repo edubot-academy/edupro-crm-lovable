@@ -15,6 +15,7 @@ import { usersApi } from '@/api/modules';
 import { Plus, Trash2, Mail, Loader2, Copy, Send } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { authApi } from '@/api/auth';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -35,6 +36,7 @@ const emptyForm = {
 };
 
 export default function UsersPage() {
+  const { user } = useAuth();
   const [users, setUsers] = useState<SystemUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -45,6 +47,7 @@ export default function UsersPage() {
   const [isResendingInvite, setIsResendingInvite] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<SystemUser | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const creatableRoles = Object.entries(ky.userRole).filter(([role]) => user?.role === 'superadmin' || role !== 'superadmin');
 
   const fetchUsers = () => {
     setIsLoading(true);
@@ -167,7 +170,7 @@ export default function UsersPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(ky.userRole).map(([value, label]) => (
+                  {creatableRoles.map(([value, label]) => (
                     <SelectItem key={value} value={value}>{label}</SelectItem>
                   ))}
                 </SelectContent>
