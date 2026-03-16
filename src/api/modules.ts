@@ -203,6 +203,8 @@ export const profileApi = {
 
 // ==================== LMS INTEGRATION ====================
 const DEFAULT_LMS_COMPANY_ID = import.meta.env.VITE_LMS_COMPANY_ID || 'default';
+const API_ORIGIN = import.meta.env.VITE_API_BASE_URL ? new URL(import.meta.env.VITE_API_BASE_URL).origin : window.location.origin;
+const SHOULD_SEND_LMS_REQUEST_ID = API_ORIGIN === window.location.origin;
 
 function lmsRequestOptions(companyId?: string, idempotencyKey?: string) {
   return {
@@ -210,9 +212,11 @@ function lmsRequestOptions(companyId?: string, idempotencyKey?: string) {
       'X-Company-Id': companyId || DEFAULT_LMS_COMPANY_ID,
       ...(idempotencyKey ? { 'X-Idempotency-Key': idempotencyKey } : {}),
     },
-    getAttemptHeaders: () => ({
-      'X-Request-Id': crypto.randomUUID(),
-    }),
+    getAttemptHeaders: SHOULD_SEND_LMS_REQUEST_ID
+      ? () => ({
+          'X-Request-Id': crypto.randomUUID(),
+        })
+      : undefined,
   };
 }
 
