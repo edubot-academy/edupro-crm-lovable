@@ -8,6 +8,8 @@ import type {
   Task,
   TaskStatus,
   TaskWorkflowStatus,
+  Payment,
+  PaymentStatus,
 } from '@/types';
 
 export function getLeadQualificationStatus(lead: Pick<Lead, 'status' | 'qualificationStatus'>): LeadQualificationStatus {
@@ -72,6 +74,10 @@ export function getTaskWorkflowStatus(task: Pick<Task, 'status' | 'workflowStatu
   return 'pending';
 }
 
+export function getPaymentWorkflowStatus(payment: Pick<Payment, 'status' | 'paymentStatus'>): PaymentStatus {
+  return payment.paymentStatus || payment.status;
+}
+
 export function mapQualificationToLeadStatus(status: LeadQualificationStatus): LeadStatus {
   switch (status) {
     case 'contacted':
@@ -117,4 +123,8 @@ export function mapWorkflowToTaskStatus(status: TaskWorkflowStatus): TaskStatus 
     default:
       return 'open';
   }
+}
+
+export function mapPaymentWorkflowToPaymentStatus(status: PaymentStatus): PaymentStatus {
+  return status;
 }

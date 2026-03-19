@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { ky } from '@/lib/i18n';
+import { getPaymentWorkflowStatus } from '@/lib/crm-status';
 import type { Deal, Payment } from '@/types';
 import { dealsApi, paymentsApi } from '@/api/modules';
 import { Plus, CheckCircle, Loader2 } from 'lucide-react';
@@ -26,6 +27,7 @@ export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | Payment['status']>('all');
   const [confirmTarget, setConfirmTarget] = useState<Payment | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
@@ -37,13 +39,13 @@ export default function PaymentsPage() {
 
   const fetchPayments = () => {
     setIsLoading(true);
-    paymentsApi.list({ search })
+    paymentsApi.list({ search, paymentStatus: statusFilter === 'all' ? undefined : statusFilter })
       .then((res) => setPayments(res.items))
       .catch(() => setPayments(mockPayments))
       .finally(() => setIsLoading(false));
   };
 
-  useEffect(() => { fetchPayments(); }, [search]);
+  useEffect(() => { fetchPayments(); }, [search, statusFilter]);
 
   useEffect(() => {
     if (!showCreate) return;
@@ -58,7 +60,12 @@ export default function PaymentsPage() {
     if (!form.dealId || !form.amount) return;
     setIsCreating(true);
     try {
-      const payload = { dealId: Number(form.dealId), amount: Number(form.amount), method: form.method as Payment['method'] };
+      const payload = {
+        dealId: Number(form.dealId),
+        amount: Number(form.amount),
+        method: form.method as Payment['method'],
+        paymentStatus: 'submitted' as Payment['status'],
+      };
       if (form.kind === 'deposit') {
         await paymentsApi.createDeposit(payload);
       } else {
@@ -79,7 +86,7 @@ export default function PaymentsPage() {
     if (!confirmTarget) return;
     setIsConfirming(true);
     try {
-      await paymentsApi.update(confirmTarget.id, { status: 'confirmed' });
+      await paymentsApi.update(confirmTarget.id, { paymentStatus: 'confirmed' });
       toast({ title: 'Төлөм ырасталды' });
       setConfirmTarget(null);
       fetchPayments();
@@ -99,8 +106,8 @@ export default function PaymentsPage() {
     { key: 'paidAt', header: ky.payments.paidAt, render: (p) => p.paidAt ? new Date(p.paidAt).toLocaleDateString('ky-KG') : '—' },
     { key: 'status', header: ky.common.status, render: (p) => (
       <div className="flex items-center gap-2">
-        <StatusBadge variant={getPaymentStatusVariant(p.status)} dot>{ky.paymentStatus[p.status]}</StatusBadge>
-        {p.status === 'submitted' && (
+        <StatusBadge variant={getPaymentStatusVariant(getPaymentWorkflowStatus(p))} dot>{ky.paymentStatus[getPaymentWorkflowStatus(p)]}</StatusBadge>
+        {getPaymentWorkflowStatus(p) === 'submitted' && (
           <Button variant="ghost" size="sm" className="h-7 text-xs text-success hover:text-success" title={ky.payments.confirmPayment} onClick={() => setConfirmTarget(p)}>
             <CheckCircle className="h-3.5 w-3.5" />
           </Button>
@@ -112,6 +119,23 @@ export default function PaymentsPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader title={ky.payments.title} actions={<Button onClick={() => setShowCreate(true)}><Plus className="mr-2 h-4 w-4" />{ky.payments.submitPayment}</Button>} />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="w-full sm:max-w-xs">
+          <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | Payment['status'])}>
+            <SelectTrigger>
+              <SelectValue placeholder="Статус тандаңыз" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Баары</SelectItem>
+              {Object.entries(ky.paymentStatus).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
       <DataTable columns={columns} data={payments} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Төлөм издөө..." />
 
       {/* Create Dialog */}

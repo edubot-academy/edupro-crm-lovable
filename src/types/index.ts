@@ -220,6 +220,7 @@ export interface Payment {
   amount: number;
   kind?: PaymentKind;
   status: PaymentStatus;
+  paymentStatus?: PaymentStatus;
   method: PaymentMethod;
   dealId?: number;
   leadId?: number | null;

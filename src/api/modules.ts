@@ -40,11 +40,11 @@ export const paymentsApi = {
   list: (params?: Record<string, string | number | undefined>) =>
     apiClient.get<PaginatedResponse<Payment>>('/api/payment', params),
   get: (id: number) => apiClient.get<Payment>(`/api/payment/${id}`),
-  create: (data: { dealId: number; amount: number; method: import('@/types').PaymentMethod; status?: import('@/types').PaymentStatus; lmsEnrollmentId?: string; verified?: boolean }) =>
+  create: (data: { dealId: number; amount: number; method: import('@/types').PaymentMethod; status?: import('@/types').PaymentStatus; paymentStatus?: import('@/types').PaymentStatus; lmsEnrollmentId?: string; verified?: boolean }) =>
     apiClient.post<Payment>('/api/payment', data),
-  createDeposit: (data: { dealId: number; amount: number; method: import('@/types').PaymentMethod; status?: import('@/types').PaymentStatus; lmsEnrollmentId?: string; verified?: boolean }) =>
+  createDeposit: (data: { dealId: number; amount: number; method: import('@/types').PaymentMethod; status?: import('@/types').PaymentStatus; paymentStatus?: import('@/types').PaymentStatus; lmsEnrollmentId?: string; verified?: boolean }) =>
     apiClient.post<Payment>('/api/payment/deposit', data),
-  update: (id: number, data: { status: import('@/types').PaymentStatus; lmsEnrollmentId?: string }) =>
+  update: (id: number, data: { status?: import('@/types').PaymentStatus; paymentStatus?: import('@/types').PaymentStatus; lmsEnrollmentId?: string }) =>
     apiClient.patch<Payment>(`/api/payment/${id}`, data),
 };
 

@@ -29,11 +29,13 @@ Canonical API fields the frontend should prefer:
 - leads: `qualificationStatus`
 - deals: `pipelineStage`
 - tasks: `workflowStatus`
+- payments: `paymentStatus`
 
 Legacy compatibility fields still accepted/read:
 - leads: `status`
 - deals: `stage`
 - tasks: `status`
+- payments: `status`
 
 Current frontend behavior:
 - UI prefers canonical fields when present
