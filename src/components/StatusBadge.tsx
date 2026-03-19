@@ -51,9 +51,13 @@ export function getLeadStatusVariant(status: string): StatusBadgeProps['variant'
   switch (status) {
     case 'new': return 'info';
     case 'contacted': return 'primary';
+    case 'qualified': return 'success';
+    case 'disqualified': return 'destructive';
     case 'interested': return 'primary';
     case 'trial_scheduled': return 'warning';
     case 'trial_completed': return 'warning';
+    case 'consultation': return 'info';
+    case 'trial': return 'warning';
     case 'offer_sent': return 'info';
     case 'negotiation': return 'warning';
     case 'payment_pending': return 'warning';
@@ -70,6 +74,16 @@ export function getPaymentStatusVariant(status: string): StatusBadgeProps['varia
     case 'failed': return 'destructive';
     case 'refunded': return 'muted';
     case 'overdue': return 'warning';
+    default: return 'default';
+  }
+}
+
+export function getTaskStatusVariant(status: string): StatusBadgeProps['variant'] {
+  switch (status) {
+    case 'pending': return 'warning';
+    case 'completed': return 'success';
+    case 'cancelled': return 'muted';
+    case 'overdue': return 'destructive';
     default: return 'default';
   }
 }

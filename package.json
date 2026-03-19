@@ -1,7 +1,7 @@
 {
   "name": "edupro-crm",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "packageManager": "npm@10",
   "type": "module",
   "scripts": {

@@ -64,7 +64,7 @@ export function StudentSummaryPanel() {
         {/* Search */}
         <div className="flex gap-2">
           <Input
-            placeholder="LMS Student ID"
+            placeholder="LMS студент ID"
             value={studentIdInput}
             onChange={(e) => setStudentIdInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}

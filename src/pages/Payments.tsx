@@ -8,20 +8,19 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { ky } from '@/lib/i18n';
-import type { Payment } from '@/types';
-import { paymentsApi } from '@/api/modules';
-import { Plus, CheckCircle, Loader2, Wallet } from 'lucide-react';
+import type { Deal, Payment } from '@/types';
+import { dealsApi, paymentsApi } from '@/api/modules';
+import { Plus, CheckCircle, Loader2 } from 'lucide-react';
 
 const mockPayments: Payment[] = [
-  { id: 1, amount: 15000, method: 'card', paidAt: '2024-03-10', status: 'confirmed', user: { id: 1, fullName: 'Элнура Турдалиева' } },
-  { id: 2, amount: 10000, method: 'manual', paidAt: '2024-03-08', status: 'submitted', user: { id: 2, fullName: 'Данияр Абдыраев' } },
-  { id: 3, amount: 16000, method: 'bank', paidAt: '2024-03-09', status: 'overdue', user: { id: 3, fullName: 'Жаныл Бекова' } },
+  { id: 1, dealId: 11, kind: 'regular', amount: 15000, method: 'card', paidAt: '2024-03-10', status: 'confirmed', user: { id: 1, fullName: 'Элнура Турдалиева' } },
+  { id: 2, dealId: 12, kind: 'deposit', amount: 10000, method: 'manual', paidAt: '2024-03-08', status: 'submitted', user: { id: 2, fullName: 'Данияр Абдыраев' } },
+  { id: 3, dealId: 13, kind: 'regular', amount: 16000, method: 'bank', paidAt: '2024-03-09', status: 'overdue', user: { id: 3, fullName: 'Жаныл Бекова' } },
 ];
 
-const emptyForm = { amount: '', method: 'card' as string };
+const emptyForm = { dealId: '', amount: '', kind: 'regular' as Payment['kind'], method: 'card' as string };
 
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -32,6 +31,8 @@ export default function PaymentsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [dealsLoading, setDealsLoading] = useState(false);
   const { toast } = useToast();
 
   const fetchPayments = () => {
@@ -44,12 +45,26 @@ export default function PaymentsPage() {
 
   useEffect(() => { fetchPayments(); }, [search]);
 
+  useEffect(() => {
+    if (!showCreate) return;
+    setDealsLoading(true);
+    dealsApi.list({ page: 1, limit: 100 })
+      .then((res) => setDeals(res.items))
+      .catch(() => setDeals([]))
+      .finally(() => setDealsLoading(false));
+  }, [showCreate]);
+
   const handleCreate = async () => {
-    if (!form.amount) return;
+    if (!form.dealId || !form.amount) return;
     setIsCreating(true);
     try {
-      await paymentsApi.create({ amount: Number(form.amount), method: form.method as Payment['method'] });
-      toast({ title: 'Төлөм ийгиликтүү кошулду' });
+      const payload = { dealId: Number(form.dealId), amount: Number(form.amount), method: form.method as Payment['method'] };
+      if (form.kind === 'deposit') {
+        await paymentsApi.createDeposit(payload);
+      } else {
+        await paymentsApi.create(payload);
+      }
+      toast({ title: form.kind === 'deposit' ? 'Депозит ийгиликтүү кошулду' : 'Төлөм ийгиликтүү кошулду' });
       setShowCreate(false);
       setForm(emptyForm);
       fetchPayments();
@@ -77,6 +92,8 @@ export default function PaymentsPage() {
 
   const columns: Column<Payment>[] = [
     { key: 'user', header: 'Студент', render: (p) => <span className="font-medium">{p.user?.fullName || '—'}</span> },
+    { key: 'deal', header: 'Келишим', render: (p) => p.dealId ? `#${p.dealId}` : '—' },
+    { key: 'kind', header: ky.payments.kind, render: (p) => ky.paymentKind[p.kind || 'regular'] },
     { key: 'amount', header: ky.payments.amount, render: (p) => <span className="font-semibold">{p.amount.toLocaleString()} сом</span> },
     { key: 'method', header: ky.payments.method, render: (p) => ky.paymentMethod[p.method] },
     { key: 'paidAt', header: ky.payments.paidAt, render: (p) => p.paidAt ? new Date(p.paidAt).toLocaleDateString('ky-KG') : '—' },
@@ -92,49 +109,45 @@ export default function PaymentsPage() {
     )},
   ];
 
-  const renderMobileCard = (payment: Payment) => (
-    <Card className="shadow-card border-border/50">
-      <CardContent className="space-y-3 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="truncate font-semibold">{payment.user?.fullName || '—'}</p>
-            <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-              <Wallet className="h-3.5 w-3.5" />
-              <span>{payment.amount.toLocaleString()} сом</span>
-            </div>
-          </div>
-          <StatusBadge variant={getPaymentStatusVariant(payment.status)} dot>{ky.paymentStatus[payment.status]}</StatusBadge>
-        </div>
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <div className="rounded-md bg-muted/60 p-2">
-            <p className="text-xs text-muted-foreground">{ky.payments.method}</p>
-            <p className="font-medium">{ky.paymentMethod[payment.method]}</p>
-          </div>
-          <div className="rounded-md bg-muted/60 p-2">
-            <p className="text-xs text-muted-foreground">{ky.payments.paidAt}</p>
-            <p className="font-medium">{payment.paidAt ? new Date(payment.paidAt).toLocaleDateString('ky-KG') : '—'}</p>
-          </div>
-        </div>
-        {payment.status === 'submitted' && (
-          <Button variant="outline" size="sm" className="w-full" onClick={(e) => { e.stopPropagation(); setConfirmTarget(payment); }}>
-            <CheckCircle className="mr-2 h-4 w-4" />
-            {ky.payments.confirmPayment}
-          </Button>
-        )}
-      </CardContent>
-    </Card>
-  );
-
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader title={ky.payments.title} actions={<Button onClick={() => setShowCreate(true)}><Plus className="mr-2 h-4 w-4" />{ky.payments.submitPayment}</Button>} />
-      <DataTable columns={columns} data={payments} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Төлөм издөө..." renderMobileCard={renderMobileCard} />
+      <DataTable columns={columns} data={payments} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Төлөм издөө..." />
 
       {/* Create Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent>
+        <DialogContent className="max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-xl">
           <DialogHeader><DialogTitle>{ky.payments.newPayment}</DialogTitle></DialogHeader>
           <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Келишим *</Label>
+              <Select
+                value={form.dealId || '__none__'}
+                onValueChange={(value) => setForm((prev) => ({ ...prev, dealId: value === '__none__' ? '' : value }))}
+                disabled={dealsLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={dealsLoading ? 'Жүктөлүүдө...' : 'Келишим тандаңыз'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Тандалган эмес</SelectItem>
+                  {deals.map((deal) => (
+                    <SelectItem key={deal.id} value={String(deal.id)}>
+                      #{deal.id} • {deal.courseNameSnapshot || 'Курс көрсөтүлгөн эмес'} • {deal.contact?.fullName || `Байланыш #${deal.contactId ?? '—'}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{ky.payments.kind}</Label>
+              <Select value={form.kind || 'regular'} onValueChange={(v) => setForm({ ...form, kind: v as Payment['kind'] })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(ky.paymentKind).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label>{ky.payments.amount} *</Label>
               <Input value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="15000" type="number" />
@@ -151,9 +164,9 @@ export default function PaymentsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreate(false)}>{ky.common.cancel}</Button>
-            <Button onClick={handleCreate} disabled={isCreating || !form.amount}>
+            <Button onClick={handleCreate} disabled={isCreating || !form.dealId || !form.amount}>
               {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {ky.common.create}
+              {form.kind === 'deposit' ? ky.payments.depositPayment : ky.common.create}
             </Button>
           </DialogFooter>
         </DialogContent>

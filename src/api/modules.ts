@@ -2,7 +2,7 @@ import { apiClient } from './client';
 import type {
   LmsCourse, LmsGroup, Payment, TrialLesson, Task,
   TimelineEvent, RetentionCase, DashboardStats, DashboardStatsQueryParams,
-  SystemUser, CreatedUserResponse, AssignableUser, Company, Lead, Contact, ContactNote, Deal, PaginatedResponse,
+  FunnelReport, SystemUser, CreatedUserResponse, AssignableUser, Company, Lead, Contact, ContactNote, Deal, PaginatedResponse,
   TelegramLinkResponse, TelegramStatusResponse,
 } from '@/types';
 import type {
@@ -40,8 +40,10 @@ export const paymentsApi = {
   list: (params?: Record<string, string | number | undefined>) =>
     apiClient.get<PaginatedResponse<Payment>>('/api/payment', params),
   get: (id: number) => apiClient.get<Payment>(`/api/payment/${id}`),
-  create: (data: { amount: number; method: import('@/types').PaymentMethod; status?: import('@/types').PaymentStatus; lmsEnrollmentId?: string; verified?: boolean }) =>
+  create: (data: { dealId: number; amount: number; method: import('@/types').PaymentMethod; status?: import('@/types').PaymentStatus; lmsEnrollmentId?: string; verified?: boolean }) =>
     apiClient.post<Payment>('/api/payment', data),
+  createDeposit: (data: { dealId: number; amount: number; method: import('@/types').PaymentMethod; status?: import('@/types').PaymentStatus; lmsEnrollmentId?: string; verified?: boolean }) =>
+    apiClient.post<Payment>('/api/payment/deposit', data),
   update: (id: number, data: { status: import('@/types').PaymentStatus; lmsEnrollmentId?: string }) =>
     apiClient.patch<Payment>(`/api/payment/${id}`, data),
 };
@@ -58,43 +60,44 @@ export const leadsApi = {
     apiClient.get<ContactNote[]>(`/api/leads/${leadId}/notes`, params as Record<string, string | number | undefined>),
   addNote: (leadId: number, data: { body: string }) =>
     apiClient.post<ContactNote>(`/api/leads/${leadId}/notes`, data),
+  convertToContact: (id: number) => apiClient.post<Contact>(`/api/leads/${id}/convert-to-contact`),
   importFromContact: (contactId: number) =>
     apiClient.post<Lead>(`/api/leads/import-from-contact/${contactId}`),
 };
 
-// ==================== CONTACTS ====================
-export const contactsApi = {
+// ==================== LEGACY CONTACTS ====================
+export const legacyContactsApi = {
   list: (params?: Record<string, string | number | undefined>) =>
-    apiClient.get<PaginatedResponse<Contact>>('/api/contacts', params),
-  get: (id: number) => apiClient.get<Contact>(`/api/contacts/${id}`),
+    apiClient.get<PaginatedResponse<Contact>>('/api/legacy-contacts', params),
+  get: (id: number) => apiClient.get<Contact>(`/api/legacy-contacts/${id}`),
   /** Public lead capture (no auth required) */
   create: (data: Partial<Contact> & { message?: string; captchaToken?: string; consent?: boolean; utmSource?: string; utmMedium?: string; utmCampaign?: string; courseType?: string; courseName?: string }) =>
-    apiClient.post<Contact>('/api/contacts', data),
+    apiClient.post<Contact>('/api/legacy-contacts', data),
   /** Authenticated manual contact creation */
   createManual: (data: Partial<Contact>) =>
-    apiClient.post<Contact>('/api/contacts/manual', data),
-  update: (id: number, data: Partial<Contact>) => apiClient.patch<Contact>(`/api/contacts/${id}`, data),
-  delete: (id: number) => apiClient.delete<{ success: boolean }>(`/api/contacts/${id}`),
+    apiClient.post<Contact>('/api/legacy-contacts/manual', data),
+  update: (id: number, data: Partial<Contact>) => apiClient.patch<Contact>(`/api/legacy-contacts/${id}`, data),
+  delete: (id: number) => apiClient.delete<{ success: boolean }>(`/api/legacy-contacts/${id}`),
   /** Assign/unassign contact owner */
   assign: (data: { contactId: number; userId?: number | null }) =>
-    apiClient.post<Contact>('/api/contacts/assign', data),
+    apiClient.post<Contact>('/api/legacy-contacts/assign', data),
   /** Quick self-assignment */
-  selfAssign: (id: number) => apiClient.patch<Contact>(`/api/contacts/${id}/self-assign`),
+  selfAssign: (id: number) => apiClient.patch<Contact>(`/api/legacy-contacts/${id}/self-assign`),
   /** Soft-delete contacts in bulk */
   bulkDelete: (data: { ids: number[] }) =>
-    apiClient.post<{ success: boolean }>('/api/contacts/bulk-delete', data),
+    apiClient.post<{ success: boolean }>('/api/legacy-contacts/bulk-delete', data),
   /** Hard purge contacts (superadmin) */
   purge: (data: { ids: number[] }) =>
-    apiClient.post<{ success: boolean }>('/api/contacts/purge', data),
+    apiClient.post<{ success: boolean }>('/api/legacy-contacts/purge', data),
   /** Delete all test contacts */
   deleteTests: () =>
-    apiClient.post<{ success: boolean }>('/api/contacts/delete-tests'),
+    apiClient.post<{ success: boolean }>('/api/legacy-contacts/delete-tests'),
   /** Create DEPOSIT payment for contact */
   deposit: (id: number, data: Record<string, unknown>) =>
-    apiClient.post<Payment>(`/api/contacts/${id}/deposit`, data),
+    apiClient.post<Payment>(`/api/legacy-contacts/${id}/deposit`, data),
   /** Create ENROLLMENT payment for contact */
   enroll: (id: number, data: Record<string, unknown>) =>
-    apiClient.post<Payment>(`/api/contacts/${id}/enroll`, data),
+    apiClient.post<Payment>(`/api/legacy-contacts/${id}/enroll`, data),
 };
 
 // ==================== CONTACT (Compact CRUD) ====================
@@ -151,7 +154,7 @@ export const tasksApi = {
 export const timelineApi = {
   list: (params?: Record<string, string | number | undefined>) =>
     apiClient.get<PaginatedResponse<TimelineEvent>>('/api/communication-timeline', params),
-  add: (data: { type: string; message: string; leadId?: number; dealId?: number; retentionCaseId?: number; meta?: Record<string, unknown> }) =>
+  add: (data: { type: string; message: string; leadId?: number; contactId?: number; dealId?: number; retentionCaseId?: number; meta?: Record<string, unknown> }) =>
     apiClient.post<TimelineEvent>('/api/communication-timeline', data),
 };
 
@@ -160,7 +163,7 @@ export const retentionApi = {
   list: (params?: Record<string, string | number | undefined>) =>
     apiClient.get<PaginatedResponse<RetentionCase>>('/api/retention-cases', params),
   get: (id: number) => apiClient.get<RetentionCase>(`/api/retention-cases/${id}`),
-  create: (data: { lmsStudentId: string; lmsEnrollmentId: string; issueType: import('@/types').IssueType; severity: import('@/types').RiskSeverity; summary: string; leadId?: number; lmsCourseId?: string; lmsGroupId?: string; status?: string; metrics?: Record<string, unknown>; assignedToId?: number }) =>
+  create: (data: { lmsStudentId: string; lmsEnrollmentId: string; issueType: import('@/types').IssueType; severity: import('@/types').RiskSeverity; summary: string; leadId?: number; contactId?: number; dealId?: number; lmsCourseId?: string; lmsGroupId?: string; status?: string; metrics?: Record<string, unknown>; assignedToId?: number }) =>
     apiClient.post<RetentionCase>('/api/retention-cases', data),
   update: (id: number, data: Partial<RetentionCase>) =>
     apiClient.patch<RetentionCase>(`/api/retention-cases/${id}`, data),
@@ -189,6 +192,8 @@ export const dashboardApi = {
 export const reportsApi = {
   getStats: (params?: DashboardStatsQueryParams) =>
     apiClient.get<DashboardStats>('/api/reports/stats', params),
+  getFunnel: (params?: Record<string, string | number | undefined>) =>
+    apiClient.get<FunnelReport>('/api/reports/funnel', params),
 };
 
 // ==================== PROFILE ====================

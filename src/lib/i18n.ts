@@ -4,7 +4,8 @@ export const ky = {
   nav: {
     dashboard: 'Башкы бет',
     leads: 'Лидтер',
-    contacts: 'Contacts Data',
+    contacts: 'Байланыштар',
+    legacyContacts: 'Эски байланыштар',
     deals: 'Келишимдер',
     pipeline: 'Сатуу воронкасы',
     trialLessons: 'Сыноо сабактары',
@@ -131,10 +132,16 @@ export const ky = {
     title: 'Төлөмдөр',
     newPayment: 'Жаңы төлөм',
     amount: 'Сумма',
+    kind: 'Төлөм түрү',
     method: 'Ыкма',
     paidAt: 'Төлөм күнү',
     submitPayment: 'Төлөм жиберүү',
+    depositPayment: 'Депозит кошуу',
     confirmPayment: 'Төлөмдү ырастоо',
+  },
+  paymentKind: {
+    regular: 'Негизги төлөм',
+    deposit: 'Депозит',
   },
   paymentStatus: {
     submitted: 'Жиберилди',
@@ -163,10 +170,10 @@ export const ky = {
     deleteError: 'Тапшырманы өчүрүүдө ката кетти',
   },
   taskStatus: {
-    open: 'Ачык',
-    in_progress: 'Аткарылууда',
-    done: 'Аткарылды',
+    pending: 'Күтүлүүдө',
+    completed: 'Аяктады',
     cancelled: 'Жокко чыгарылды',
+    overdue: 'Мөөнөтү өттү',
   },
   // Retention
   retention: {
@@ -260,13 +267,16 @@ export const ky = {
   },
   // Contacts
   contacts: {
-    title: 'Contacts Data / Legacy Records',
-    newContact: 'Legacy байланыш',
+    title: 'Байланыштар',
+    newContact: 'Жаңы байланыш',
     lmsId: 'LMS ID',
     deleteConfirmTitle: 'Байланышты өчүрүү',
     deleteConfirmDesc: 'Бул байланышты чын эле өчүргүңүз келеби? Бул аракетти кайтаруу мүмкүн эмес.',
     deleteSuccess: 'Байланыш ийгиликтүү өчүрүлдү',
     deleteError: 'Байланышты өчүрүүдө ката кетти',
+  },
+  legacyContacts: {
+    title: 'Эски байланыштар',
   },
   // Timeline
   timelineLabels: {

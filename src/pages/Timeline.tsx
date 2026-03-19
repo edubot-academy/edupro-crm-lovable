@@ -18,7 +18,7 @@ const iconMap: Record<string, React.ElementType> = {
   telegram: MessageSquare, note: FileText, meeting: Calendar, system: Monitor,
 };
 
-const emptyForm = { type: 'note', message: '' };
+const emptyForm = { type: 'note', message: '', leadId: '', contactId: '', dealId: '' };
 
 export default function TimelinePage() {
   const { toast } = useToast();
@@ -44,7 +44,13 @@ export default function TimelinePage() {
     if (!form.message) return;
     setIsCreating(true);
     try {
-      await timelineApi.add({ type: form.type, message: form.message });
+      await timelineApi.add({
+        type: form.type,
+        message: form.message,
+        leadId: form.leadId ? Number(form.leadId) : undefined,
+        contactId: form.contactId ? Number(form.contactId) : undefined,
+        dealId: form.dealId ? Number(form.dealId) : undefined,
+      });
       toast({ title: 'Жазуу ийгиликтүү кошулду' });
       setShowCreate(false);
       setForm(emptyForm);
@@ -95,7 +101,12 @@ export default function TimelinePage() {
                         {new Date(event.createdAt).toLocaleString('ky-KG', { dateStyle: 'short', timeStyle: 'short' })}
                       </span>
                     </div>
-                    <p className="mt-2 text-xs text-muted-foreground">{ky.timelineType[event.type]}</p>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {ky.timelineType[event.type]}
+                      {event.leadId ? ` • Лид #${event.leadId}` : ''}
+                      {event.contactId ? ` • Байланыш #${event.contactId}` : ''}
+                      {event.dealId ? ` • Келишим #${event.dealId}` : ''}
+                    </p>
                   </CardContent>
                 </Card>
               </div>
@@ -121,6 +132,20 @@ export default function TimelinePage() {
             <div className="space-y-2">
               <Label>Билдирүү *</Label>
               <Textarea value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} placeholder="Билдирүү текстин жазыңыз..." />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label>Лид ID</Label>
+                <Input type="number" value={form.leadId} onChange={(e) => setForm({ ...form, leadId: e.target.value })} placeholder="Лид ID" />
+              </div>
+              <div className="space-y-2">
+                <Label>Байланыш ID</Label>
+                <Input type="number" value={form.contactId} onChange={(e) => setForm({ ...form, contactId: e.target.value })} placeholder="Байланыш ID" />
+              </div>
+              <div className="space-y-2">
+                <Label>Келишим ID</Label>
+                <Input type="number" value={form.dealId} onChange={(e) => setForm({ ...form, dealId: e.target.value })} placeholder="Келишим ID" />
+              </div>
             </div>
           </div>
           <DialogFooter>

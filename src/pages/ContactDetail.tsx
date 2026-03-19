@@ -4,10 +4,9 @@ import { PageHeader } from '@/components/PageShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ky } from '@/lib/i18n';
-import { ArrowLeft, Phone, Mail, User, Link2, Loader2, ArrowRightLeft } from 'lucide-react';
-import { contactApi, leadsApi } from '@/api/modules';
+import { ArrowLeft, Phone, Mail, User, Link2, Loader2 } from 'lucide-react';
+import { contactApi } from '@/api/modules';
 import type { Contact } from '@/types';
-import { useToast } from '@/hooks/use-toast';
 
 export default function ContactDetailPage() {
   const { id } = useParams();
@@ -15,8 +14,6 @@ export default function ContactDetailPage() {
   const [contact, setContact] = useState<Contact | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isImporting, setIsImporting] = useState(false);
-  const { toast } = useToast();
 
   useEffect(() => {
     if (!id) return;
@@ -40,39 +37,19 @@ export default function ContactDetailPage() {
     );
   }
 
-  const handleImport = async () => {
-    setIsImporting(true);
-    try {
-      const lead = await leadsApi.importFromContact(contact.id);
-      toast({ title: `Legacy контакт лидге өткөрүлдү (#${lead.id})` });
-    } catch {
-      toast({ title: 'Legacy контактты лидге өткөрүүдө ката кетти', variant: 'destructive' });
-    } finally {
-      setIsImporting(false);
-    }
-  };
-
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
-        title={`${contact.fullName} (Legacy)`}
+        title={contact.fullName}
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => navigate('/contacts')}>
               <ArrowLeft className="mr-2 h-4 w-4" />{ky.common.back}
             </Button>
-            <Button variant="outline" onClick={handleImport} disabled={isImporting}>
-              {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRightLeft className="mr-2 h-4 w-4" />}
-              Лидге өткөрүү
-            </Button>
+            <Button variant="outline">{ky.common.edit}</Button>
           </div>
         }
       />
-      <Card className="border-border/60 bg-muted/30">
-        <CardContent className="p-4 text-sm text-muted-foreground">
-          Бул тарыхый contact record. Аны күнүмдүк sales process'те колдонбоңуз. Эгер жазууну жаңы CRM workflow'га кайтаруу керек болсо, аны lead'ге import кылыңыз.
-        </CardContent>
-      </Card>
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="shadow-card border-border/50 lg:col-span-2">
           <CardHeader><CardTitle className="text-base">Байланыш маалыматы</CardTitle></CardHeader>

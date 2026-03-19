@@ -6,13 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Card, CardContent } from '@/components/ui/card';
 import { ky } from '@/lib/i18n';
-import type { TrialLesson } from '@/types';
-import { trialLessonsApi } from '@/api/modules';
-import { Plus, Trash2, Loader2, CalendarDays, FileText } from 'lucide-react';
+import type { Contact, Deal, TrialLesson } from '@/types';
+import { contactApi, dealsApi, trialLessonsApi } from '@/api/modules';
+import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const trialResultVariant = (s: string) => {
@@ -20,12 +20,12 @@ const trialResultVariant = (s: string) => {
 };
 
 const mockTrials: TrialLesson[] = [
-  { id: 1, leadId: 1, lead: { id: 1, fullName: 'Азамат Токтогулов' }, deal: { id: 1 }, scheduledAt: '2024-03-10T14:00', result: 'pending', createdAt: '2024-03-01' },
-  { id: 2, leadId: 3, lead: { id: 3, fullName: 'Бакыт Жумалиев' }, deal: { id: 3 }, scheduledAt: '2024-03-08T16:00', result: 'attended', notes: 'Абдан жакты, катталгысы келет', createdAt: '2024-03-03' },
-  { id: 3, leadId: 4, lead: { id: 4, fullName: 'Гүлнара Касымова' }, deal: { id: 4 }, scheduledAt: '2024-03-09T10:00', result: 'missed', createdAt: '2024-03-04' },
+  { id: 1, contact: { id: 1, fullName: 'Азамат Токтогулов' }, deal: { id: 1 }, scheduledAt: '2024-03-10T14:00', result: 'pending', createdAt: '2024-03-01' },
+  { id: 2, contact: { id: 3, fullName: 'Бакыт Жумалиев' }, deal: { id: 3 }, scheduledAt: '2024-03-08T16:00', result: 'attended', notes: 'Абдан жакты, катталгысы келет', createdAt: '2024-03-03' },
+  { id: 3, contact: { id: 4, fullName: 'Гүлнара Касымова' }, deal: { id: 4 }, scheduledAt: '2024-03-09T10:00', result: 'missed', createdAt: '2024-03-04' },
 ];
 
-const emptyForm = { leadId: '', scheduledAt: '', notes: '' };
+const emptyForm = { contactId: '', dealId: '', scheduledAt: '', notes: '' };
 
 export default function TrialLessonsPage() {
   const { toast } = useToast();
@@ -37,6 +37,9 @@ export default function TrialLessonsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [optionsLoading, setOptionsLoading] = useState(false);
 
   const fetchTrials = () => {
     setIsLoading(true);
@@ -48,11 +51,46 @@ export default function TrialLessonsPage() {
 
   useEffect(() => { fetchTrials(); }, [search]);
 
+  useEffect(() => {
+    if (!showCreate) return;
+    setOptionsLoading(true);
+    Promise.all([
+      contactApi.list({ page: 1, limit: 100 }),
+      dealsApi.list({ page: 1, limit: 100 }),
+    ])
+      .then(([contactsRes, dealsRes]) => {
+        setContacts(contactsRes.items);
+        setDeals(dealsRes.items);
+      })
+      .catch(() => {
+        setContacts([]);
+        setDeals([]);
+      })
+      .finally(() => setOptionsLoading(false));
+  }, [showCreate]);
+
+  useEffect(() => {
+    if (!form.dealId) return;
+    const selectedDeal = deals.find((deal) => String(deal.id) === form.dealId);
+    if (!selectedDeal?.contactId) return;
+
+    setForm((prev) => (
+      prev.contactId === String(selectedDeal.contactId)
+        ? prev
+        : { ...prev, contactId: String(selectedDeal.contactId) }
+    ));
+  }, [deals, form.dealId]);
+
   const handleCreate = async () => {
-    if (!form.leadId || !form.scheduledAt) return;
+    if (!form.contactId || !form.scheduledAt) return;
     setIsCreating(true);
     try {
-      await trialLessonsApi.create({ leadId: Number(form.leadId), scheduledAt: form.scheduledAt, notes: form.notes || undefined });
+      await trialLessonsApi.create({
+        contactId: Number(form.contactId),
+        dealId: form.dealId ? Number(form.dealId) : undefined,
+        scheduledAt: form.scheduledAt,
+        notes: form.notes || undefined,
+      });
       toast({ title: 'Сыноо сабак ийгиликтүү кошулду' });
       setShowCreate(false);
       setForm(emptyForm);
@@ -80,7 +118,7 @@ export default function TrialLessonsPage() {
   };
 
   const columns: Column<TrialLesson>[] = [
-    { key: 'lead', header: 'Лид', render: (t) => <span className="font-medium">{t.lead?.fullName || t.contact?.fullName || '—'}</span> },
+    { key: 'contact', header: 'Студент', render: (t) => <span className="font-medium">{t.contact?.fullName || '—'}</span> },
     { key: 'scheduledAt', header: ky.trialLessons.scheduledAt, render: (t) => new Date(t.scheduledAt).toLocaleString('ky-KG', { dateStyle: 'short', timeStyle: 'short' }) },
     { key: 'result', header: ky.trialLessons.result, render: (t) => <StatusBadge variant={trialResultVariant(t.result)} dot>{ky.trialResult[t.result]}</StatusBadge> },
     { key: 'notes', header: ky.common.notes, render: (t) => <span className="text-sm text-muted-foreground truncate max-w-[200px] block">{t.notes || '—'}</span>, className: 'hidden md:table-cell' },
@@ -93,48 +131,55 @@ export default function TrialLessonsPage() {
     },
   ];
 
-  const renderMobileCard = (trial: TrialLesson) => (
-    <Card className="shadow-card border-border/50">
-      <CardContent className="space-y-3 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="truncate font-semibold">{trial.lead?.fullName || trial.contact?.fullName || '—'}</p>
-            <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-              <CalendarDays className="h-3.5 w-3.5" />
-              <span>{new Date(trial.scheduledAt).toLocaleString('ky-KG', { dateStyle: 'short', timeStyle: 'short' })}</span>
-            </div>
-          </div>
-          <StatusBadge variant={trialResultVariant(trial.result)} dot>{ky.trialResult[trial.result]}</StatusBadge>
-        </div>
-        {trial.notes && (
-          <div className="rounded-md bg-muted/60 p-2 text-sm text-muted-foreground">
-            <div className="mb-1 flex items-center gap-2 text-xs"><FileText className="h-3.5 w-3.5" />{ky.common.notes}</div>
-            <p className="line-clamp-3">{trial.notes}</p>
-          </div>
-        )}
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">Deal ID: {trial.deal?.id || '—'}</span>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(trial); }}>
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader title={ky.trialLessons.title} actions={<Button onClick={() => setShowCreate(true)}><Plus className="mr-2 h-4 w-4" />{ky.trialLessons.newTrialLesson}</Button>} />
-      <DataTable columns={columns} data={trials} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Сыноо сабак издөө..." renderMobileCard={renderMobileCard} />
+      <DataTable columns={columns} data={trials} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Сыноо сабак издөө..." />
 
       {/* Create Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent>
+        <DialogContent className="max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-xl">
           <DialogHeader><DialogTitle>{ky.trialLessons.newTrialLesson}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Lead ID *</Label>
-              <Input value={form.leadId} onChange={(e) => setForm({ ...form, leadId: e.target.value })} placeholder="Лид ID" type="number" />
+              <Label>Байланыш *</Label>
+              <Select
+                value={form.contactId || '__none__'}
+                onValueChange={(value) => setForm((prev) => ({ ...prev, contactId: value === '__none__' ? '' : value }))}
+                disabled={optionsLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={optionsLoading ? 'Жүктөлүүдө...' : 'Байланыш тандаңыз'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Тандалган эмес</SelectItem>
+                  {contacts.map((contact) => (
+                    <SelectItem key={contact.id} value={String(contact.id)}>
+                      {contact.fullName} {contact.phone ? `• ${contact.phone}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Келишим</Label>
+              <Select
+                value={form.dealId || '__none__'}
+                onValueChange={(value) => setForm((prev) => ({ ...prev, dealId: value === '__none__' ? '' : value }))}
+                disabled={optionsLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={optionsLoading ? 'Жүктөлүүдө...' : 'Келишим тандаңыз'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Тандалган эмес</SelectItem>
+                  {deals.map((deal) => (
+                    <SelectItem key={deal.id} value={String(deal.id)}>
+                      #{deal.id} • {deal.courseNameSnapshot || 'Курс көрсөтүлгөн эмес'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>{ky.trialLessons.scheduledAt} *</Label>
@@ -147,7 +192,7 @@ export default function TrialLessonsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreate(false)}>{ky.common.cancel}</Button>
-            <Button onClick={handleCreate} disabled={isCreating || !form.leadId || !form.scheduledAt}>
+            <Button onClick={handleCreate} disabled={isCreating || !form.contactId || !form.scheduledAt}>
               {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {ky.common.create}
             </Button>

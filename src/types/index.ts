@@ -110,6 +110,7 @@ export interface Lead {
   email: string;
   source: LeadSource;
   status: LeadStatus;
+  contactId?: number | null;
   interestedCourseId?: string;
   interestedGroupId?: string;
   notes?: string;
@@ -164,12 +165,14 @@ export interface Deal {
   stage: DealStage;
   amount: number;
   currency: string;
+  contactId?: number;
+  leadId?: number | null;
   lmsCourseId?: string;
   lmsGroupId?: string;
+  courseType?: import('@/types/lms').LmsCourseType;
   courseNameSnapshot?: string;
   groupNameSnapshot?: string;
   notes?: string;
-  leadId?: number;
   lead?: { id: number; fullName: string };
   contact?: { id: number; fullName: string };
   company?: CompanyRef;
@@ -197,21 +200,28 @@ export interface TrialLesson {
 // ==================== PAYMENTS ====================
 export type PaymentStatus = 'submitted' | 'confirmed' | 'failed' | 'refunded' | 'overdue';
 export type PaymentMethod = 'card' | 'qr' | 'bank' | 'manual';
+export type PaymentKind = 'regular' | 'deposit';
 
 export interface Payment {
   id: number;
   amount: number;
+  kind?: PaymentKind;
   status: PaymentStatus;
   method: PaymentMethod;
+  dealId?: number;
+  leadId?: number | null;
+  contactId?: number | null;
   lmsEnrollmentId?: string;
   paidAt?: string;
   user?: { id: number; fullName: string };
+  deal?: { id: number };
+  contact?: { id: number; fullName: string };
   company?: CompanyRef;
   createdAt?: string;
 }
 
 // ==================== TASKS ====================
-export type TaskStatus = 'open' | 'in_progress' | 'done' | 'cancelled';
+export type TaskStatus = 'pending' | 'completed' | 'cancelled' | 'overdue';
 
 export interface Task {
   id: number;
@@ -220,6 +230,7 @@ export interface Task {
   status: TaskStatus;
   dueAt?: string;
   leadId?: number;
+  contactId?: number;
   dealId?: number;
   retentionCaseId?: number;
   assignedTo?: { id: number; fullName: string };
@@ -235,6 +246,7 @@ export type TimelineEventType = 'call' | 'email' | 'sms' | 'whatsapp' | 'telegra
 export interface TimelineEvent {
   id: number;
   leadId?: number;
+  contactId?: number;
   dealId?: number;
   retentionCaseId?: number;
   type: TimelineEventType;
@@ -252,6 +264,8 @@ export type RetentionCaseStatus = 'open' | 'contacted' | 'monitoring' | 'resolve
 export interface RetentionCase {
   id: number;
   leadId?: number;
+  contactId?: number;
+  dealId?: number;
   lmsStudentId?: string;
   lmsEnrollmentId?: string;
   lmsCourseId?: string;
@@ -297,8 +311,48 @@ export interface DashboardStatsQueryParams {
   from?: string;
   to?: string;
   source?: string;
-  manager?: string;
-  course?: string;
+  managerId?: string;
+  courseId?: string;
+}
+
+export type FunnelStageKey =
+  | 'lead_created'
+  | 'lead_contacted'
+  | 'lead_qualified'
+  | 'contact_created'
+  | 'deal_created'
+  | 'trial_scheduled'
+  | 'trial_completed'
+  | 'payment_submitted'
+  | 'payment_confirmed'
+  | 'enrollment_requested'
+  | 'enrollment_activated'
+  | 'won';
+
+export interface FunnelStageReport {
+  key: FunnelStageKey;
+  label: string;
+  count: number;
+  conversionFromPrevious: number | null;
+  conversionFromStart: number | null;
+  avgDaysFromPrevious: number | null;
+}
+
+export interface FunnelDropOff {
+  key: 'lead_disqualified' | 'deal_lost' | 'payment_failed' | 'enrollment_cancelled';
+  count: number;
+}
+
+export interface FunnelReport {
+  range?: { from?: string; to?: string };
+  filters?: {
+    source?: string;
+    managerId?: number;
+    courseId?: string;
+    courseType?: import('@/types/lms').LmsCourseType;
+  };
+  stages: FunnelStageReport[];
+  dropOffs: FunnelDropOff[];
 }
 
 // ==================== LMS (consumed from LMS API) ====================

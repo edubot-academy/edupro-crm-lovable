@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,12 +9,14 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Send } from 'lucide-react';
 import { useLmsCourses, useLmsGroups, useCreateEnrollment } from '@/hooks/use-lms';
 import { useAuth } from '@/contexts/AuthContext';
+import { dealsApi, leadsApi } from '@/api/modules';
+import type { Deal, Lead } from '@/types';
 import type { CreateEnrollmentRequest, LmsCourseType } from '@/types/lms';
 
 const courseTypeLabels: Record<LmsCourseType, string> = {
-  video: 'Видео (Self-paced)',
+  video: 'Видео',
   offline: 'Оффлайн',
-  online_live: 'Онлайн (Live)',
+  online_live: 'Онлайн түз эфир',
 };
 
 const courseTypeBadgeClass: Record<LmsCourseType, string> = {
@@ -25,6 +27,10 @@ const courseTypeBadgeClass: Record<LmsCourseType, string> = {
 
 export function EnrollmentForm() {
   const { user } = useAuth();
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [leadsLoading, setLeadsLoading] = useState(false);
+  const [dealsLoading, setDealsLoading] = useState(false);
   const [courseId, setCourseId] = useState('');
   const [groupId, setGroupId] = useState('');
   const [studentName, setStudentName] = useState('');
@@ -35,6 +41,7 @@ export function EnrollmentForm() {
   const [notes, setNotes] = useState('');
   const [groupError, setGroupError] = useState('');
   const idempotencyRef = useRef<{ signature: string; key: string } | null>(null);
+  const [submitError, setSubmitError] = useState('');
 
   const { data: coursesData, isLoading: coursesLoading } = useLmsCourses({ isActive: 'true' });
   const courses = coursesData?.items ?? [];
@@ -50,13 +57,64 @@ export function EnrollmentForm() {
     needsGroup ? { courseId, status: 'active' } : undefined
   );
   const groups = groupsData?.items ?? [];
+  const selectedLead = useMemo(
+    () => leads.find((lead) => String(lead.id) === leadId),
+    [leads, leadId]
+  );
+  const selectedDeal = useMemo(
+    () => deals.find((deal) => String(deal.id) === dealId),
+    [deals, dealId]
+  );
 
   const createMutation = useCreateEnrollment();
+
+  useEffect(() => {
+    setLeadsLoading(true);
+    leadsApi.list({ page: 1, limit: 100 })
+      .then((res) => setLeads(res.items))
+      .catch(() => setLeads([]))
+      .finally(() => setLeadsLoading(false));
+
+    setDealsLoading(true);
+    dealsApi.list({ page: 1, limit: 100 })
+      .then((res) => setDeals(res.items))
+      .catch(() => setDeals([]))
+      .finally(() => setDealsLoading(false));
+  }, []);
 
   const handleCourseChange = (value: string) => {
     setCourseId(value);
     setGroupId('');
     setGroupError('');
+    setSubmitError('');
+  };
+
+  const handleLeadChange = (value: string) => {
+    const lead = leads.find((item) => String(item.id) === value);
+    setLeadId(value);
+    setSubmitError('');
+    if (!lead) return;
+    setStudentName(lead.fullName || '');
+    setStudentPhone(lead.phone || '');
+    setStudentEmail(lead.email || '');
+  };
+
+  const handleDealChange = (value: string) => {
+    if (value === '__none__') {
+      setDealId('');
+      return;
+    }
+    const deal = deals.find((item) => String(item.id) === value);
+    setDealId(value);
+    if (!deal) return;
+    if (deal.lmsCourseId) {
+      setCourseId(deal.lmsCourseId);
+    }
+    if (deal.lmsGroupId) {
+      setGroupId(deal.lmsGroupId);
+    } else {
+      setGroupId('');
+    }
   };
 
   const canSubmit =
@@ -71,10 +129,33 @@ export function EnrollmentForm() {
     e.preventDefault();
     if (!user) return;
 
-    if (needsGroup && !groupId) {
-      setGroupError('Топту тандаңыз (группа/когорта)');
+    if (!courseId) {
+      setSubmitError('Курсту тандаңыз');
       return;
     }
+
+    if (!studentName.trim()) {
+      setSubmitError('Студенттин атын жазыңыз');
+      return;
+    }
+
+    if (!studentPhone.trim()) {
+      setSubmitError('Телефон номерин жазыңыз');
+      return;
+    }
+
+    if (!leadId) {
+      setSubmitError('CRM лидди тандаңыз');
+      return;
+    }
+
+    if (needsGroup && !groupId) {
+      setGroupError('Топту тандаңыз (группа/когорта)');
+      setSubmitError('');
+      return;
+    }
+
+    setSubmitError('');
 
     const payload: CreateEnrollmentRequest = {
       crmLeadId: leadId,
@@ -114,6 +195,7 @@ export function EnrollmentForm() {
         setNotes('');
         setGroupError('');
         idempotencyRef.current = null;
+        setSubmitError('');
       },
     });
   };
@@ -203,31 +285,71 @@ export function EnrollmentForm() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Студент аты *</Label>
-              <Input value={studentName} onChange={(e) => setStudentName(e.target.value)} required />
+              <Input value={studentName} onChange={(e) => { setStudentName(e.target.value); setSubmitError(''); }} />
             </div>
             <div className="space-y-2">
               <Label>Телефон *</Label>
-              <Input value={studentPhone} onChange={(e) => setStudentPhone(e.target.value)} required />
+              <Input value={studentPhone} onChange={(e) => { setStudentPhone(e.target.value); setSubmitError(''); }} />
             </div>
             <div className="space-y-2">
               <Label>Email</Label>
               <Input type="email" value={studentEmail} onChange={(e) => setStudentEmail(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>CRM Lead ID *</Label>
-              <Input value={leadId} onChange={(e) => setLeadId(e.target.value)} required placeholder="Lead ID" />
+              <Label>CRM Лид *</Label>
+              <Select value={leadId} onValueChange={handleLeadChange} disabled={leadsLoading}>
+                <SelectTrigger>
+                  <SelectValue placeholder={leadsLoading ? 'Жүктөлүүдө...' : 'Лид тандаңыз'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {leads.map((lead) => (
+                    <SelectItem key={lead.id} value={String(lead.id)}>
+                      {lead.fullName} {lead.phone ? `• ${lead.phone}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
           <div className="space-y-2">
             <Label>Келишим ID (милдеттүү эмес)</Label>
-            <Input value={dealId} onChange={(e) => setDealId(e.target.value)} placeholder="Deal ID" />
+            <Select value={dealId || '__none__'} onValueChange={handleDealChange} disabled={dealsLoading}>
+              <SelectTrigger>
+                <SelectValue placeholder={dealsLoading ? 'Жүктөлүүдө...' : 'Келишим тандаңыз'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Тандалган эмес</SelectItem>
+                {deals.map((deal) => (
+                  <SelectItem key={deal.id} value={String(deal.id)}>
+                    #{deal.id} {deal.contact?.fullName ? `• ${deal.contact.fullName}` : ''} {deal.courseNameSnapshot ? `• ${deal.courseNameSnapshot}` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedDeal && (
+              <p className="text-xs text-muted-foreground">
+                Курс: {selectedDeal.courseNameSnapshot || selectedDeal.lmsCourseId || '—'}
+                {selectedDeal.groupNameSnapshot ? ` • Топ: ${selectedDeal.groupNameSnapshot}` : ''}
+              </p>
+            )}
           </div>
+
+          {selectedLead && (
+            <p className="text-xs text-muted-foreground">
+              Тандалган лид: #{selectedLead.id}
+              {selectedLead.contactId ? ` • Байланыш #${selectedLead.contactId}` : ''}
+            </p>
+          )}
 
           <div className="space-y-2">
             <Label>Эскертүүлөр</Label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </div>
+
+          {submitError && (
+            <p className="text-sm text-destructive">{submitError}</p>
+          )}
 
           <Button type="submit" disabled={!canSubmit} className="w-full sm:w-auto">
             {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

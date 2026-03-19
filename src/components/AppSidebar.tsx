@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, UserCheck, Handshake, GitBranch,
   GraduationCap, CreditCard, CheckSquare, MessageSquare,
-  AlertTriangle, BarChart3, Bell, Settings, UserCog, LogOut, BookOpen,
+  AlertTriangle, BarChart3, Bell, Settings, UserCog, LogOut, BookOpen, Database,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,6 +23,7 @@ import {
 const mainNav = [
   { title: ky.nav.dashboard, url: '/', icon: LayoutDashboard },
   { title: ky.nav.leads, url: '/leads', icon: Users },
+  { title: ky.nav.contacts, url: '/contacts', icon: UserCheck },
   { title: ky.nav.deals, url: '/deals', icon: Handshake },
   { title: ky.nav.pipeline, url: '/pipeline', icon: GitBranch },
   { title: ky.nav.trialLessons, url: '/trial-lessons', icon: GraduationCap },
@@ -44,10 +45,20 @@ const systemNav = [
 ];
 
 const legacyNav = [
-  { title: ky.nav.contacts, url: '/contacts', icon: UserCheck },
+  { title: ky.nav.legacyContacts, url: '/legacy-contacts', icon: Database },
 ];
 
-function NavSection({ label, items, collapsed }: { label: string; items: { title: string; url: string; icon: React.ElementType }[]; collapsed: boolean }) {
+function NavSection({
+  label,
+  items,
+  collapsed,
+  onNavigate,
+}: {
+  label: string;
+  items: { title: string; url: string; icon: React.ElementType }[];
+  collapsed: boolean;
+  onNavigate?: () => void;
+}) {
   return (
     <SidebarGroup>
       {!collapsed && <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">{label}</SidebarGroupLabel>}
@@ -63,6 +74,7 @@ function NavSection({ label, items, collapsed }: { label: string; items: { title
                     'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
                   )}
                   activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold"
+                  onClick={onNavigate}
                 >
                   <item.icon className="h-4 w-4 shrink-0" />
                   {!collapsed && <span>{item.title}</span>}
@@ -77,12 +89,15 @@ function NavSection({ label, items, collapsed }: { label: string; items: { title
 }
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === 'collapsed';
   const { user, logout } = useAuth();
   const isSystemAdmin = user?.role === 'admin' || user?.role === 'superadmin';
   const isSuperAdmin = user?.role === 'superadmin';
   const visibleSystemNav = systemNav.filter((item) => !['/users', '/reports', '/notifications', '/settings'].includes(item.url) || isSystemAdmin);
+  const handleNavigate = () => {
+    if (isMobile) setOpenMobile(false);
+  };
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
@@ -98,10 +113,10 @@ export function AppSidebar() {
       </div>
 
       <SidebarContent className="px-2 py-2">
-        <NavSection label="Негизги" items={mainNav} collapsed={collapsed} />
-        <NavSection label="Операциялар" items={operationsNav} collapsed={collapsed} />
-        {isSuperAdmin && <NavSection label="Legacy Data" items={legacyNav} collapsed={collapsed} />}
-        <NavSection label="Система" items={visibleSystemNav} collapsed={collapsed} />
+        <NavSection label="Негизги" items={mainNav} collapsed={collapsed} onNavigate={handleNavigate} />
+        <NavSection label="Операциялар" items={operationsNav} collapsed={collapsed} onNavigate={handleNavigate} />
+        {isSuperAdmin && <NavSection label="Legacy Data" items={legacyNav} collapsed={collapsed} onNavigate={handleNavigate} />}
+        <NavSection label="Система" items={visibleSystemNav} collapsed={collapsed} onNavigate={handleNavigate} />
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-3">

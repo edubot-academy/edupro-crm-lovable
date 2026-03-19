@@ -9,10 +9,10 @@ import { useActivateEnrollment, usePauseEnrollment } from '@/hooks/use-lms';
 import { useAuth } from '@/contexts/AuthContext';
 import type { PaymentStatus } from '@/types';
 
-export function ActivateEnrollmentDialog({ enrollmentId }: { enrollmentId: string }) {
+export function ActivateEnrollmentDialog({ enrollmentId, leadId: initialLeadId }: { enrollmentId: string; leadId?: string }) {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
-  const [leadId, setLeadId] = useState('');
+  const [leadId, setLeadId] = useState(initialLeadId || '');
   const [paymentId, setPaymentId] = useState('');
   const [notes, setNotes] = useState('');
   const idempotencyRef = useRef<{ signature: string; key: string } | null>(null);
@@ -67,7 +67,7 @@ export function ActivateEnrollmentDialog({ enrollmentId }: { enrollmentId: strin
           </div>
           <div className="space-y-2">
             <Label>Төлөм ID (милдеттүү эмес)</Label>
-            <Input value={paymentId} onChange={(e) => setPaymentId(e.target.value)} placeholder="Payment ID" />
+            <Input value={paymentId} onChange={(e) => setPaymentId(e.target.value)} placeholder="Төлөм ID" />
           </div>
           <div className="space-y-2">
             <Label>Эскертүү</Label>

@@ -133,8 +133,8 @@ export default function ReportsPage() {
     if (dateFrom) params.from = format(dateFrom, 'yyyy-MM-dd');
     if (dateTo) params.to = format(dateTo, 'yyyy-MM-dd');
     if (sourceFilter !== 'all') params.source = sourceFilter;
-    if (managerFilter !== 'all') params.manager = managerFilter;
-    if (courseFilter !== 'all') params.course = courseFilter;
+    if (managerFilter !== 'all') params.managerId = managerFilter;
+    if (courseFilter !== 'all') params.courseId = courseFilter;
 
     reportsApi.getStats(params)
       .then(setStats)

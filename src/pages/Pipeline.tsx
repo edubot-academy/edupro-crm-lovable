@@ -4,8 +4,8 @@ import { KanbanBoard, type KanbanColumn } from '@/components/KanbanBoard';
 import { Card, CardContent } from '@/components/ui/card';
 import { StatusBadge, getLeadStatusVariant } from '@/components/StatusBadge';
 import { ky } from '@/lib/i18n';
-import { dealsApi } from '@/api/modules';
-import type { Deal, DealStage } from '@/types';
+import { dealsApi, reportsApi } from '@/api/modules';
+import type { Deal, DealStage, FunnelReport } from '@/types';
 import { User, BookOpen, DollarSign } from 'lucide-react';
 
 const stages: { id: DealStage; title: string }[] = [
@@ -31,16 +31,52 @@ const mockDeals: Deal[] = [
   { id: 8, leadId: 8, lead: { id: 8, fullName: 'Кайрат Орозбеков' }, courseNameSnapshot: 'UI/UX', amount: 18000, currency: 'KGS', stage: 'lost', createdAt: '2024-03-07', updatedAt: '2024-03-07' },
 ];
 
+const mockFunnel: FunnelReport = {
+  stages: [
+    { key: 'lead_created', label: 'Лид түзүлдү', count: 342, conversionFromPrevious: null, conversionFromStart: 100, avgDaysFromPrevious: null },
+    { key: 'lead_contacted', label: 'Лид менен байланышылды', count: 260, conversionFromPrevious: 76, conversionFromStart: 76, avgDaysFromPrevious: 1.2 },
+    { key: 'lead_qualified', label: 'Лид квалификациядан өттү', count: 214, conversionFromPrevious: 82.3, conversionFromStart: 62.6, avgDaysFromPrevious: 1.7 },
+    { key: 'contact_created', label: 'Байланыш түзүлдү', count: 205, conversionFromPrevious: 95.8, conversionFromStart: 59.9, avgDaysFromPrevious: 0.5 },
+    { key: 'deal_created', label: 'Келишим түзүлдү', count: 176, conversionFromPrevious: 85.9, conversionFromStart: 51.5, avgDaysFromPrevious: 1.1 },
+    { key: 'trial_scheduled', label: 'Сыноо пландалды', count: 120, conversionFromPrevious: 68.2, conversionFromStart: 35.1, avgDaysFromPrevious: 1.4 },
+    { key: 'trial_completed', label: 'Сыноо өттү', count: 98, conversionFromPrevious: 81.7, conversionFromStart: 28.7, avgDaysFromPrevious: 2.1 },
+    { key: 'payment_submitted', label: 'Төлөм жөнөтүлдү', count: 84, conversionFromPrevious: 85.7, conversionFromStart: 24.6, avgDaysFromPrevious: 1.8 },
+    { key: 'payment_confirmed', label: 'Төлөм ырасталды', count: 71, conversionFromPrevious: 84.5, conversionFromStart: 20.8, avgDaysFromPrevious: 0.9 },
+    { key: 'enrollment_requested', label: 'LMS каттоо түзүлдү', count: 69, conversionFromPrevious: 97.2, conversionFromStart: 20.2, avgDaysFromPrevious: 0.2 },
+    { key: 'enrollment_activated', label: 'LMS жеткиликтүүлүк ачылды', count: 66, conversionFromPrevious: 95.7, conversionFromStart: 19.3, avgDaysFromPrevious: 0.3 },
+    { key: 'won', label: 'Утту', count: 66, conversionFromPrevious: 100, conversionFromStart: 19.3, avgDaysFromPrevious: 0 },
+  ],
+  dropOffs: [
+    { key: 'lead_disqualified', count: 31 },
+    { key: 'deal_lost', count: 19 },
+    { key: 'payment_failed', count: 7 },
+    { key: 'enrollment_cancelled', count: 3 },
+  ],
+};
+
+const dropOffLabels: Record<string, string> = {
+  lead_disqualified: 'Лид четтетилди',
+  deal_lost: 'Келишим жоголду',
+  payment_failed: 'Төлөм ишке ашкан жок',
+  enrollment_cancelled: 'Каттоо жокко чыгарылды',
+};
+
 export default function PipelinePage() {
   const [deals, setDeals] = useState<Deal[]>([]);
+  const [funnel, setFunnel] = useState<FunnelReport>(mockFunnel);
   const [isLoading, setIsLoading] = useState(true);
   const [activeColumn, setActiveColumn] = useState<string>('new_lead');
 
   useEffect(() => {
     setIsLoading(true);
-    dealsApi.list()
-      .then((res) => setDeals(res.items))
-      .catch(() => setDeals(mockDeals))
+    Promise.all([
+      dealsApi.list().catch(() => ({ items: mockDeals })),
+      reportsApi.getFunnel().catch(() => mockFunnel),
+    ])
+      .then(([dealsResult, funnelResult]) => {
+        setDeals(dealsResult.items);
+        setFunnel(funnelResult);
+      })
       .finally(() => setIsLoading(false));
   }, []);
 
@@ -80,6 +116,34 @@ export default function PipelinePage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader title={ky.nav.pipeline} />
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {funnel.stages.map((stage) => (
+          <Card key={stage.key} className="shadow-soft border-border/50">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">{stage.label}</p>
+              <p className="mt-1 text-2xl font-semibold">{stage.count}</p>
+              <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                <p>
+                  Мурункудан: {stage.conversionFromPrevious == null ? '—' : `${stage.conversionFromPrevious.toFixed(1)}%`}
+                </p>
+                <p>
+                  Башынан: {stage.conversionFromStart == null ? '—' : `${stage.conversionFromStart.toFixed(1)}%`}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {funnel.dropOffs.map((dropOff) => (
+          <Card key={dropOff.key} className="border-destructive/20 bg-destructive/5 shadow-soft">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">{dropOffLabels[dropOff.key] || dropOff.key}</p>
+              <p className="mt-1 text-xl font-semibold">{dropOff.count}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
       <KanbanBoard
         columns={columns}
         renderCard={renderCard}

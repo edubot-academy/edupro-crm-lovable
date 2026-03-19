@@ -16,6 +16,8 @@ import LeadsPage from "./pages/Leads";
 import LeadDetailPage from "./pages/LeadDetail";
 import ContactsPage from "./pages/Contacts";
 import ContactDetailPage from "./pages/ContactDetail";
+import LegacyContactsPage from "./pages/LegacyContacts";
+import LegacyContactDetailPage from "./pages/LegacyContactDetail";
 import DealsPage from "./pages/Deals";
 import PipelinePage from "./pages/Pipeline";
 import TrialLessonsPage from "./pages/TrialLessons";
@@ -43,7 +45,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider>
           <Routes>
             {/* Public auth routes */}
@@ -57,8 +59,10 @@ const App = () => (
               <Route path="/" element={<DashboardPage />} />
               <Route path="/leads" element={<LeadsPage />} />
               <Route path="/leads/:id" element={<LeadDetailPage />} />
-              <Route path="/contacts" element={<ProtectedRoute allowedRoles={['superadmin']}><ContactsPage /></ProtectedRoute>} />
-              <Route path="/contacts/:id" element={<ProtectedRoute allowedRoles={['superadmin']}><ContactDetailPage /></ProtectedRoute>} />
+              <Route path="/contacts" element={<ContactsPage />} />
+              <Route path="/contacts/:id" element={<ContactDetailPage />} />
+              <Route path="/legacy-contacts" element={<ProtectedRoute allowedRoles={['superadmin']}><LegacyContactsPage /></ProtectedRoute>} />
+              <Route path="/legacy-contacts/:id" element={<ProtectedRoute allowedRoles={['superadmin']}><LegacyContactDetailPage /></ProtectedRoute>} />
               <Route path="/deals" element={<DealsPage />} />
               <Route path="/pipeline" element={<PipelinePage />} />
               <Route path="/trial-lessons" element={<TrialLessonsPage />} />

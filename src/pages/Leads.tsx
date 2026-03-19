@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/PageShell';
 import { DataTable, type Column } from '@/components/DataTable';
-import { KanbanBoard, type KanbanColumn } from '@/components/KanbanBoard';
 import { StatusBadge, getLeadStatusVariant } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,11 +10,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Card, CardContent } from '@/components/ui/card';
 import { ky } from '@/lib/i18n';
-import { leadsApi } from '@/api/modules';
-import type { Lead, LeadSource } from '@/types';
-import { Plus, Filter, Trash2, Loader2, Save, Phone, Mail, UserRound } from 'lucide-react';
+import { leadsApi, usersApi } from '@/api/modules';
+import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
+import type { AssignableUser, Lead, LeadSource } from '@/types';
+import { Plus, Filter, Trash2, Loader2, Save, Phone, Mail, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const mockLeads: Lead[] = [
@@ -40,8 +39,29 @@ export default function LeadsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [newLead, setNewLead] = useState({ fullName: '', phone: '', email: '', source: '' as LeadSource | '', notes: '' });
-  const [activeColumn, setActiveColumn] = useState<string>('new');
+  const [managers, setManagers] = useState<AssignableUser[]>([]);
+  const [managersLoading, setManagersLoading] = useState(false);
+  const emptyLeadForm = {
+    fullName: '',
+    phone: '',
+    email: '',
+    source: '' as LeadSource | '',
+    status: 'new' as Lead['status'],
+    interestedCourseId: '',
+    interestedGroupId: '',
+    assignedManagerId: '',
+    tags: '',
+    notes: '',
+  };
+  const [newLead, setNewLead] = useState(emptyLeadForm);
+  const { data: coursesData, isLoading: coursesLoading } = useLmsCourses({ isActive: 'true' });
+  const courses = coursesData?.items ?? [];
+  const selectedCourse = courses.find((course) => course.id === newLead.interestedCourseId);
+  const needsGroup = !!selectedCourse && selectedCourse.courseType !== 'video';
+  const { data: groupsData, isLoading: groupsLoading } = useLmsGroups(
+    needsGroup ? { courseId: newLead.interestedCourseId, status: 'active' } : undefined
+  );
+  const groups = groupsData?.items ?? [];
 
   const fetchLeads = () => {
     setIsLoading(true);
@@ -52,6 +72,15 @@ export default function LeadsPage() {
   };
 
   useEffect(() => { fetchLeads(); }, [search, statusFilter]);
+
+  useEffect(() => {
+    if (!createOpen) return;
+    setManagersLoading(true);
+    usersApi.assignables()
+      .then(setManagers)
+      .catch(() => setManagers([]))
+      .finally(() => setManagersLoading(false));
+  }, [createOpen]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -70,13 +99,24 @@ export default function LeadsPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newLead.fullName || !newLead.phone || !newLead.source) return;
+    if (!newLead.fullName || !newLead.phone) return;
     setIsCreating(true);
     try {
-      await leadsApi.create({ fullName: newLead.fullName, phone: newLead.phone, email: newLead.email, source: newLead.source as LeadSource, status: 'new', notes: newLead.notes });
+      await leadsApi.create({
+        fullName: newLead.fullName,
+        phone: newLead.phone,
+        email: newLead.email || undefined,
+        source: newLead.source || undefined,
+        status: newLead.status,
+        interestedCourseId: newLead.interestedCourseId || undefined,
+        interestedGroupId: newLead.interestedGroupId || undefined,
+        assignedManagerId: newLead.assignedManagerId ? Number(newLead.assignedManagerId) : undefined,
+        tags: newLead.tags ? newLead.tags.split(',').map((tag) => tag.trim()).filter(Boolean) : undefined,
+        notes: newLead.notes || undefined,
+      });
       toast({ title: 'Лид ийгиликтүү түзүлдү' });
       setCreateOpen(false);
-      setNewLead({ fullName: '', phone: '', email: '', source: '', notes: '' });
+      setNewLead(emptyLeadForm);
       fetchLeads();
     } catch {
       toast({ title: 'Лид түзүүдө ката кетти', variant: 'destructive' });
@@ -90,6 +130,12 @@ export default function LeadsPage() {
     const matchStatus = statusFilter === 'all' || l.status === statusFilter;
     return matchSearch && matchStatus;
   });
+  const mobileStatuses = Object.entries(ky.leadStatus).filter(([value]) => (
+    statusFilter === 'all' || value === statusFilter
+  ));
+  const groupedLeads = Object.fromEntries(
+    mobileStatuses.map(([status]) => [status, filtered.filter((lead) => lead.status === status)])
+  );
 
   const columns: Column<Lead>[] = [
     { key: 'fullName', header: ky.common.name, render: (l) => <span className="font-medium">{l.fullName}</span> },
@@ -108,71 +154,6 @@ export default function LeadsPage() {
     },
   ];
 
-  const mobileColumns: KanbanColumn<Lead>[] = Object.entries(ky.leadStatus).map(([status, label]) => ({
-    id: status,
-    title: label,
-    items: filtered.filter((lead) => lead.status === status),
-  }));
-
-  const renderLeadCard = (lead: Lead) => (
-    <Card className="shadow-soft border-border/50 hover:shadow-medium transition-shadow">
-      <CardContent className="space-y-3 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">{lead.fullName}</p>
-            <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-              <span>{ky.leadSource[lead.source]}</span>
-              {lead.interestedCourseId && <span>• {lead.interestedCourseId}</span>}
-            </div>
-          </div>
-          <StatusBadge variant={getLeadStatusVariant(lead.status)} dot>
-            {ky.leadStatus[lead.status]}
-          </StatusBadge>
-        </div>
-
-        <div className="space-y-2 text-xs text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <Phone className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{lead.phone}</span>
-          </div>
-          {lead.email && (
-            <div className="flex items-center gap-2">
-              <Mail className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">{lead.email}</span>
-            </div>
-          )}
-          <div className="flex items-center gap-2">
-            <UserRound className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{lead.assignedManager?.fullName || '—'}</span>
-          </div>
-        </div>
-
-        {lead.notes && (
-          <p className="line-clamp-2 rounded-md bg-muted/60 px-2.5 py-2 text-xs text-muted-foreground">
-            {lead.notes}
-          </p>
-        )}
-
-        <div className="flex items-center justify-between pt-1">
-          <span className="text-xs text-muted-foreground">
-            {new Date(lead.createdAt).toLocaleDateString('ky-KG')}
-          </span>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-destructive hover:text-destructive"
-            onClick={(e) => {
-              e.stopPropagation();
-              setDeleteTarget(lead);
-            }}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
@@ -189,7 +170,7 @@ export default function LeadsPage() {
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4 text-muted-foreground" />
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-48">
+            <SelectTrigger className="w-48">
               <SelectValue placeholder={ky.common.status} />
             </SelectTrigger>
             <SelectContent>
@@ -202,32 +183,119 @@ export default function LeadsPage() {
         </div>
       </div>
 
-      <div className="md:hidden">
-        <div className="mb-3">
-          <div className="relative max-w-sm">
+      <div className="md:hidden space-y-4">
+        <div className="space-y-3">
+          <div className="relative">
             <Input
-              placeholder="Лид издөө..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
+              placeholder="Лид издөө..."
             />
-            <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted-foreground">
-              <Filter className="h-4 w-4" />
-            </span>
           </div>
         </div>
+
         {isLoading ? (
-          <div className="flex h-40 items-center justify-center rounded-lg border bg-card shadow-card">
+          <div className="flex h-40 items-center justify-center rounded-2xl border bg-card">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
+        ) : filtered.length === 0 ? (
+          <div className="rounded-2xl border border-dashed bg-card px-4 py-10 text-center text-sm text-muted-foreground">
+            {ky.common.noData}
+          </div>
         ) : (
-          <KanbanBoard
-            columns={mobileColumns}
-            renderCard={renderLeadCard}
-            activeColumn={activeColumn}
-            onColumnChange={setActiveColumn}
-            onCardClick={(lead) => navigate(`/leads/${lead.id}`)}
-          />
+          <div className="-mx-4 overflow-x-auto px-4 pb-2 snap-x snap-mandatory">
+            <div className="flex gap-4">
+              {mobileStatuses.map(([status, label]) => {
+                const items = groupedLeads[status] ?? [];
+                return (
+                  <div key={status} className="flex h-[calc(100vh-16rem)] w-[calc(100vw-2rem)] shrink-0 snap-center flex-col rounded-3xl border bg-muted/30 p-3">
+                    <div className="mb-3 flex shrink-0 items-center justify-between">
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold text-foreground">{label}</p>
+                        <StatusBadge variant={getLeadStatusVariant(status as Lead['status'])} dot>
+                          {items.length}
+                        </StatusBadge>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+                      {items.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed bg-background/70 px-3 py-6 text-center text-xs text-muted-foreground">
+                          Бул этапта лид жок
+                        </div>
+                      ) : (
+                        items.map((lead) => (
+                          <div
+                            key={lead.id}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => navigate(`/leads/${lead.id}`)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                navigate(`/leads/${lead.id}`);
+                              }
+                            }}
+                            className="w-full rounded-2xl border bg-background p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0 space-y-1">
+                                <p className="truncate font-semibold text-foreground">{lead.fullName}</p>
+                                <p className="text-xs text-muted-foreground">{ky.leadSource[lead.source]}</p>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 shrink-0 text-destructive hover:text-destructive"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteTarget(lead);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+
+                            <div className="mt-3 space-y-2 text-sm">
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <Phone className="h-4 w-4 shrink-0" />
+                                <span className="truncate">{lead.phone}</span>
+                              </div>
+                              {lead.email && (
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                  <Mail className="h-4 w-4 shrink-0" />
+                                  <span className="truncate">{lead.email}</span>
+                                </div>
+                              )}
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <User className="h-4 w-4 shrink-0" />
+                                <span className="truncate">{lead.assignedManager?.fullName || 'Дайындалган эмес'}</span>
+                              </div>
+                            </div>
+
+                            {(lead.interestedCourseId || (lead.tags?.length ?? 0) > 0) && (
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {lead.interestedCourseId && (
+                                  <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                                    {lead.interestedCourseId}
+                                  </span>
+                                )}
+                                {lead.tags?.slice(0, 2).map((tag) => (
+                                  <span key={tag} className="rounded-full bg-secondary px-2.5 py-1 text-xs text-secondary-foreground">
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         )}
       </div>
 
@@ -259,7 +327,7 @@ export default function LeadsPage() {
       </AlertDialog>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{ky.leads.newLead}</DialogTitle>
           </DialogHeader>
@@ -278,7 +346,7 @@ export default function LeadsPage() {
                 <Input type="email" value={newLead.email} onChange={(e) => setNewLead(p => ({ ...p, email: e.target.value }))} />
               </div>
               <div className="space-y-2">
-                <Label>{ky.leads.source} *</Label>
+                <Label>{ky.leads.source}</Label>
                 <Select value={newLead.source} onValueChange={(v) => setNewLead(p => ({ ...p, source: v as LeadSource }))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Булак тандаңыз" />
@@ -290,6 +358,65 @@ export default function LeadsPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label>{ky.common.status}</Label>
+                <Select value={newLead.status} onValueChange={(v) => setNewLead(p => ({ ...p, status: v as Lead['status'] }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={ky.common.status} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(ky.leadStatus).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>{ky.leads.interestedCourse}</Label>
+                <Select value={newLead.interestedCourseId || '__none__'} onValueChange={(value) => setNewLead(p => ({ ...p, interestedCourseId: value === '__none__' ? '' : value, interestedGroupId: '' }))} disabled={coursesLoading}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={coursesLoading ? 'Жүктөлүүдө...' : 'Курс тандаңыз'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Тандалган эмес</SelectItem>
+                    {courses.map((course) => (
+                      <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Кызыккан топ</Label>
+                <Select value={newLead.interestedGroupId || '__none__'} onValueChange={(value) => setNewLead(p => ({ ...p, interestedGroupId: value === '__none__' ? '' : value }))} disabled={!needsGroup || groupsLoading}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={!needsGroup ? 'Талап кылынбайт' : groupsLoading ? 'Жүктөлүүдө...' : 'Топ тандаңыз'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">{!needsGroup ? 'Талап кылынбайт' : 'Тандалган эмес'}</SelectItem>
+                    {groups.map((group) => (
+                      <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>{ky.leads.assignedManager}</Label>
+                <Select value={newLead.assignedManagerId || '__none__'} onValueChange={(value) => setNewLead(p => ({ ...p, assignedManagerId: value === '__none__' ? '' : value }))} disabled={managersLoading}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={managersLoading ? 'Жүктөлүүдө...' : 'Менеджер тандаңыз'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Тандалган эмес</SelectItem>
+                    {managers.map((manager) => (
+                      <SelectItem key={manager.id} value={String(manager.id)}>{manager.fullName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>{ky.common.tags}</Label>
+              <Input value={newLead.tags} onChange={(e) => setNewLead(p => ({ ...p, tags: e.target.value }))} placeholder="IT, Frontend, Ысык лид" />
             </div>
             <div className="space-y-2">
               <Label>{ky.common.notes}</Label>
@@ -297,7 +424,7 @@ export default function LeadsPage() {
             </div>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>{ky.common.cancel}</Button>
-              <Button type="submit" disabled={!newLead.fullName || !newLead.phone || !newLead.source || isCreating}>
+              <Button type="submit" disabled={!newLead.fullName || !newLead.phone || isCreating}>
                 {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Save className="mr-2 h-4 w-4" />
                 {ky.common.save}

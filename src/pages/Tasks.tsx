@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/PageShell';
 import { DataTable, type Column } from '@/components/DataTable';
-import { StatusBadge } from '@/components/StatusBadge';
+import { StatusBadge, getTaskStatusVariant } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,22 +11,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { ky } from '@/lib/i18n';
-import type { Task } from '@/types';
-import { tasksApi } from '@/api/modules';
+import type { Contact, Deal, Task } from '@/types';
+import { contactApi, dealsApi, tasksApi } from '@/api/modules';
 import { Plus, Filter, CheckCircle, Trash2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-const taskStatusVariant = (s: string) => {
-  switch (s) { case 'open': return 'warning' as const; case 'in_progress': return 'info' as const; case 'done': return 'success' as const; case 'cancelled': return 'muted' as const; default: return 'default' as const; }
-};
-
 const mockTasks: Task[] = [
-  { id: 1, title: 'Азаматка чалуу', description: 'Python курсу жөнүндө', status: 'open', dueAt: '2024-03-11', assignedTo: { id: 1, fullName: 'Нургуль' }, createdAt: '2024-03-09' },
-  { id: 2, title: 'Сыноо сабакты ырастоо', description: 'Бакытка чалуу', status: 'in_progress', dueAt: '2024-03-10', assignedTo: { id: 2, fullName: 'Айбек' }, createdAt: '2024-03-08' },
-  { id: 3, title: 'Сунуш жиберүү', description: 'Гүлнарага сунуш', status: 'open', dueAt: '2024-03-12', assignedTo: { id: 3, fullName: 'Эрлан' }, createdAt: '2024-03-09' },
+  { id: 1, title: 'Азаматка чалуу', description: 'Python курсу жөнүндө', status: 'pending', dueAt: '2024-03-11', assignedTo: { id: 1, fullName: 'Нургуль' }, createdAt: '2024-03-09' },
+  { id: 2, title: 'Сыноо сабакты ырастоо', description: 'Бакытка чалуу', status: 'overdue', dueAt: '2024-03-10', assignedTo: { id: 2, fullName: 'Айбек' }, createdAt: '2024-03-08' },
+  { id: 3, title: 'Сунуш жиберүү', description: 'Гүлнарага сунуш', status: 'pending', dueAt: '2024-03-12', assignedTo: { id: 3, fullName: 'Эрлан' }, createdAt: '2024-03-09' },
 ];
 
-const emptyForm = { title: '', description: '', dueAt: '' };
+const emptyForm = { title: '', description: '', dueAt: '', contactId: '', dealId: '' };
 
 export default function TasksPage() {
   const { toast } = useToast();
@@ -38,7 +34,11 @@ export default function TasksPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [isUpdatingTaskId, setIsUpdatingTaskId] = useState<number | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [optionsLoading, setOptionsLoading] = useState(false);
 
   const fetchTasks = () => {
     setIsLoading(true);
@@ -50,11 +50,47 @@ export default function TasksPage() {
 
   useEffect(() => { fetchTasks(); }, [search, statusFilter]);
 
+  useEffect(() => {
+    if (!showCreate) return;
+    setOptionsLoading(true);
+    Promise.all([
+      contactApi.list({ page: 1, limit: 100 }),
+      dealsApi.list({ page: 1, limit: 100 }),
+    ])
+      .then(([contactsRes, dealsRes]) => {
+        setContacts(contactsRes.items);
+        setDeals(dealsRes.items);
+      })
+      .catch(() => {
+        setContacts([]);
+        setDeals([]);
+      })
+      .finally(() => setOptionsLoading(false));
+  }, [showCreate]);
+
+  useEffect(() => {
+    if (!form.dealId) return;
+    const selectedDeal = deals.find((deal) => String(deal.id) === form.dealId);
+    if (!selectedDeal?.contactId) return;
+
+    setForm((prev) => (
+      prev.contactId === String(selectedDeal.contactId)
+        ? prev
+        : { ...prev, contactId: String(selectedDeal.contactId) }
+    ));
+  }, [deals, form.dealId]);
+
   const handleCreate = async () => {
     if (!form.title) return;
     setIsCreating(true);
     try {
-      await tasksApi.create({ title: form.title, description: form.description || undefined, dueAt: form.dueAt || undefined });
+      await tasksApi.create({
+        title: form.title,
+        description: form.description || undefined,
+        dueAt: form.dueAt || undefined,
+        contactId: form.contactId ? Number(form.contactId) : undefined,
+        dealId: form.dealId ? Number(form.dealId) : undefined,
+      });
       toast({ title: 'Тапшырма ийгиликтүү кошулду' });
       setShowCreate(false);
       setForm(emptyForm);
@@ -81,6 +117,19 @@ export default function TasksPage() {
     }
   };
 
+  const handleMarkDone = async (task: Task) => {
+    setIsUpdatingTaskId(task.id);
+    try {
+      await tasksApi.update(task.id, { status: 'completed' });
+      toast({ title: 'Тапшырма аткарылды' });
+      fetchTasks();
+    } catch {
+      toast({ title: 'Тапшырманы жаңыртууда ката кетти', variant: 'destructive' });
+    } finally {
+      setIsUpdatingTaskId(null);
+    }
+  };
+
   const filtered = tasks.filter((t) => statusFilter === 'all' || t.status === statusFilter);
 
   const columns: Column<Task>[] = [
@@ -91,12 +140,13 @@ export default function TasksPage() {
       </div>
     )},
     { key: 'assignedTo', header: ky.tasks.assignedUser, render: (t) => t.assignedTo?.fullName || '—' },
+    { key: 'relatedTo', header: ky.tasks.relatedTo, render: (t) => `Байланыш: ${t.contactId || '—'} / Келишим: ${t.dealId || '—'}`, className: 'hidden lg:table-cell' },
     { key: 'dueAt', header: ky.tasks.dueAt, render: (t) => t.dueAt ? new Date(t.dueAt).toLocaleDateString('ky-KG') : '—' },
     { key: 'status', header: ky.common.status, render: (t) => (
       <div className="flex items-center gap-2">
-        <StatusBadge variant={taskStatusVariant(t.status)} dot>{ky.taskStatus[t.status]}</StatusBadge>
-        {t.status !== 'done' && t.status !== 'cancelled' && (
-          <Button variant="ghost" size="sm" className="h-7 text-xs text-success hover:text-success">
+        <StatusBadge variant={getTaskStatusVariant(t.status)} dot>{ky.taskStatus[t.status]}</StatusBadge>
+        {t.status !== 'completed' && t.status !== 'cancelled' && (
+          <Button variant="ghost" size="sm" className="h-7 text-xs text-success hover:text-success" onClick={() => handleMarkDone(t)} disabled={isUpdatingTaskId === t.id}>
             <CheckCircle className="h-3.5 w-3.5" />
           </Button>
         )}
@@ -163,7 +213,7 @@ export default function TasksPage() {
 
       {/* Create Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent>
+        <DialogContent className="max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-xl">
           <DialogHeader><DialogTitle>{ky.tasks.newTask}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -177,6 +227,48 @@ export default function TasksPage() {
             <div className="space-y-2">
               <Label>{ky.tasks.dueAt}</Label>
               <Input type="datetime-local" value={form.dueAt} onChange={(e) => setForm({ ...form, dueAt: e.target.value })} />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Байланыш</Label>
+                <Select
+                  value={form.contactId || '__none__'}
+                  onValueChange={(value) => setForm((prev) => ({ ...prev, contactId: value === '__none__' ? '' : value }))}
+                  disabled={optionsLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={optionsLoading ? 'Жүктөлүүдө...' : 'Байланыш тандаңыз'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Тандалган эмес</SelectItem>
+                    {contacts.map((contact) => (
+                      <SelectItem key={contact.id} value={String(contact.id)}>
+                        {contact.fullName} {contact.phone ? `• ${contact.phone}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Келишим</Label>
+                <Select
+                  value={form.dealId || '__none__'}
+                  onValueChange={(value) => setForm((prev) => ({ ...prev, dealId: value === '__none__' ? '' : value }))}
+                  disabled={optionsLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={optionsLoading ? 'Жүктөлүүдө...' : 'Келишим тандаңыз'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Тандалган эмес</SelectItem>
+                    {deals.map((deal) => (
+                      <SelectItem key={deal.id} value={String(deal.id)}>
+                        #{deal.id} • {deal.courseNameSnapshot || 'Курс көрсөтүлгөн эмес'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
           <DialogFooter>

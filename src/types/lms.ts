@@ -67,7 +67,7 @@ export interface LmsStudentSummary {
     enrollmentId: string;
     courseId: string;
     courseName?: string;
-    groupId: string;
+    groupId?: string | null;
     groupName?: string;
     status: LmsEnrollmentStatus;
     enrolledAt?: string;
