@@ -159,6 +159,7 @@ export function EnrollmentForm() {
 
     const payload: CreateEnrollmentRequest = {
       crmLeadId: leadId,
+      crmContactId: selectedDeal?.contactId ? String(selectedDeal.contactId) : selectedLead?.contactId ? String(selectedLead.contactId) : null,
       crmDealId: dealId || null,
       student: {
         fullName: studentName,
@@ -169,7 +170,7 @@ export function EnrollmentForm() {
       courseType: selectedCourse?.courseType,
       groupId: isVideo ? null : groupId,
       paymentStatus: 'submitted',
-      enrollmentStatus: 'pending_activation',
+      enrollmentStatus: 'pending',
       sourceSystem: 'crm',
       meta: {
         submittedByUserId: String(user.id),

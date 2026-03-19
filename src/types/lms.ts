@@ -1,6 +1,6 @@
 // ==================== LMS INTEGRATION TYPES ====================
 
-export type LmsEnrollmentStatus = 'pending_activation' | 'active' | 'paused' | 'completed' | 'cancelled';
+export type LmsEnrollmentStatus = 'pending' | 'active' | 'completed' | 'cancelled';
 export type LmsGroupStatus = 'planned' | 'active' | 'completed' | 'cancelled';
 export type LmsSourceSystem = 'crm' | 'lms';
 
@@ -23,6 +23,7 @@ export interface LmsGroupListParams {
 
 export interface CreateEnrollmentRequest {
   crmLeadId: string;
+  crmContactId?: string | null;
   crmDealId?: string | null;
   crmPaymentId?: string | null;
   student: {
@@ -45,6 +46,7 @@ export interface CreateEnrollmentRequest {
 
 export interface ActivateEnrollmentRequest {
   crmLeadId: string;
+  crmContactId?: string | null;
   crmPaymentId?: string | null;
   paymentStatus: 'submitted' | 'confirmed' | 'failed' | 'refunded' | 'overdue';
   activatedByUserId?: string | null;

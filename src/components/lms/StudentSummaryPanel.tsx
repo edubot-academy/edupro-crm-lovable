@@ -26,8 +26,7 @@ function ProgressBar({ value, label, color }: { value?: number; label: string; c
 const statusVariant = (s: string) => {
   switch (s) {
     case 'active': return 'default' as const;
-    case 'pending_activation': return 'secondary' as const;
-    case 'paused': return 'outline' as const;
+    case 'pending': return 'secondary' as const;
     case 'completed': return 'default' as const;
     case 'cancelled': return 'destructive' as const;
     default: return 'secondary' as const;
@@ -35,9 +34,8 @@ const statusVariant = (s: string) => {
 };
 
 const statusLabel: Record<string, string> = {
-  pending_activation: 'Күтүүдө',
+  pending: 'Күтүүдө',
   active: 'Активдүү',
-  paused: 'Тындырылган',
   completed: 'Аяктаган',
   cancelled: 'Жокко чыгарылган',
 };
@@ -126,7 +124,7 @@ export function StudentSummaryPanel() {
                       <Badge variant={statusVariant(e.status)}>{statusLabel[e.status] || e.status}</Badge>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      {e.status === 'pending_activation' && (
+                      {e.status === 'pending' && (
                         <ActivateEnrollmentDialog enrollmentId={e.enrollmentId} />
                       )}
                       {e.status === 'active' && (
