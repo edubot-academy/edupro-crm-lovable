@@ -1,16 +1,70 @@
 # EduPro CRM Frontend
 
-React/Vite frontend for the CRM side of the EduPro / EduBot sales flow.
+React + Vite frontend for the CRM side of the EduPro / EduBot sales flow.
+
+## Scope
+
+CRM frontend owns operator workflows for:
+- leads
+- contacts
+- deals
+- tasks
+- payments
+- CRM-triggered LMS enrollment actions
+- CRM reporting and funnel visibility
+
+LMS-owned learning internals are not managed here:
+- sessions
+- attendance
+- homework
+- recordings
+- progress
+- student/instructor learning experience
+
+## Current Contract Direction
+
+The frontend is in a compatibility rollout from legacy backend enums toward cleaner business-facing API fields.
+
+Canonical API fields the frontend should prefer:
+- leads: `qualificationStatus`
+- deals: `pipelineStage`
+- tasks: `workflowStatus`
+
+Legacy compatibility fields still accepted/read:
+- leads: `status`
+- deals: `stage`
+- tasks: `status`
+
+Current frontend behavior:
+- UI prefers canonical fields when present
+- legacy values are still mapped for backward compatibility
+- new writes should use canonical fields
 
 ## Current Business Flow
 
 The frontend is aligned to this CRM-driven flow:
 
-`Lead -> Contact -> Deal -> Task -> Payment -> LMS Enrollment`
+`Lead -> Contact -> Deal -> Task -> Payment -> LMS Enrollment -> LMS Activation`
 
 Key ownership assumptions:
 - CRM owns leads, contacts, deals, tasks, payments, and LMS enrollment requests
 - LMS owns courses, groups, sessions, attendance, progress, recordings, and student learning access
+
+## CRM ↔ LMS Integration Assumptions
+
+The frontend expects these CRM backend integration behaviors:
+- LMS course/group selection is fetched from CRM passthrough endpoints
+- enrollment create/activate flows use normalized public LMS statuses:
+  - `pending`
+  - `active`
+  - `completed`
+  - `cancelled`
+- `groupId` may be null for `video` courses
+- CRM uses `crmContactId` in enrollment and activation payloads
+- browser LMS integration calls rely on backend CORS allowing:
+  - `X-Company-Id`
+  - `X-Request-Id`
+  - `X-Idempotency-Key`
 
 ## Current UI Conventions
 
@@ -18,7 +72,7 @@ The frontend no longer expects operators to manually type most internal IDs.
 
 Implemented selector-based flows:
 - `Leads`: manager, interested course, and interested group use dropdowns
-- `Deals`: contact, LMS course, and LMS group use dropdowns
+- `Deals`: contact, LMS course, LMS group, and pipeline stage use dropdowns
 - `Tasks`: contact and deal use dropdowns
 - `Trial Lessons`: contact and optional deal use dropdowns
 - `Payments`: deal uses a dropdown
@@ -31,11 +85,22 @@ Auto-fill behavior:
 
 ## Reporting Split
 
-The frontend intentionally separates analytics from funnel visualization:
+The frontend intentionally separates KPI reporting from funnel visualization:
 
 - `Dashboard` -> `GET /api/dashboard/stats`
 - `Reports` -> `GET /api/reports/stats`
 - `Pipeline` -> `GET /api/reports/funnel` + `GET /api/deals`
+
+Pipeline UI note:
+- the board groups deals by canonical `pipelineStage`
+- legacy `stage` responses are mapped client-side during rollout
+
+## Localization
+
+Rules used in this frontend:
+- visible UI text should be in Kyrgyz
+- internal code, comments, and architecture naming stay in English
+- avoid browser-native English validation messages where custom Kyrgyz validation is available
 
 ## Profile UI
 
@@ -44,13 +109,6 @@ The profile card in `Settings` is read-only by default.
 - press `Өзгөртүү` to enter edit mode
 - `Жокко чыгаруу` restores original values
 - `Сактоо` persists changes and returns to read-only mode
-
-## Localization
-
-Rules used in this frontend:
-- visible UI text should be in Kyrgyz
-- internal code, comments, and architecture naming stay in English
-- avoid browser-native English validation messages where custom Kyrgyz validation is available
 
 ## Development
 
