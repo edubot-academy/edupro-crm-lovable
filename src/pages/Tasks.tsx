@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { ky } from '@/lib/i18n';
-import type { Contact, Deal, Task } from '@/types';
+import type { Contact, Deal, Task, TaskWorkflowStatus } from '@/types';
+import { getTaskWorkflowStatus } from '@/lib/crm-status';
 import { contactApi, dealsApi, tasksApi } from '@/api/modules';
 import { Plus, Filter, CheckCircle, Trash2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -42,7 +43,7 @@ export default function TasksPage() {
 
   const fetchTasks = () => {
     setIsLoading(true);
-    tasksApi.list({ search, status: statusFilter === 'all' ? undefined : statusFilter })
+    tasksApi.list({ search, workflowStatus: statusFilter === 'all' ? undefined : statusFilter })
       .then((res) => setTasks(res.items))
       .catch(() => setTasks(mockTasks))
       .finally(() => setIsLoading(false));
@@ -120,7 +121,7 @@ export default function TasksPage() {
   const handleMarkDone = async (task: Task) => {
     setIsUpdatingTaskId(task.id);
     try {
-      await tasksApi.update(task.id, { status: 'done' });
+      await tasksApi.update(task.id, { workflowStatus: 'completed' });
       toast({ title: 'Тапшырма аткарылды' });
       fetchTasks();
     } catch {
@@ -130,7 +131,7 @@ export default function TasksPage() {
     }
   };
 
-  const filtered = tasks.filter((t) => statusFilter === 'all' || t.status === statusFilter);
+  const filtered = tasks.filter((t) => statusFilter === 'all' || getTaskWorkflowStatus(t) === statusFilter);
 
   const columns: Column<Task>[] = [
     { key: 'title', header: 'Тапшырма', render: (t) => (
@@ -144,8 +145,8 @@ export default function TasksPage() {
     { key: 'dueAt', header: ky.tasks.dueAt, render: (t) => t.dueAt ? new Date(t.dueAt).toLocaleDateString('ky-KG') : '—' },
     { key: 'status', header: ky.common.status, render: (t) => (
       <div className="flex items-center gap-2">
-        <StatusBadge variant={getTaskStatusVariant(t.status)} dot>{ky.taskStatus[t.status]}</StatusBadge>
-        {t.status !== 'done' && t.status !== 'cancelled' && (
+        {(() => { const status = getTaskWorkflowStatus(t); return <StatusBadge variant={getTaskStatusVariant(status)} dot>{ky.taskWorkflowStatus[status]}</StatusBadge>; })()}
+        {getTaskWorkflowStatus(t) !== 'completed' && getTaskWorkflowStatus(t) !== 'cancelled' && (
           <Button variant="ghost" size="sm" className="h-7 text-xs text-success hover:text-success" onClick={() => handleMarkDone(t)} disabled={isUpdatingTaskId === t.id}>
             <CheckCircle className="h-3.5 w-3.5" />
           </Button>
@@ -169,7 +170,7 @@ export default function TasksPage() {
             <p className="truncate font-semibold">{task.title}</p>
             {task.description && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{task.description}</p>}
           </div>
-          <StatusBadge variant={getTaskStatusVariant(task.status)} dot>{ky.taskStatus[task.status]}</StatusBadge>
+          {(() => { const status = getTaskWorkflowStatus(task); return <StatusBadge variant={getTaskStatusVariant(status)} dot>{ky.taskWorkflowStatus[status]}</StatusBadge>; })()}
         </div>
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div className="rounded-md bg-muted/60 p-2">
@@ -182,7 +183,7 @@ export default function TasksPage() {
           </div>
         </div>
         <div className="flex items-center justify-between">
-          {task.status !== 'done' && task.status !== 'cancelled' ? (
+          {getTaskWorkflowStatus(task) !== 'completed' && getTaskWorkflowStatus(task) !== 'cancelled' ? (
             <Button variant="outline" size="sm" onClick={(e) => e.stopPropagation()}>
               <CheckCircle className="mr-2 h-4 w-4" />
               Белгилөө
@@ -205,7 +206,7 @@ export default function TasksPage() {
           <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{ky.common.all}</SelectItem>
-            {Object.entries(ky.taskStatus).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+            {Object.entries(ky.taskWorkflowStatus).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>

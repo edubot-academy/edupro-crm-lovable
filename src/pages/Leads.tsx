@@ -13,7 +13,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ky } from '@/lib/i18n';
 import { leadsApi, usersApi } from '@/api/modules';
 import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
-import type { AssignableUser, Lead, LeadSource } from '@/types';
+import type { AssignableUser, Lead, LeadQualificationStatus, LeadSource } from '@/types';
+import { getLeadQualificationStatus } from '@/lib/crm-status';
 import { Plus, Filter, Trash2, Loader2, Save, Phone, Mail, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -46,7 +47,7 @@ export default function LeadsPage() {
     phone: '',
     email: '',
     source: '' as LeadSource | '',
-    status: 'new' as Lead['status'],
+    qualificationStatus: 'new' as LeadQualificationStatus,
     interestedCourseId: '',
     interestedGroupId: '',
     assignedManagerId: '',
@@ -65,7 +66,7 @@ export default function LeadsPage() {
 
   const fetchLeads = () => {
     setIsLoading(true);
-    leadsApi.list({ search, status: statusFilter === 'all' ? undefined : statusFilter })
+    leadsApi.list({ search, qualificationStatus: statusFilter === 'all' ? undefined : statusFilter })
       .then((res) => setLeads(res.items))
       .catch(() => setLeads(mockLeads))
       .finally(() => setIsLoading(false));
@@ -107,7 +108,7 @@ export default function LeadsPage() {
         phone: newLead.phone,
         email: newLead.email || undefined,
         source: newLead.source || undefined,
-        status: newLead.status,
+        qualificationStatus: newLead.qualificationStatus,
         interestedCourseId: newLead.interestedCourseId || undefined,
         interestedGroupId: newLead.interestedGroupId || undefined,
         assignedManagerId: newLead.assignedManagerId ? Number(newLead.assignedManagerId) : undefined,
@@ -127,14 +128,14 @@ export default function LeadsPage() {
 
   const filtered = leads.filter((l) => {
     const matchSearch = !search || l.fullName.toLowerCase().includes(search.toLowerCase()) || l.phone.includes(search) || l.email.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === 'all' || l.status === statusFilter;
+    const matchStatus = statusFilter === 'all' || getLeadQualificationStatus(l) === statusFilter;
     return matchSearch && matchStatus;
   });
-  const mobileStatuses = Object.entries(ky.leadStatus).filter(([value]) => (
+  const mobileStatuses = Object.entries(ky.leadQualificationStatus).filter(([value]) => (
     statusFilter === 'all' || value === statusFilter
   ));
   const groupedLeads = Object.fromEntries(
-    mobileStatuses.map(([status]) => [status, filtered.filter((lead) => lead.status === status)])
+    mobileStatuses.map(([status]) => [status, filtered.filter((lead) => getLeadQualificationStatus(lead) === status)])
   );
 
   const columns: Column<Lead>[] = [
@@ -143,7 +144,7 @@ export default function LeadsPage() {
     { key: 'source', header: ky.leads.source, render: (l) => <span className="text-sm">{ky.leadSource[l.source]}</span> },
     { key: 'interestedCourseId', header: ky.leads.interestedCourse, render: (l) => <span className="text-sm">{l.interestedCourseId || '—'}</span> },
     { key: 'assignedManager', header: ky.leads.assignedManager, render: (l) => <span className="text-sm">{l.assignedManager?.fullName || '—'}</span> },
-    { key: 'status', header: ky.common.status, render: (l) => <StatusBadge variant={getLeadStatusVariant(l.status)} dot>{ky.leadStatus[l.status]}</StatusBadge> },
+    { key: 'status', header: ky.common.status, render: (l) => { const status = getLeadQualificationStatus(l); return <StatusBadge variant={getLeadStatusVariant(status)} dot>{ky.leadQualificationStatus[status]}</StatusBadge>; } },
     { key: 'createdAt', header: ky.common.date, render: (l) => <span className="text-sm text-muted-foreground">{new Date(l.createdAt).toLocaleDateString('ky-KG')}</span>, className: 'hidden md:table-cell' },
     {
       key: 'actions', header: '', render: (l) => (
@@ -175,7 +176,7 @@ export default function LeadsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{ky.common.all}</SelectItem>
-              {Object.entries(ky.leadStatus).map(([value, label]) => (
+              {Object.entries(ky.leadQualificationStatus).map(([value, label]) => (
                 <SelectItem key={value} value={value}>{label}</SelectItem>
               ))}
             </SelectContent>
@@ -212,7 +213,7 @@ export default function LeadsPage() {
                     <div className="mb-3 flex shrink-0 items-center justify-between">
                       <div className="space-y-1">
                         <p className="text-sm font-semibold text-foreground">{label}</p>
-                        <StatusBadge variant={getLeadStatusVariant(status as Lead['status'])} dot>
+                        <StatusBadge variant={getLeadStatusVariant(status)} dot>
                           {items.length}
                         </StatusBadge>
                       </div>
@@ -360,12 +361,12 @@ export default function LeadsPage() {
               </div>
               <div className="space-y-2">
                 <Label>{ky.common.status}</Label>
-                <Select value={newLead.status} onValueChange={(v) => setNewLead(p => ({ ...p, status: v as Lead['status'] }))}>
+                <Select value={newLead.qualificationStatus} onValueChange={(v) => setNewLead(p => ({ ...p, qualificationStatus: v as LeadQualificationStatus }))}>
                   <SelectTrigger>
                     <SelectValue placeholder={ky.common.status} />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(ky.leadStatus).map(([value, label]) => (
+                    {Object.entries(ky.leadQualificationStatus).map(([value, label]) => (
                       <SelectItem key={value} value={value}>{label}</SelectItem>
                     ))}
                   </SelectContent>

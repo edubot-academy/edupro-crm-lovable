@@ -11,7 +11,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ky } from '@/lib/i18n';
 import { contactApi, dealsApi, tasksApi } from '@/api/modules';
 import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
-import type { Contact, Deal } from '@/types';
+import type { Contact, Deal, DealPipelineStage } from '@/types';
+import { getDealPipelineStage } from '@/lib/crm-status';
 import type { LmsCourseType } from '@/types/lms';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -25,7 +26,7 @@ const emptyForm = {
   contactId: '',
   amount: '',
   currency: 'KGS',
-  stage: 'new_lead' as string,
+  pipelineStage: 'new' as DealPipelineStage,
   courseType: 'offline' as LmsCourseType,
   courseNameSnapshot: '',
   groupNameSnapshot: '',
@@ -110,7 +111,7 @@ export default function DealsPage() {
         contactId: Number(form.contactId),
         amount: Number(form.amount),
         currency: form.currency,
-        stage: form.stage as Deal['stage'],
+        pipelineStage: form.pipelineStage,
         courseType: form.courseType,
         courseNameSnapshot: form.courseNameSnapshot || undefined,
         groupNameSnapshot: form.groupNameSnapshot || undefined,
@@ -156,7 +157,7 @@ export default function DealsPage() {
     { key: 'courseNameSnapshot', header: ky.deals.course, render: (d) => d.courseNameSnapshot || '—' },
     { key: 'groupNameSnapshot', header: ky.deals.group, render: (d) => d.groupNameSnapshot || '—' },
     { key: 'amount', header: ky.deals.amount, render: (d) => <span className="font-medium">{d.amount.toLocaleString()} {d.currency || 'сом'}</span> },
-    { key: 'stage', header: ky.deals.stage, render: (d) => <StatusBadge variant={getLeadStatusVariant(d.stage)} dot>{ky.dealStage[d.stage]}</StatusBadge> },
+    { key: 'stage', header: ky.deals.stage, render: (d) => { const stage = getDealPipelineStage(d); return <StatusBadge variant={getLeadStatusVariant(stage)} dot>{ky.dealPipelineStage[stage]}</StatusBadge>; } },
     {
       key: 'actions', header: '', render: (d) => (
         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(d); }}>
@@ -243,10 +244,10 @@ export default function DealsPage() {
               </div>
               <div className="space-y-2">
                 <Label>{ky.deals.stage}</Label>
-                <Select value={form.stage} onValueChange={(v) => setForm({ ...form, stage: v })}>
+                <Select value={form.pipelineStage} onValueChange={(v) => setForm({ ...form, pipelineStage: v as DealPipelineStage })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {Object.entries(ky.dealStage).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                    {Object.entries(ky.dealPipelineStage).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

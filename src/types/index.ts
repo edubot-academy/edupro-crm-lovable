@@ -103,6 +103,8 @@ export type LeadStatus =
   | 'won'
   | 'lost';
 
+export type LeadQualificationStatus = 'new' | 'contacted' | 'qualified' | 'disqualified';
+
 export interface Lead {
   id: number;
   fullName: string;
@@ -110,6 +112,7 @@ export interface Lead {
   email: string;
   source: LeadSource;
   status: LeadStatus;
+  qualificationStatus?: LeadQualificationStatus;
   contactId?: number | null;
   interestedCourseId?: string;
   interestedGroupId?: string;
@@ -160,9 +163,19 @@ export type DealStage =
   | 'won'
   | 'lost';
 
+export type DealPipelineStage =
+  | 'new'
+  | 'consultation'
+  | 'trial'
+  | 'negotiation'
+  | 'payment_pending'
+  | 'won'
+  | 'lost';
+
 export interface Deal {
   id: number;
   stage: DealStage;
+  pipelineStage?: DealPipelineStage;
   amount: number;
   currency: string;
   contactId?: number;
@@ -222,12 +235,14 @@ export interface Payment {
 
 // ==================== TASKS ====================
 export type TaskStatus = 'open' | 'in_progress' | 'done' | 'cancelled';
+export type TaskWorkflowStatus = 'pending' | 'completed' | 'cancelled' | 'overdue';
 
 export interface Task {
   id: number;
   title: string;
   description?: string;
   status: TaskStatus;
+  workflowStatus?: TaskWorkflowStatus;
   dueAt?: string;
   leadId?: number;
   contactId?: number;

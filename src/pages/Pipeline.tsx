@@ -5,19 +5,18 @@ import { Card, CardContent } from '@/components/ui/card';
 import { StatusBadge, getLeadStatusVariant } from '@/components/StatusBadge';
 import { ky } from '@/lib/i18n';
 import { dealsApi, reportsApi } from '@/api/modules';
-import type { Deal, DealStage, FunnelReport } from '@/types';
+import type { Deal, DealPipelineStage, FunnelReport } from '@/types';
+import { getDealPipelineStage } from '@/lib/crm-status';
 import { User, BookOpen, DollarSign } from 'lucide-react';
 
-const stages: { id: DealStage; title: string }[] = [
-  { id: 'new_lead', title: ky.dealStage.new_lead },
-  { id: 'contacted', title: ky.dealStage.contacted },
-  { id: 'trial_booked', title: ky.dealStage.trial_booked },
-  { id: 'trial_completed', title: ky.dealStage.trial_completed },
-  { id: 'offer_sent', title: ky.dealStage.offer_sent },
-  { id: 'negotiation', title: ky.dealStage.negotiation },
-  { id: 'payment_pending', title: ky.dealStage.payment_pending },
-  { id: 'won', title: ky.dealStage.won },
-  { id: 'lost', title: ky.dealStage.lost },
+const stages: { id: DealPipelineStage; title: string }[] = [
+  { id: 'new', title: ky.dealPipelineStage.new },
+  { id: 'consultation', title: ky.dealPipelineStage.consultation },
+  { id: 'trial', title: ky.dealPipelineStage.trial },
+  { id: 'negotiation', title: ky.dealPipelineStage.negotiation },
+  { id: 'payment_pending', title: ky.dealPipelineStage.payment_pending },
+  { id: 'won', title: ky.dealPipelineStage.won },
+  { id: 'lost', title: ky.dealPipelineStage.lost },
 ];
 
 const mockDeals: Deal[] = [
@@ -65,7 +64,7 @@ export default function PipelinePage() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [funnel, setFunnel] = useState<FunnelReport>(mockFunnel);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeColumn, setActiveColumn] = useState<string>('new_lead');
+  const [activeColumn, setActiveColumn] = useState<string>('new');
 
   useEffect(() => {
     setIsLoading(true);
@@ -83,7 +82,7 @@ export default function PipelinePage() {
   const columns: KanbanColumn<Deal>[] = stages.map((stage) => ({
     id: stage.id,
     title: stage.title,
-    items: deals.filter((d) => d.stage === stage.id),
+    items: deals.filter((d) => getDealPipelineStage(d) === stage.id),
   }));
 
   const renderCard = (deal: Deal) => (
@@ -103,9 +102,7 @@ export default function PipelinePage() {
             <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-sm font-semibold">{deal.amount.toLocaleString()} {deal.currency || 'сом'}</span>
           </div>
-          <StatusBadge variant={getLeadStatusVariant(deal.stage)}>
-            {ky.dealStage[deal.stage]}
-          </StatusBadge>
+          {(() => { const stage = getDealPipelineStage(deal); return <StatusBadge variant={getLeadStatusVariant(stage)}>{ky.dealPipelineStage[stage]}</StatusBadge>; })()}
         </div>
       </CardContent>
     </Card>

@@ -101,6 +101,12 @@ export const ky = {
     won: 'Ийгиликтүү',
     lost: 'Жоголду',
   },
+  leadQualificationStatus: {
+    new: 'Жаңы',
+    contacted: 'Байланышылды',
+    qualified: 'Квалификацияланды',
+    disqualified: 'Четтетилди',
+  },
   // Deals
   deals: {
     title: 'Келишимдер',
@@ -122,6 +128,15 @@ export const ky = {
     trial_booked: 'Сыноо жазылды',
     trial_completed: 'Сыноо аяктады',
     offer_sent: 'Сунуш жиберилди',
+    negotiation: 'Сүйлөшүү',
+    payment_pending: 'Төлөм күтүлүүдө',
+    won: 'Ийгиликтүү',
+    lost: 'Жоголду',
+  },
+  dealPipelineStage: {
+    new: 'Жаңы',
+    consultation: 'Консультация',
+    trial: 'Сыноо',
     negotiation: 'Сүйлөшүү',
     payment_pending: 'Төлөм күтүлүүдө',
     won: 'Ийгиликтүү',
@@ -174,6 +189,12 @@ export const ky = {
     in_progress: 'Аткарылууда',
     done: 'Аяктады',
     cancelled: 'Жокко чыгарылды',
+  },
+  taskWorkflowStatus: {
+    pending: 'Күтүүдө',
+    completed: 'Аяктады',
+    cancelled: 'Жокко чыгарылды',
+    overdue: 'Мөөнөтү өттү',
   },
   // Retention
   retention: {

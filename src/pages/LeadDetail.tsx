@@ -13,7 +13,8 @@ import { ky } from '@/lib/i18n';
 import { ArrowLeft, Phone, Mail, Tag, User, BookOpen, MessageSquare, Loader2, Save } from 'lucide-react';
 import { leadsApi, usersApi } from '@/api/modules';
 import { useToast } from '@/hooks/use-toast';
-import type { AssignableUser, Lead, LeadSource, LeadStatus } from '@/types';
+import type { AssignableUser, Lead, LeadQualificationStatus, LeadSource } from '@/types';
+import { getLeadQualificationStatus } from '@/lib/crm-status';
 
 export default function LeadDetailPage() {
   const { id } = useParams();
@@ -32,7 +33,7 @@ export default function LeadDetailPage() {
     phone: '',
     email: '',
     source: '' as LeadSource | '',
-    status: 'new' as LeadStatus,
+    qualificationStatus: 'new' as LeadQualificationStatus,
     assignedManagerId: '',
     notes: '',
   });
@@ -55,7 +56,7 @@ export default function LeadDetailPage() {
       phone: lead.phone,
       email: lead.email,
       source: lead.source,
-      status: lead.status,
+      qualificationStatus: getLeadQualificationStatus(lead),
       assignedManagerId: lead.assignedManager?.id ? String(lead.assignedManager.id) : '',
       notes: lead.notes || '',
     });
@@ -80,7 +81,7 @@ export default function LeadDetailPage() {
         phone: form.phone,
         email: form.email,
         source: form.source,
-        status: form.status,
+        qualificationStatus: form.qualificationStatus,
         assignedManagerId: form.assignedManagerId ? Number(form.assignedManagerId) : null,
         notes: form.notes || undefined,
       });
@@ -160,7 +161,7 @@ export default function LeadDetailPage() {
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground mb-1">{ky.common.status}</p>
-              <StatusBadge variant={getLeadStatusVariant(lead.status)} dot>{ky.leadStatus[lead.status]}</StatusBadge>
+              {(() => { const status = getLeadQualificationStatus(lead); return <StatusBadge variant={getLeadStatusVariant(status)} dot>{ky.leadQualificationStatus[status]}</StatusBadge>; })()}
             </div>
           </CardContent>
         </Card>
@@ -225,12 +226,12 @@ export default function LeadDetailPage() {
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <Label>{ky.common.status}</Label>
-                <Select value={form.status} onValueChange={(value) => setForm((prev) => ({ ...prev, status: value as LeadStatus }))}>
+                <Select value={form.qualificationStatus} onValueChange={(value) => setForm((prev) => ({ ...prev, qualificationStatus: value as LeadQualificationStatus }))}>
                   <SelectTrigger>
                     <SelectValue placeholder={ky.common.status} />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(ky.leadStatus).map(([value, label]) => (
+                    {Object.entries(ky.leadQualificationStatus).map(([value, label]) => (
                       <SelectItem key={value} value={value}>{label}</SelectItem>
                     ))}
                   </SelectContent>
