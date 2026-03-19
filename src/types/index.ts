@@ -379,6 +379,14 @@ export interface LmsCourse {
   duration?: string;
   price?: number;
   courseType?: import('@/types/lms').LmsCourseType;
+  status?: 'draft' | 'published' | 'archived';
+  schedule?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  teacherName?: string | null;
+  capacity?: number | null;
+  currentStudentCount?: number | null;
+  availableSeats?: number | null;
 }
 
 export interface LmsGroup {
@@ -386,8 +394,12 @@ export interface LmsGroup {
   courseId: string;
   name: string;
   teacherName?: string;
-  schedule?: string;
-  startDate?: string;
-  capacity?: number;
+  status?: import('@/types/lms').LmsGroupStatus;
+  schedule?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  capacity?: number | null;
+  currentStudentCount?: number | null;
+  availableSeats?: number | null;
   enrolled?: number;
 }

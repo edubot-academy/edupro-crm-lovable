@@ -60,7 +60,7 @@ export default function LeadsPage() {
   const selectedCourse = courses.find((course) => course.id === newLead.interestedCourseId);
   const needsGroup = !!selectedCourse && selectedCourse.courseType !== 'video';
   const { data: groupsData, isLoading: groupsLoading } = useLmsGroups(
-    needsGroup ? { courseId: newLead.interestedCourseId, status: 'active' } : undefined
+    needsGroup ? { courseId: newLead.interestedCourseId } : undefined
   );
   const groups = groupsData?.items ?? [];
 

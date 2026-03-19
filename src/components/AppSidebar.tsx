@@ -23,6 +23,7 @@ import {
 const mainNav = [
   { title: ky.nav.dashboard, url: '/', icon: LayoutDashboard },
   { title: ky.nav.leads, url: '/leads', icon: Users },
+  { title: ky.nav.courses, url: '/courses', icon: BookOpen },
   { title: ky.nav.contacts, url: '/contacts', icon: UserCheck },
   { title: ky.nav.deals, url: '/deals', icon: Handshake },
   { title: ky.nav.pipeline, url: '/pipeline', icon: GitBranch },
@@ -31,7 +32,7 @@ const mainNav = [
 
 const operationsNav = [
   { title: ky.nav.payments, url: '/payments', icon: CreditCard },
-  { title: 'LMS Каттоо', url: '/enrollments', icon: BookOpen },
+  { title: 'LMS Каттоо', url: '/enrollments', icon: GraduationCap },
   { title: ky.nav.tasks, url: '/tasks', icon: CheckSquare },
   { title: ky.nav.timeline, url: '/timeline', icon: MessageSquare },
   { title: ky.nav.retention, url: '/retention', icon: AlertTriangle },

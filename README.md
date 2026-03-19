@@ -85,11 +85,28 @@ The frontend no longer expects operators to manually type most internal IDs.
 
 Implemented selector-based flows:
 - `Leads`: manager, interested course, and interested group use dropdowns
+- `Courses`: read-only LMS catalog visibility for sales
 - `Deals`: contact, LMS course, LMS group, and pipeline stage use dropdowns
 - `Tasks`: contact and deal use dropdowns
 - `Trial Lessons`: contact and optional deal use dropdowns
 - `Payments`: deal uses a dropdown
 - `LMS Enrollment`: lead and optional deal use dropdowns
+
+Sales visibility in LMS selectors:
+- CRM course and group selectors surface LMS-owned visibility data for decision support:
+  - course type
+  - start date
+  - schedule
+  - teacher
+  - current seats / available seats
+  - group availability badges in Kyrgyz
+- CRM still treats LMS as the source of truth and does not manage academic structures directly
+
+Sell-flow shortcuts:
+- the `Courses` page can open:
+  - a new CRM deal with LMS course/group prefilled
+  - the LMS enrollment form with LMS course/group prefilled
+- prefills are passed through route query params and stay read-only with respect to LMS ownership
 
 Auto-fill behavior:
 - selecting a lead in LMS enrollment auto-fills student name, phone, and email

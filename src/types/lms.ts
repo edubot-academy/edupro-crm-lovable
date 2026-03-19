@@ -1,7 +1,7 @@
 // ==================== LMS INTEGRATION TYPES ====================
 
 export type LmsEnrollmentStatus = 'pending' | 'active' | 'completed' | 'cancelled';
-export type LmsGroupStatus = 'planned' | 'active' | 'completed' | 'cancelled';
+export type LmsGroupStatus = 'planned' | 'open' | 'active' | 'completed' | 'cancelled';
 export type LmsSourceSystem = 'crm' | 'lms';
 
 export type LmsCourseType = 'video' | 'offline' | 'online_live';

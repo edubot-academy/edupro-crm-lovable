@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/PageShell';
 import { DataTable, type Column } from '@/components/DataTable';
 import { StatusBadge, getLeadStatusVariant } from '@/components/StatusBadge';
@@ -14,8 +15,10 @@ import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
 import type { Contact, Deal, DealPipelineStage } from '@/types';
 import { getDealPipelineStage } from '@/lib/crm-status';
 import type { LmsCourseType } from '@/types/lms';
+import { formatLmsDate, getCourseSalesSummary, getLmsGroupAvailability, getSeatsLeft } from '@/lib/lms-availability';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 
 const mockDeals: Deal[] = [
   { id: 1, contact: { id: 1, fullName: 'Элнура Турдалиева' }, lmsCourseId: 'c1', courseNameSnapshot: 'Python', lmsGroupId: 'g1', groupNameSnapshot: 'PY-24-1', amount: 15000, currency: 'KGS', stage: 'won', createdAt: '2024-02-20', updatedAt: '2024-03-10' },
@@ -39,6 +42,7 @@ const emptyForm = {
 };
 
 export default function DealsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -55,9 +59,24 @@ export default function DealsPage() {
   const selectedCourse = courses.find((course) => course.id === form.lmsCourseId);
   const needsGroup = !!selectedCourse && selectedCourse.courseType !== 'video';
   const { data: groupsData, isLoading: groupsLoading } = useLmsGroups(
-    needsGroup ? { courseId: form.lmsCourseId, status: 'active' } : undefined,
+    needsGroup ? { courseId: form.lmsCourseId } : undefined,
   );
   const groups = groupsData?.items ?? [];
+  const selectedGroup = groups.find((group) => group.id === form.lmsGroupId);
+  const prefillCourseId = searchParams.get('courseId') || '';
+  const prefillGroupId = searchParams.get('groupId') || '';
+  const shouldOpenCreate = searchParams.get('create') === '1';
+
+  const clearPrefillParams = () => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete('create');
+      next.delete('courseId');
+      next.delete('courseType');
+      next.delete('groupId');
+      return next;
+    }, { replace: true });
+  };
 
   const fetchDeals = () => {
     setIsLoading(true);
@@ -77,6 +96,39 @@ export default function DealsPage() {
       .catch(() => setContacts([]))
       .finally(() => setContactsLoading(false));
   }, [showCreate]);
+
+  useEffect(() => {
+    if (!shouldOpenCreate) return;
+    setShowCreate(true);
+  }, [shouldOpenCreate]);
+
+  useEffect(() => {
+    if (!showCreate || !courses.length || !prefillCourseId) return;
+    const course = courses.find((item) => item.id === prefillCourseId);
+    if (!course) return;
+    setForm((prev) => {
+      if (prev.lmsCourseId === course.id) return prev;
+      return {
+        ...prev,
+        lmsCourseId: course.id,
+        courseNameSnapshot: course.name || '',
+        courseType: course.courseType || 'offline',
+        lmsGroupId: '',
+        groupNameSnapshot: '',
+      };
+    });
+  }, [showCreate, courses, prefillCourseId]);
+
+  useEffect(() => {
+    if (!showCreate || !prefillGroupId || !groups.length) return;
+    const group = groups.find((item) => item.id === prefillGroupId);
+    if (!group) return;
+    setForm((prev) => ({
+      ...prev,
+      lmsGroupId: group.id,
+      groupNameSnapshot: group.name || '',
+    }));
+  }, [showCreate, groups, prefillGroupId]);
 
   const handleContactChange = (value: string) => {
     setForm((prev) => ({ ...prev, contactId: value }));
@@ -129,6 +181,7 @@ export default function DealsPage() {
       toast({ title: 'Келишим ийгиликтүү кошулду' });
       setShowCreate(false);
       setForm(emptyForm);
+      clearPrefillParams();
       fetchDeals();
     } catch {
       toast({ title: 'Келишим кошууда ката кетти', variant: 'destructive' });
@@ -173,7 +226,10 @@ export default function DealsPage() {
       <DataTable columns={columns} data={deals} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Келишим издөө..." />
 
       {/* Create Dialog */}
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+      <Dialog open={showCreate} onOpenChange={(open) => {
+        setShowCreate(open);
+        if (!open) clearPrefillParams();
+      }}>
         <DialogContent className="max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl">
           <DialogHeader><DialogTitle>{ky.deals.newDeal}</DialogTitle></DialogHeader>
           <div className="space-y-4">
@@ -209,6 +265,11 @@ export default function DealsPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {selectedCourse && (
+                  <p className="text-xs text-muted-foreground">
+                    {getCourseSalesSummary(selectedCourse).join(' • ') || 'Маалымат жок'}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Курс түрү</Label>
@@ -224,11 +285,30 @@ export default function DealsPage() {
                     {!needsGroup && <SelectItem value="__none__">Талап кылынбайт</SelectItem>}
                     {groups.map((group) => (
                       <SelectItem key={group.id} value={group.id}>
-                        {group.name}
+                        {group.name} {group.teacherName ? `• ${group.teacherName}` : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {selectedGroup && (
+                  <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium text-foreground">{selectedGroup.name}</span>
+                      <Badge variant={getLmsGroupAvailability(selectedGroup).tone}>
+                        {getLmsGroupAvailability(selectedGroup).label}
+                      </Badge>
+                    </div>
+                    <p>
+                      {selectedGroup.startDate ? `Башталышы: ${formatLmsDate(selectedGroup.startDate)}` : 'Башталышы: такталган эмес'}
+                      {selectedGroup.schedule ? ` • График: ${selectedGroup.schedule}` : ''}
+                    </p>
+                    <p>
+                      {selectedGroup.teacherName ? `Мугалим: ${selectedGroup.teacherName}` : 'Мугалим: дайындала элек'}
+                      {selectedGroup.capacity != null ? ` • Орун: ${selectedGroup.currentStudentCount ?? 0}/${selectedGroup.capacity}` : ''}
+                      {getSeatsLeft(selectedGroup) != null ? ` • Бош орун: ${getSeatsLeft(selectedGroup)}` : ''}
+                    </p>
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>LMS Курс ID</Label>

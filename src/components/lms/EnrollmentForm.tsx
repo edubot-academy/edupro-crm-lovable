@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,6 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { dealsApi, leadsApi } from '@/api/modules';
 import type { Deal, Lead } from '@/types';
 import type { CreateEnrollmentRequest, LmsCourseType } from '@/types/lms';
+import { formatLmsDate, getCourseSalesSummary, getLmsGroupAvailability, getSeatsLeft } from '@/lib/lms-availability';
 
 const courseTypeLabels: Record<LmsCourseType, string> = {
   video: 'Видео',
@@ -26,6 +28,7 @@ const courseTypeBadgeClass: Record<LmsCourseType, string> = {
 };
 
 export function EnrollmentForm() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -54,9 +57,13 @@ export function EnrollmentForm() {
   const needsGroup = selectedCourse && !isVideo;
 
   const { data: groupsData, isLoading: groupsLoading } = useLmsGroups(
-    needsGroup ? { courseId, status: 'active' } : undefined
+    needsGroup ? { courseId } : undefined
   );
   const groups = groupsData?.items ?? [];
+  const selectedGroup = useMemo(
+    () => groups.find((group) => group.id === groupId),
+    [groups, groupId]
+  );
   const selectedLead = useMemo(
     () => leads.find((lead) => String(lead.id) === leadId),
     [leads, leadId]
@@ -65,6 +72,8 @@ export function EnrollmentForm() {
     () => deals.find((deal) => String(deal.id) === dealId),
     [deals, dealId]
   );
+  const prefillCourseId = searchParams.get('courseId') || '';
+  const prefillGroupId = searchParams.get('groupId') || '';
 
   const createMutation = useCreateEnrollment();
 
@@ -81,6 +90,20 @@ export function EnrollmentForm() {
       .catch(() => setDeals([]))
       .finally(() => setDealsLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!courses.length || !prefillCourseId) return;
+    const course = courses.find((item) => item.id === prefillCourseId);
+    if (!course) return;
+    setCourseId((current) => (current === course.id ? current : course.id));
+  }, [courses, prefillCourseId]);
+
+  useEffect(() => {
+    if (!groups.length || !prefillGroupId) return;
+    const group = groups.find((item) => item.id === prefillGroupId);
+    if (!group) return;
+    setGroupId((current) => (current === group.id ? current : group.id));
+  }, [groups, prefillGroupId]);
 
   const handleCourseChange = (value: string) => {
     setCourseId(value);
@@ -197,6 +220,13 @@ export function EnrollmentForm() {
         setGroupError('');
         idempotencyRef.current = null;
         setSubmitError('');
+        setSearchParams((current) => {
+          const next = new URLSearchParams(current);
+          next.delete('courseId');
+          next.delete('courseType');
+          next.delete('groupId');
+          return next;
+        }, { replace: true });
       },
     });
   };
@@ -231,10 +261,15 @@ export function EnrollmentForm() {
               </SelectContent>
             </Select>
             {selectedCourse?.courseType && (
-              <p className="text-xs text-muted-foreground">
-                Түрү: {courseTypeLabels[selectedCourse.courseType]}
-                {isVideo && ' — Топ тандоо талап кылынбайт'}
-              </p>
+              <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground space-y-1">
+                <p>
+                  Түрү: {courseTypeLabels[selectedCourse.courseType]}
+                  {isVideo && ' — Топ тандоо талап кылынбайт'}
+                </p>
+                {getCourseSalesSummary(selectedCourse).length > 1 && (
+                  <p>{getCourseSalesSummary(selectedCourse).slice(1).join(' • ')}</p>
+                )}
+              </div>
             )}
           </div>
 
@@ -261,11 +296,12 @@ export function EnrollmentForm() {
                           {g.name} {g.teacherName ? `(${g.teacherName})` : ''}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          {g.startDate && `Башталышы: ${g.startDate}`}
+                          {g.startDate && `Башталышы: ${formatLmsDate(g.startDate)}`}
                           {g.schedule ? ` — ${g.schedule}` : ''}
-                          {g.capacity != null && g.enrolled != null
-                            ? ` | ${g.capacity - g.enrolled} орун бош`
+                          {getSeatsLeft(g) != null
+                            ? ` | ${getSeatsLeft(g)} орун бош`
                             : ''}
+                          {g.status ? ` | ${getLmsGroupAvailability(g).label}` : ''}
                         </span>
                       </span>
                     </SelectItem>
@@ -273,6 +309,25 @@ export function EnrollmentForm() {
                 </SelectContent>
               </Select>
               {groupError && <p className="text-xs text-destructive">{groupError}</p>}
+              {selectedGroup && (
+                <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-foreground">{selectedGroup.name}</span>
+                    <Badge variant={getLmsGroupAvailability(selectedGroup).tone}>
+                      {getLmsGroupAvailability(selectedGroup).label}
+                    </Badge>
+                  </div>
+                  <p>
+                    {selectedGroup.startDate ? `Башталышы: ${formatLmsDate(selectedGroup.startDate)}` : 'Башталышы: такталган эмес'}
+                    {selectedGroup.schedule ? ` • График: ${selectedGroup.schedule}` : ''}
+                  </p>
+                  <p>
+                    {selectedGroup.teacherName ? `Мугалим: ${selectedGroup.teacherName}` : 'Мугалим: дайындала элек'}
+                    {selectedGroup.capacity != null ? ` • Орун: ${selectedGroup.currentStudentCount ?? 0}/${selectedGroup.capacity}` : ''}
+                    {getSeatsLeft(selectedGroup) != null ? ` • Бош орун: ${getSeatsLeft(selectedGroup)}` : ''}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

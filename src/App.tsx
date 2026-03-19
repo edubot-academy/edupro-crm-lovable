@@ -13,6 +13,7 @@ import ResetPasswordPage from "./pages/ResetPassword";
 import AcceptInvitePage from "./pages/AcceptInvite";
 import DashboardPage from "./pages/Dashboard";
 import LeadsPage from "./pages/Leads";
+import CoursesPage from "./pages/Courses";
 import LeadDetailPage from "./pages/LeadDetail";
 import ContactsPage from "./pages/Contacts";
 import ContactDetailPage from "./pages/ContactDetail";
@@ -58,6 +59,7 @@ const App = () => (
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/leads" element={<LeadsPage />} />
+              <Route path="/courses" element={<CoursesPage />} />
               <Route path="/leads/:id" element={<LeadDetailPage />} />
               <Route path="/contacts" element={<ContactsPage />} />
               <Route path="/contacts/:id" element={<ContactDetailPage />} />
