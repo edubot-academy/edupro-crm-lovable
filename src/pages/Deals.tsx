@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/PageShell';
 import { DataTable, type Column } from '@/components/DataTable';
 import { StatusBadge, getLeadStatusVariant } from '@/components/StatusBadge';
@@ -42,6 +42,7 @@ const emptyForm = {
 };
 
 export default function DealsPage() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -223,7 +224,15 @@ export default function DealsPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader title={ky.deals.title} actions={<Button onClick={() => setShowCreate(true)}><Plus className="mr-2 h-4 w-4" />{ky.deals.newDeal}</Button>} />
-      <DataTable columns={columns} data={deals} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Келишим издөө..." />
+      <DataTable
+        columns={columns}
+        data={deals}
+        isLoading={isLoading}
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Келишим издөө..."
+        onRowClick={(deal) => navigate(`/deals/${deal.id}`)}
+      />
 
       {/* Create Dialog */}
       <Dialog open={showCreate} onOpenChange={(open) => {

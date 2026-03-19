@@ -108,6 +108,13 @@ Sell-flow shortcuts:
   - the LMS enrollment form with LMS course/group prefilled
 - prefills are passed through route query params and stay read-only with respect to LMS ownership
 
+Post-sale LMS visibility:
+- `Contact detail` shows a live LMS student snapshot when `lmsStudentId` is linked
+- the snapshot includes enrollments and academic summary metrics from LMS
+- the `Enrollments` page can open with a prefilled LMS student summary via `studentId` query param
+- `Contact detail` also shows recent LMS integration events and links into the full enrollments/integration history view with prefilled filters
+- `Deal detail` shows the sold LMS snapshot, linked payments, and filtered integration history for the specific sale
+
 Auto-fill behavior:
 - selecting a lead in LMS enrollment auto-fills student name, phone, and email
 - selecting a deal auto-fills linked contact and LMS course/group where available

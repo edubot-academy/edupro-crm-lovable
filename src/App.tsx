@@ -15,6 +15,7 @@ import DashboardPage from "./pages/Dashboard";
 import LeadsPage from "./pages/Leads";
 import CoursesPage from "./pages/Courses";
 import LeadDetailPage from "./pages/LeadDetail";
+import DealDetailPage from "./pages/DealDetail";
 import ContactsPage from "./pages/Contacts";
 import ContactDetailPage from "./pages/ContactDetail";
 import LegacyContactsPage from "./pages/LegacyContactsPage";
@@ -66,6 +67,7 @@ const App = () => (
               <Route path="/legacy-contacts" element={<ProtectedRoute allowedRoles={['superadmin']}><LegacyContactsPage /></ProtectedRoute>} />
               <Route path="/legacy-contacts/:id" element={<ProtectedRoute allowedRoles={['superadmin']}><LegacyContactDetailPage /></ProtectedRoute>} />
               <Route path="/deals" element={<DealsPage />} />
+              <Route path="/deals/:id" element={<DealDetailPage />} />
               <Route path="/pipeline" element={<PipelinePage />} />
               <Route path="/trial-lessons" element={<TrialLessonsPage />} />
               <Route path="/payments" element={<PaymentsPage />} />

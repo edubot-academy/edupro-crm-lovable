@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -40,9 +40,15 @@ const statusLabel: Record<string, string> = {
   cancelled: 'Жокко чыгарылган',
 };
 
-export function StudentSummaryPanel() {
-  const [studentIdInput, setStudentIdInput] = useState('');
-  const [searchId, setSearchId] = useState<string | undefined>();
+export function StudentSummaryPanel({ initialStudentId }: { initialStudentId?: string }) {
+  const [studentIdInput, setStudentIdInput] = useState(initialStudentId || '');
+  const [searchId, setSearchId] = useState<string | undefined>(initialStudentId || undefined);
+
+  useEffect(() => {
+    if (!initialStudentId) return;
+    setStudentIdInput(initialStudentId);
+    setSearchId(initialStudentId);
+  }, [initialStudentId]);
 
   const { data: summary, isLoading, isError, error } = useLmsStudentSummary(searchId);
 

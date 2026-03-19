@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ const formatDateTime = (value?: string | null) => {
   return date.toLocaleString('ky-KG');
 };
 
-export function IntegrationHistoryPanel() {
+export function IntegrationHistoryPanel({ initialFilters }: { initialFilters?: Record<string, string | number | undefined> }) {
   const [filters, setFilters] = useState({
     crmLeadId: '',
     crmContactId: '',
@@ -30,7 +30,21 @@ export function IntegrationHistoryPanel() {
     lmsStudentId: '',
     lmsEnrollmentId: '',
   });
-  const [submittedFilters, setSubmittedFilters] = useState<Record<string, string | number | undefined>>({});
+  const [submittedFilters, setSubmittedFilters] = useState<Record<string, string | number | undefined>>(initialFilters || {});
+
+  useEffect(() => {
+    if (!initialFilters) return;
+    setFilters((prev) => ({
+      ...prev,
+      crmLeadId: String(initialFilters.crmLeadId || ''),
+      crmContactId: String(initialFilters.crmContactId || ''),
+      crmDealId: String(initialFilters.crmDealId || ''),
+      crmPaymentId: String(initialFilters.crmPaymentId || ''),
+      lmsStudentId: String(initialFilters.lmsStudentId || ''),
+      lmsEnrollmentId: String(initialFilters.lmsEnrollmentId || ''),
+    }));
+    setSubmittedFilters(initialFilters);
+  }, [initialFilters]);
 
   const queryParams = useMemo(
     () =>
