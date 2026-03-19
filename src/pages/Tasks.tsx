@@ -17,9 +17,9 @@ import { Plus, Filter, CheckCircle, Trash2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const mockTasks: Task[] = [
-  { id: 1, title: 'Азаматка чалуу', description: 'Python курсу жөнүндө', status: 'pending', dueAt: '2024-03-11', assignedTo: { id: 1, fullName: 'Нургуль' }, createdAt: '2024-03-09' },
-  { id: 2, title: 'Сыноо сабакты ырастоо', description: 'Бакытка чалуу', status: 'overdue', dueAt: '2024-03-10', assignedTo: { id: 2, fullName: 'Айбек' }, createdAt: '2024-03-08' },
-  { id: 3, title: 'Сунуш жиберүү', description: 'Гүлнарага сунуш', status: 'pending', dueAt: '2024-03-12', assignedTo: { id: 3, fullName: 'Эрлан' }, createdAt: '2024-03-09' },
+  { id: 1, title: 'Азаматка чалуу', description: 'Python курсу жөнүндө', status: 'open', dueAt: '2024-03-11', assignedTo: { id: 1, fullName: 'Нургуль' }, createdAt: '2024-03-09' },
+  { id: 2, title: 'Сыноо сабакты ырастоо', description: 'Бакытка чалуу', status: 'in_progress', dueAt: '2024-03-10', assignedTo: { id: 2, fullName: 'Айбек' }, createdAt: '2024-03-08' },
+  { id: 3, title: 'Сунуш жиберүү', description: 'Гүлнарага сунуш', status: 'open', dueAt: '2024-03-12', assignedTo: { id: 3, fullName: 'Эрлан' }, createdAt: '2024-03-09' },
 ];
 
 const emptyForm = { title: '', description: '', dueAt: '', contactId: '', dealId: '' };
@@ -120,7 +120,7 @@ export default function TasksPage() {
   const handleMarkDone = async (task: Task) => {
     setIsUpdatingTaskId(task.id);
     try {
-      await tasksApi.update(task.id, { status: 'completed' });
+      await tasksApi.update(task.id, { status: 'done' });
       toast({ title: 'Тапшырма аткарылды' });
       fetchTasks();
     } catch {
@@ -145,7 +145,7 @@ export default function TasksPage() {
     { key: 'status', header: ky.common.status, render: (t) => (
       <div className="flex items-center gap-2">
         <StatusBadge variant={getTaskStatusVariant(t.status)} dot>{ky.taskStatus[t.status]}</StatusBadge>
-        {t.status !== 'completed' && t.status !== 'cancelled' && (
+        {t.status !== 'done' && t.status !== 'cancelled' && (
           <Button variant="ghost" size="sm" className="h-7 text-xs text-success hover:text-success" onClick={() => handleMarkDone(t)} disabled={isUpdatingTaskId === t.id}>
             <CheckCircle className="h-3.5 w-3.5" />
           </Button>
@@ -169,7 +169,7 @@ export default function TasksPage() {
             <p className="truncate font-semibold">{task.title}</p>
             {task.description && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{task.description}</p>}
           </div>
-          <StatusBadge variant={taskStatusVariant(task.status)} dot>{ky.taskStatus[task.status]}</StatusBadge>
+          <StatusBadge variant={getTaskStatusVariant(task.status)} dot>{ky.taskStatus[task.status]}</StatusBadge>
         </div>
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div className="rounded-md bg-muted/60 p-2">

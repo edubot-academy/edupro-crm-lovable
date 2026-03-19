@@ -221,7 +221,7 @@ export interface Payment {
 }
 
 // ==================== TASKS ====================
-export type TaskStatus = 'pending' | 'completed' | 'cancelled' | 'overdue';
+export type TaskStatus = 'open' | 'in_progress' | 'done' | 'cancelled';
 
 export interface Task {
   id: number;

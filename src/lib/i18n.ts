@@ -98,8 +98,8 @@ export const ky = {
     offer_sent: 'Сунуш жиберилди',
     negotiation: 'Сүйлөшүү',
     payment_pending: 'Төлөм күтүлүүдө',
-    won: 'Утулду',
-    lost: 'Жоготулду',
+    won: 'Ийгиликтүү',
+    lost: 'Жоголду',
   },
   // Deals
   deals: {
@@ -124,8 +124,8 @@ export const ky = {
     offer_sent: 'Сунуш жиберилди',
     negotiation: 'Сүйлөшүү',
     payment_pending: 'Төлөм күтүлүүдө',
-    won: 'Утулду',
-    lost: 'Жоготулду',
+    won: 'Ийгиликтүү',
+    lost: 'Жоголду',
   },
   // Payments
   payments: {
@@ -170,10 +170,10 @@ export const ky = {
     deleteError: 'Тапшырманы өчүрүүдө ката кетти',
   },
   taskStatus: {
-    pending: 'Күтүлүүдө',
-    completed: 'Аяктады',
+    open: 'Ачык',
+    in_progress: 'Аткарылууда',
+    done: 'Аяктады',
     cancelled: 'Жокко чыгарылды',
-    overdue: 'Мөөнөтү өттү',
   },
   // Retention
   retention: {
@@ -210,7 +210,7 @@ export const ky = {
     conversionRate: 'Конверсия пайызы',
     trialConversion: 'Сыноодон сатуу',
     paymentPending: 'Төлөм күтүлүүдө',
-    wonDeals: 'Утулган келишимдер',
+    wonDeals: 'Ийгиликтүү келишимдер',
     openRetention: 'Ачык тобокелдик',
     leadsBySource: 'Лидтер булагы боюнча',
     managerPerformance: 'Менеджер натыйжасы',

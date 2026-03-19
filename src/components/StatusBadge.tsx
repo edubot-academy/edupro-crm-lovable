@@ -80,10 +80,10 @@ export function getPaymentStatusVariant(status: string): StatusBadgeProps['varia
 
 export function getTaskStatusVariant(status: string): StatusBadgeProps['variant'] {
   switch (status) {
-    case 'pending': return 'warning';
-    case 'completed': return 'success';
+    case 'open': return 'warning';
+    case 'in_progress': return 'info';
+    case 'done': return 'success';
     case 'cancelled': return 'muted';
-    case 'overdue': return 'destructive';
     default: return 'default';
   }
 }
