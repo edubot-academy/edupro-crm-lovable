@@ -232,6 +232,16 @@ export interface Payment {
   contact?: { id: number; fullName: string };
   company?: CompanyRef;
   createdAt?: string;
+  dealPaymentSummary?: {
+    dealTotal: number;
+    confirmedPaid: number;
+    submittedPending: number;
+    refundedTotal: number;
+    remaining: number;
+    depositPaid: number;
+    lastPaymentKind?: PaymentKind | null;
+    lastPaymentStatus?: PaymentStatus | null;
+  } | null;
 }
 
 // ==================== TASKS ====================

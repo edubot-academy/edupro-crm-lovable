@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/PageShell';
 import { DataTable, type Column } from '@/components/DataTable';
 import { StatusBadge, getPaymentStatusVariant } from '@/components/StatusBadge';
@@ -24,6 +25,7 @@ const mockPayments: Payment[] = [
 const emptyForm = { dealId: '', amount: '', kind: 'regular' as Payment['kind'], method: 'card' as string };
 
 export default function PaymentsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -36,6 +38,20 @@ export default function PaymentsPage() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [dealsLoading, setDealsLoading] = useState(false);
   const { toast } = useToast();
+  const prefillDealId = searchParams.get('dealId') || '';
+  const shouldOpenCreate = searchParams.get('create') === '1';
+  const selectedDeal = deals.find((deal) => String(deal.id) === form.dealId);
+  const selectedDealPayments = payments.filter((payment) => String(payment.dealId) === form.dealId);
+  const selectedDealSummary = selectedDealPayments[0]?.dealPaymentSummary ?? null;
+
+  const clearPrefillParams = () => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete('dealId');
+      next.delete('create');
+      return next;
+    }, { replace: true });
+  };
 
   const fetchPayments = () => {
     setIsLoading(true);
@@ -48,6 +64,11 @@ export default function PaymentsPage() {
   useEffect(() => { fetchPayments(); }, [search, statusFilter]);
 
   useEffect(() => {
+    if (!shouldOpenCreate) return;
+    setShowCreate(true);
+  }, [shouldOpenCreate]);
+
+  useEffect(() => {
     if (!showCreate) return;
     setDealsLoading(true);
     dealsApi.list({ page: 1, limit: 100 })
@@ -55,6 +76,11 @@ export default function PaymentsPage() {
       .catch(() => setDeals([]))
       .finally(() => setDealsLoading(false));
   }, [showCreate]);
+
+  useEffect(() => {
+    if (!showCreate || !prefillDealId) return;
+    setForm((prev) => ({ ...prev, dealId: prefillDealId }));
+  }, [showCreate, prefillDealId]);
 
   const handleCreate = async () => {
     if (!form.dealId || !form.amount) return;
@@ -74,6 +100,7 @@ export default function PaymentsPage() {
       toast({ title: form.kind === 'deposit' ? 'Депозит ийгиликтүү кошулду' : 'Төлөм ийгиликтүү кошулду' });
       setShowCreate(false);
       setForm(emptyForm);
+      clearPrefillParams();
       fetchPayments();
     } catch {
       toast({ title: 'Төлөм кошууда ката кетти', variant: 'destructive' });
@@ -139,7 +166,10 @@ export default function PaymentsPage() {
       <DataTable columns={columns} data={payments} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Төлөм издөө..." />
 
       {/* Create Dialog */}
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+      <Dialog open={showCreate} onOpenChange={(open) => {
+        setShowCreate(open);
+        if (!open) clearPrefillParams();
+      }}>
         <DialogContent className="max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-xl">
           <DialogHeader><DialogTitle>{ky.payments.newPayment}</DialogTitle></DialogHeader>
           <div className="space-y-4">
@@ -162,6 +192,24 @@ export default function PaymentsPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {selectedDeal && (
+                <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground space-y-1">
+                  <p>
+                    {selectedDeal.courseNameSnapshot || 'Курс көрсөтүлгөн эмес'}
+                    {selectedDeal.contact?.fullName ? ` • ${selectedDeal.contact.fullName}` : ''}
+                  </p>
+                  {selectedDealSummary ? (
+                    <p>
+                      Жалпы: {selectedDealSummary.dealTotal.toLocaleString()} сом
+                      {' • '}Ырасталды: {selectedDealSummary.confirmedPaid.toLocaleString()} сом
+                      {' • '}Депозит: {selectedDealSummary.depositPaid.toLocaleString()} сом
+                      {' • '}Калганы: {selectedDealSummary.remaining.toLocaleString()} сом
+                    </p>
+                  ) : selectedDeal.amount != null ? (
+                    <p>Жалпы: {Number(selectedDeal.amount).toLocaleString()} сом</p>
+                  ) : null}
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label>{ky.payments.kind}</Label>

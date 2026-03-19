@@ -92,6 +92,15 @@ Implemented selector-based flows:
 - `Payments`: deal uses a dropdown
 - `LMS Enrollment`: lead and optional deal use dropdowns
 
+Payment behavior:
+- payments are valid for contact-linked deals even when legacy lead lineage is missing
+- LMS enrollment automation still uses lead lineage when it exists, but payment creation itself no longer hard-fails on contact-only deals
+- payment responses now include per-deal balance context:
+  - total
+  - confirmed paid
+  - deposit paid
+  - remaining
+
 Sales visibility in LMS selectors:
 - CRM course and group selectors surface LMS-owned visibility data for decision support:
   - course type

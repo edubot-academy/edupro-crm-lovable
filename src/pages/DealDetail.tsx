@@ -76,6 +76,7 @@ export default function DealDetailPage() {
   }
 
   const availability = liveGroup ? getLmsGroupAvailability(liveGroup) : null;
+  const paymentSummary = payments[0]?.dealPaymentSummary ?? null;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -86,6 +87,12 @@ export default function DealDetailPage() {
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => navigate('/deals')}>
               <ArrowLeft className="mr-2 h-4 w-4" />Артка
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => navigate(`/payments?create=1&dealId=${deal.id}`)}
+            >
+              Төлөм кошуу
             </Button>
             {deal.lmsCourseId && (
               <Button
@@ -153,6 +160,14 @@ export default function DealDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              {paymentSummary && (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <MiniMetric label="Жалпы сумма" icon={CreditCard} value={`${paymentSummary.dealTotal.toLocaleString()} сом`} />
+                  <MiniMetric label="Ырасталган төлөм" icon={CreditCard} value={`${paymentSummary.confirmedPaid.toLocaleString()} сом`} />
+                  <MiniMetric label="Депозит" icon={CreditCard} value={`${paymentSummary.depositPaid.toLocaleString()} сом`} />
+                  <MiniMetric label="Калганы" icon={CreditCard} value={`${paymentSummary.remaining.toLocaleString()} сом`} />
+                </div>
+              )}
               {paymentsLoading ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
