@@ -1,5 +1,6 @@
 import { PageHeader } from '@/components/PageShell';
 import { EnrollmentForm } from '@/components/lms/EnrollmentForm';
+import { IntegrationHistoryPanel } from '@/components/lms/IntegrationHistoryPanel';
 import { StudentSummaryPanel } from '@/components/lms/StudentSummaryPanel';
 
 export default function EnrollmentsPage() {
@@ -10,6 +11,7 @@ export default function EnrollmentsPage() {
         <EnrollmentForm />
         <StudentSummaryPanel />
       </div>
+      <IntegrationHistoryPanel />
     </div>
   );
 }

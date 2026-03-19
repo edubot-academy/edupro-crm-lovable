@@ -90,3 +90,31 @@ export interface LmsEnrollmentResponse {
   message?: string;
   [key: string]: unknown;
 }
+
+export interface LmsIntegrationHistoryItem {
+  id: string;
+  source: 'outbound' | 'webhook';
+  direction: 'crm_to_lms' | 'lms_to_crm';
+  createdAt?: string | null;
+  requestId?: string | null;
+  eventId?: string | null;
+  endpoint?: string | null;
+  method?: string | null;
+  status?: string | null;
+  httpStatus?: number | null;
+  errorCode?: string | null;
+  message?: string | null;
+  crmLeadId?: string | null;
+  crmContactId?: string | null;
+  crmDealId?: string | null;
+  crmPaymentId?: string | null;
+  lmsStudentId?: string | null;
+  lmsEnrollmentId?: string | null;
+  enrollmentStatus?: string | null;
+}
+
+export interface LmsIntegrationHistoryResponse {
+  items: LmsIntegrationHistoryItem[];
+  total: number;
+  limit: number;
+}

@@ -8,7 +8,7 @@ import type {
 import type {
   LmsCourseListParams, LmsGroupListParams,
   CreateEnrollmentRequest, ActivateEnrollmentRequest, PauseEnrollmentRequest,
-  LmsEnrollmentResponse, LmsStudentSummary,
+  LmsEnrollmentResponse, LmsStudentSummary, LmsIntegrationHistoryResponse,
 } from '@/types/lms';
 
 // ==================== COMPANIES ====================
@@ -249,4 +249,6 @@ export const lmsAdminApi = {
   testRiskAlert: (companyId?: string) => apiClient.post<Record<string, unknown>>('/api/integrations/lms/admin/test-risk-alert', undefined, lmsRequestOptions(companyId)),
   dispatchWebhooks: (companyId?: string) => apiClient.post<Record<string, unknown>>('/api/integrations/lms/admin/dispatch-webhooks', undefined, lmsRequestOptions(companyId)),
   health: (companyId?: string) => apiClient.get<Record<string, unknown>>('/api/integrations/lms/admin/health', undefined, lmsRequestOptions(companyId)),
+  history: (params?: Record<string, string | number | undefined>, companyId?: string) =>
+    apiClient.get<LmsIntegrationHistoryResponse>('/api/integrations/lms/admin/history', params, lmsRequestOptions(companyId)),
 };

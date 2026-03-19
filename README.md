@@ -73,6 +73,11 @@ The frontend expects these CRM backend integration behaviors:
   - `X-Company-Id`
   - `X-Request-Id`
   - `X-Idempotency-Key`
+- LMS enrollment errors surface CRM `Request ID` values when available
+- the Enrollments page includes an integration history panel for tracing:
+  - CRM -> LMS transport attempts
+  - LMS -> CRM webhook events
+  - filtered by CRM ids or LMS student/enrollment ids
 
 ## Current UI Conventions
 

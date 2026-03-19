@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { lmsApi } from '@/api/modules';
+import { lmsAdminApi, lmsApi } from '@/api/modules';
 import type { ApiError } from '@/types';
 import type {
   LmsCourseListParams, LmsGroupListParams,
@@ -53,6 +53,16 @@ export function useLmsStudentSummary(studentId: string | undefined) {
     retry: 2,
     staleTime: 30_000,
     enabled: !!studentId,
+  });
+}
+
+export function useLmsIntegrationHistory(params?: Record<string, string | number | undefined>) {
+  return useQuery({
+    queryKey: ['lms-integration-history', params],
+    queryFn: () => lmsAdminApi.history(params),
+    retry: 2,
+    staleTime: 15_000,
+    enabled: !!params && Object.values(params).some((value) => value !== undefined && value !== null && value !== ''),
   });
 }
 
