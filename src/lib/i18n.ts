@@ -25,7 +25,7 @@ export const ky = {
     email: 'Электрондук почта',
     password: 'Сырсөз',
     loginButton: 'Системага кирүү',
-    loginTitle: 'EduBot CRM',
+    loginTitle: 'EduPro CRM',
     loginSubtitle: 'Билим берүү борборлору үчүн CRM системасы',
     emailPlaceholder: 'email@example.com',
     passwordPlaceholder: 'Сырсөзүңүздү киргизиңиз',

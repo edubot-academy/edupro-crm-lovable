@@ -79,7 +79,7 @@ export const legacyContactsApi = {
   update: (id: number, data: Partial<Contact>) => apiClient.patch<Contact>(`/api/legacy-contacts/${id}`, data),
   delete: (id: number) => apiClient.delete<{ success: boolean }>(`/api/legacy-contacts/${id}`),
   /** Assign/unassign contact owner */
-  assign: (data: { contactId: number; userId?: number | null }) =>
+  assign: (data: { contactId: number; assigneeUserId?: number | null }) =>
     apiClient.post<Contact>('/api/legacy-contacts/assign', data),
   /** Quick self-assignment */
   selfAssign: (id: number) => apiClient.patch<Contact>(`/api/legacy-contacts/${id}/self-assign`),

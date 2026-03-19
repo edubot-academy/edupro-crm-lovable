@@ -107,7 +107,7 @@ export function AppSidebar() {
         </div>
         {!collapsed && (
           <span className="font-bold text-sidebar-accent-foreground tracking-tight">
-            EduBot CRM
+            EduPro CRM
           </span>
         )}
       </div>
