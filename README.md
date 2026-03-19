@@ -52,6 +52,12 @@ Key ownership assumptions:
 - CRM owns leads, contacts, deals, tasks, payments, and LMS enrollment requests
 - LMS owns courses, groups, sessions, attendance, progress, recordings, and student learning access
 
+Identity rule:
+- `Lead` is not the stable student identity
+- `Contact` is the durable CRM person record
+- `externalStudentId` is the stable CRM-side person key
+- `lmsStudentId` is the LMS student/user mapping written back after enrollment create or reuse
+
 ## CRM ↔ LMS Integration Assumptions
 
 The frontend expects these CRM backend integration behaviors:

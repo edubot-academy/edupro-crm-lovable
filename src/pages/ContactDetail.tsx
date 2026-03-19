@@ -59,7 +59,7 @@ export default function ContactDetailPage() {
               <InfoRow icon={Phone} label={ky.common.phone} value={contact.phone} />
               <InfoRow icon={Mail} label={ky.common.email} value={contact.email} />
               <InfoRow icon={Link2} label="LMS ID" value={contact.lmsStudentId || '—'} />
-              <InfoRow icon={Link2} label="External ID" value={contact.externalStudentId || '—'} />
+              <InfoRow icon={Link2} label="Тышкы ID" value={contact.externalStudentId || '—'} />
             </div>
           </CardContent>
         </Card>
