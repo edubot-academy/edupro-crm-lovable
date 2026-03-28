@@ -10,20 +10,28 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { StatusBadge, getLeadStatusVariant } from '@/components/StatusBadge';
 import { ky } from '@/lib/i18n';
-import { ArrowLeft, Phone, Mail, Tag, User, BookOpen, MessageSquare, Loader2, Save } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, Tag, User, BookOpen, MessageSquare, Loader2, Save, Calendar } from 'lucide-react';
 import { leadsApi, usersApi } from '@/api/modules';
 import { useToast } from '@/hooks/use-toast';
+import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
+import { useAuth } from '@/contexts/AuthContext';
 import type { AssignableUser, Lead, LeadQualificationStatus, LeadSource } from '@/types';
 import { getLeadQualificationStatus } from '@/lib/crm-status';
+import { getFriendlyError } from '@/lib/error-messages';
+import { ScheduleTimelineEventDialog } from '@/components/ScheduleTimelineEventDialog';
+import { ScheduledTimelineEventsCard } from '@/components/ScheduledTimelineEventsCard';
 
 export default function LeadDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [lead, setLead] = useState<Lead | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isScheduleOpen, setIsScheduleOpen] = useState(false);
+  const [scheduleRefreshKey, setScheduleRefreshKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
   const [managers, setManagers] = useState<AssignableUser[]>([]);
@@ -34,9 +42,20 @@ export default function LeadDetailPage() {
     email: '',
     source: '' as LeadSource | '',
     qualificationStatus: 'new' as LeadQualificationStatus,
+    interestedCourseId: '',
+    interestedGroupId: '',
     assignedManagerId: '',
     notes: '',
   });
+  const canAssignToSales = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'superadmin';
+  const { data: coursesData, isLoading: coursesLoading } = useLmsCourses({ isActive: 'true' });
+  const courses = coursesData?.items ?? [];
+  const selectedCourse = courses.find((course) => course.id === form.interestedCourseId);
+  const needsGroup = !!selectedCourse && selectedCourse.courseType !== 'video';
+  const { data: groupsData, isLoading: groupsLoading } = useLmsGroups(
+    needsGroup ? { courseId: form.interestedCourseId } : undefined
+  );
+  const groups = groupsData?.items ?? [];
 
   useEffect(() => {
     if (!id || id === 'new') return;
@@ -57,6 +76,8 @@ export default function LeadDetailPage() {
       email: lead.email,
       source: lead.source,
       qualificationStatus: getLeadQualificationStatus(lead),
+      interestedCourseId: lead.interestedCourseId || '',
+      interestedGroupId: lead.interestedGroupId || '',
       assignedManagerId: lead.assignedManager?.id ? String(lead.assignedManager.id) : '',
       notes: lead.notes || '',
     });
@@ -65,11 +86,22 @@ export default function LeadDetailPage() {
   useEffect(() => {
     if (!isEditOpen) return;
     setManagersLoading(true);
-    usersApi.assignables()
-      .then(setManagers)
+    usersApi.assignables(canAssignToSales ? { roles: 'sales' } : undefined)
+      .then((items) => {
+        if (!user) {
+          setManagers(items);
+          return;
+        }
+
+        const hasCurrentUser = items.some((item) => item.id === user.id);
+        const nextManagers = hasCurrentUser
+          ? items
+          : [{ id: user.id, fullName: user.fullName || user.email, email: user.email, role: user.role }, ...items];
+        setManagers(nextManagers);
+      })
       .catch(() => setManagers([]))
       .finally(() => setManagersLoading(false));
-  }, [isEditOpen]);
+  }, [isEditOpen, canAssignToSales, user]);
 
   const handleSave = async () => {
     if (!lead || !form.fullName || !form.phone || !form.source) return;
@@ -82,14 +114,17 @@ export default function LeadDetailPage() {
         email: form.email,
         source: form.source,
         qualificationStatus: form.qualificationStatus,
+        interestedCourseId: form.interestedCourseId || undefined,
+        interestedGroupId: form.interestedGroupId || undefined,
         assignedManagerId: form.assignedManagerId ? Number(form.assignedManagerId) : null,
         notes: form.notes || undefined,
       });
       setLead(updatedLead);
       setIsEditOpen(false);
       toast({ title: 'Лид ийгиликтүү өзгөртүлдү' });
-    } catch {
-      toast({ title: 'Лидди өзгөртүүдө ката кетти', variant: 'destructive' });
+    } catch (error) {
+      const friendly = getFriendlyError(error, { fallbackTitle: 'Лидди сактоо ишке ашкан жок' });
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
@@ -104,8 +139,9 @@ export default function LeadDetailPage() {
       setLead((prev) => (prev ? { ...prev, contactId: contact.id } : prev));
       toast({ title: 'Лид ийгиликтүү байланышка айландырылды' });
       navigate(`/contacts/${contact.id}`);
-    } catch {
-      toast({ title: 'Лидди байланышка айландырууда ката кетти', variant: 'destructive' });
+    } catch (error) {
+      const friendly = getFriendlyError(error, { fallbackTitle: 'Лидди байланышка айландыруу ишке ашкан жок' });
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setIsConverting(false);
     }
@@ -137,6 +173,10 @@ export default function LeadDetailPage() {
             <Button variant="outline" onClick={() => setIsEditOpen(true)}>
               {ky.common.edit}
             </Button>
+            <Button variant="outline" onClick={() => setIsScheduleOpen(true)}>
+              <Calendar className="mr-2 h-4 w-4" />
+              Пландоо
+            </Button>
             <Button onClick={handleConvertToContact} disabled={isConverting || !!lead.contactId}>
               {isConverting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {lead.contactId ? 'Байланышка айланган' : ky.leads.convertToContact}
@@ -157,6 +197,7 @@ export default function LeadDetailPage() {
               <InfoRow icon={Mail} label={ky.common.email} value={lead.email} />
               <InfoRow icon={MessageSquare} label={ky.leads.source} value={ky.leadSource[lead.source]} />
               <InfoRow icon={BookOpen} label={ky.leads.interestedCourse} value={lead.interestedCourseId || '—'} />
+              <InfoRow icon={BookOpen} label="Кызыккан топ" value={lead.interestedGroupId || '—'} />
               <InfoRow icon={User} label={ky.leads.assignedManager} value={lead.assignedManager?.fullName || '—'} />
             </div>
             <div>
@@ -189,6 +230,11 @@ export default function LeadDetailPage() {
               <p className="text-sm text-muted-foreground">{lead.notes || 'Эскертүүлөр жок'}</p>
             </CardContent>
           </Card>
+          <ScheduledTimelineEventsCard
+            leadId={lead.id}
+            contactId={lead.contactId || undefined}
+            refreshKey={scheduleRefreshKey}
+          />
         </div>
       </div>
 
@@ -238,15 +284,63 @@ export default function LeadDetailPage() {
                 </Select>
               </div>
               <div className="space-y-2 sm:col-span-2">
+                <Label>{ky.leads.interestedCourse}</Label>
+                <Select
+                  value={form.interestedCourseId || '__none__'}
+                  onValueChange={(value) => setForm((prev) => ({
+                    ...prev,
+                    interestedCourseId: value === '__none__' ? '' : value,
+                    interestedGroupId: '',
+                  }))}
+                  disabled={coursesLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={coursesLoading ? 'Жүктөлүүдө...' : 'Курс тандаңыз'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Тандалган эмес</SelectItem>
+                    {courses.map((course) => (
+                      <SelectItem key={course.id} value={course.id}>
+                        {course.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {needsGroup && (
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Кызыккан топ</Label>
+                  <Select
+                    value={form.interestedGroupId || '__none__'}
+                    onValueChange={(value) => setForm((prev) => ({ ...prev, interestedGroupId: value === '__none__' ? '' : value }))}
+                    disabled={groupsLoading}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={groupsLoading ? 'Жүктөлүүдө...' : 'Топ тандаңыз'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Тандалган эмес</SelectItem>
+                      {groups.map((group) => (
+                        <SelectItem key={group.id} value={group.id}>
+                          {group.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div className="space-y-2 sm:col-span-2">
                 <Label>{ky.leads.assignedManager}</Label>
                 <Select value={form.assignedManagerId || '__none__'} onValueChange={(value) => setForm((prev) => ({ ...prev, assignedManagerId: value === '__none__' ? '' : value }))} disabled={managersLoading}>
                   <SelectTrigger>
-                    <SelectValue placeholder={managersLoading ? 'Жүктөлүүдө...' : 'Менеджер тандаңыз'} />
+                    <SelectValue placeholder={managersLoading ? 'Жүктөлүүдө...' : canAssignToSales ? 'Жооптуу sales тандаңыз' : 'Менеджер тандаңыз'} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">Тандалган эмес</SelectItem>
                     {managers.map((manager) => (
-                      <SelectItem key={manager.id} value={String(manager.id)}>{manager.fullName}</SelectItem>
+                      <SelectItem key={manager.id} value={String(manager.id)}>
+                        {manager.id === user?.id ? `${manager.fullName} (Мен)` : manager.fullName}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -269,6 +363,16 @@ export default function LeadDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {isScheduleOpen && (
+        <ScheduleTimelineEventDialog
+          open={isScheduleOpen}
+          onOpenChange={setIsScheduleOpen}
+          defaultType="call"
+          leadId={lead.id}
+          contactId={lead.contactId || undefined}
+          onSaved={() => setScheduleRefreshKey((prev) => prev + 1)}
+        />
+      )}
     </div>
   );
 }

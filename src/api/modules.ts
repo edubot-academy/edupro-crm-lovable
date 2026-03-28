@@ -4,6 +4,7 @@ import type {
   TimelineEvent, RetentionCase, DashboardStats, DashboardStatsQueryParams,
   FunnelReport, SystemUser, CreatedUserResponse, AssignableUser, Company, Lead, Contact, ContactNote, Deal, PaginatedResponse,
   TelegramLinkResponse, TelegramStatusResponse,
+  InAppNotification, UnreadNotificationsResponse,
 } from '@/types';
 import type {
   LmsCourseListParams, LmsGroupListParams,
@@ -181,6 +182,14 @@ export const notificationsApi = {
   /** Send test Telegram message */
   sendTestMessage: () =>
     apiClient.post<void>('/api/notifications/telegram/test'),
+  listInApp: (params?: Record<string, string | number | undefined>) =>
+    apiClient.get<PaginatedResponse<InAppNotification>>('/api/notifications/in-app', params),
+  getUnreadCount: () =>
+    apiClient.get<UnreadNotificationsResponse>('/api/notifications/in-app/unread-count'),
+  markAsRead: (id: number) =>
+    apiClient.patch<{ success: boolean }>(`/api/notifications/in-app/${id}/read`),
+  markAllAsRead: () =>
+    apiClient.patch<{ success: boolean }>('/api/notifications/in-app/read-all'),
 };
 
 // ==================== DASHBOARD ====================

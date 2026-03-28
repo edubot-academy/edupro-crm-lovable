@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/PageShell';
 import { DataTable, type Column } from '@/components/DataTable';
@@ -15,12 +15,7 @@ import { getPaymentWorkflowStatus } from '@/lib/crm-status';
 import type { Deal, Payment } from '@/types';
 import { dealsApi, paymentsApi } from '@/api/modules';
 import { Plus, CheckCircle, Loader2 } from 'lucide-react';
-
-const mockPayments: Payment[] = [
-  { id: 1, dealId: 11, kind: 'regular', amount: 15000, method: 'card', paidAt: '2024-03-10', status: 'confirmed', user: { id: 1, fullName: 'Элнура Турдалиева' } },
-  { id: 2, dealId: 12, kind: 'deposit', amount: 10000, method: 'manual', paidAt: '2024-03-08', status: 'submitted', user: { id: 2, fullName: 'Данияр Абдыраев' } },
-  { id: 3, dealId: 13, kind: 'regular', amount: 16000, method: 'bank', paidAt: '2024-03-09', status: 'overdue', user: { id: 3, fullName: 'Жаныл Бекова' } },
-];
+import { getFriendlyError } from '@/lib/error-messages';
 
 const emptyForm = { dealId: '', amount: '', kind: 'regular' as Payment['kind'], method: 'card' as string };
 
@@ -28,6 +23,7 @@ export default function PaymentsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | Payment['status']>('all');
   const [confirmTarget, setConfirmTarget] = useState<Payment | null>(null);
@@ -53,15 +49,25 @@ export default function PaymentsPage() {
     }, { replace: true });
   };
 
-  const fetchPayments = () => {
+  const fetchPayments = useCallback(() => {
     setIsLoading(true);
-    paymentsApi.list({ search, paymentStatus: statusFilter === 'all' ? undefined : statusFilter })
-      .then((res) => setPayments(res.items))
-      .catch(() => setPayments(mockPayments))
+    setLoadError(null);
+    paymentsApi.list({ search: search || undefined, paymentStatus: statusFilter === 'all' ? undefined : statusFilter })
+      .then((res) => {
+        const items = Array.isArray(res) ? res : res.items;
+        setPayments(items ?? []);
+      })
+      .catch((error: unknown) => {
+        const friendly = getFriendlyError(error, { fallbackTitle: 'Төлөмдөрдү жүктөө ишке ашкан жок' });
+        setPayments([]);
+        setLoadError(friendly.description || friendly.title);
+      })
       .finally(() => setIsLoading(false));
-  };
+  }, [search, statusFilter]);
 
-  useEffect(() => { fetchPayments(); }, [search, statusFilter]);
+  useEffect(() => {
+    fetchPayments();
+  }, [fetchPayments]);
 
   useEffect(() => {
     if (!shouldOpenCreate) return;
@@ -102,8 +108,9 @@ export default function PaymentsPage() {
       setForm(emptyForm);
       clearPrefillParams();
       fetchPayments();
-    } catch {
-      toast({ title: 'Төлөм кошууда ката кетти', variant: 'destructive' });
+    } catch (error) {
+      const friendly = getFriendlyError(error, { fallbackTitle: 'Төлөмдү сактоо ишке ашкан жок' });
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setIsCreating(false);
     }
@@ -117,16 +124,31 @@ export default function PaymentsPage() {
       toast({ title: 'Төлөм ырасталды' });
       setConfirmTarget(null);
       fetchPayments();
-    } catch {
-      toast({ title: 'Ырастоо ишке ашкан жок', variant: 'destructive' });
+    } catch (error) {
+      const friendly = getFriendlyError(error, { fallbackTitle: 'Төлөмдү ырастоо ишке ашкан жок' });
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setIsConfirming(false);
     }
   };
 
+  const getPaymentStudentName = (payment: Payment) =>
+    payment.deal?.contact?.fullName || payment.contact?.fullName || payment.user?.fullName || '—';
+
+  const getPaymentDealLabel = (payment: Payment) => {
+    const dealId = payment.deal?.id || payment.dealId;
+    const course = payment.deal?.courseNameSnapshot;
+    const group = payment.deal?.groupNameSnapshot;
+
+    if (!dealId && !course && !group) return '—';
+
+    const details = [course, group].filter(Boolean).join(' • ');
+    return details ? `#${dealId ?? '—'} • ${details}` : `#${dealId ?? '—'}`;
+  };
+
   const columns: Column<Payment>[] = [
-    { key: 'user', header: 'Студент', render: (p) => <span className="font-medium">{p.user?.fullName || '—'}</span> },
-    { key: 'deal', header: 'Келишим', render: (p) => p.dealId ? `#${p.dealId}` : '—' },
+    { key: 'user', header: 'Студент', render: (p) => <span className="font-medium">{getPaymentStudentName(p)}</span> },
+    { key: 'deal', header: 'Келишим', render: (p) => <span className="text-sm">{getPaymentDealLabel(p)}</span> },
     { key: 'kind', header: ky.payments.kind, render: (p) => ky.paymentKind[p.kind || 'regular'] },
     { key: 'amount', header: ky.payments.amount, render: (p) => <span className="font-semibold">{p.amount.toLocaleString()} сом</span> },
     { key: 'method', header: ky.payments.method, render: (p) => ky.paymentMethod[p.method] },
@@ -163,7 +185,15 @@ export default function PaymentsPage() {
           </Select>
         </div>
       </div>
-      <DataTable columns={columns} data={payments} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Төлөм издөө..." />
+      <DataTable
+        columns={columns}
+        data={payments}
+        isLoading={isLoading}
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Төлөм издөө..."
+        emptyMessage={loadError || ky.common.noData}
+      />
 
       {/* Create Dialog */}
       <Dialog open={showCreate} onOpenChange={(open) => {

@@ -14,6 +14,7 @@ import type { Contact, Deal, TrialLesson } from '@/types';
 import { contactApi, dealsApi, trialLessonsApi } from '@/api/modules';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getFriendlyError } from '@/lib/error-messages';
 
 const trialResultVariant = (s: string) => {
   switch (s) { case 'pending': return 'info' as const; case 'attended': case 'passed': return 'success' as const; case 'failed': return 'destructive' as const; case 'missed': return 'warning' as const; default: return 'default' as const; }
@@ -95,8 +96,9 @@ export default function TrialLessonsPage() {
       setShowCreate(false);
       setForm(emptyForm);
       fetchTrials();
-    } catch {
-      toast({ title: 'Сыноо сабак кошууда ката кетти', variant: 'destructive' });
+    } catch (error) {
+      const friendly = getFriendlyError(error, { fallbackTitle: 'Сыноо сабакты сактоо ишке ашкан жок' });
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setIsCreating(false);
     }
@@ -110,8 +112,9 @@ export default function TrialLessonsPage() {
       toast({ title: ky.trialLessons.deleteSuccess });
       setDeleteTarget(null);
       fetchTrials();
-    } catch {
-      toast({ title: ky.trialLessons.deleteError, variant: 'destructive' });
+    } catch (error) {
+      const friendly = getFriendlyError(error, { fallbackTitle: ky.trialLessons.deleteError });
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setIsDeleting(false);
     }

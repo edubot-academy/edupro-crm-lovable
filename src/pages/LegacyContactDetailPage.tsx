@@ -13,6 +13,7 @@ import { ArrowLeft, Phone, Mail, User, Loader2, ArrowRightLeft, Save, Tag, Calen
 import { legacyContactsApi, leadsApi, usersApi } from '@/api/modules';
 import type { AssignableUser, Contact } from '@/types';
 import { useToast } from '@/hooks/use-toast';
+import { getFriendlyError } from '@/lib/error-messages';
 
 type LegacyContactDetail = Contact & {
   status?: string | null;
@@ -144,9 +145,11 @@ export default function LegacyContactDetailPage() {
     setIsAssignablesLoading(true);
     usersApi.assignables()
       .then(setAssignables)
-      .catch(() => {
+      .catch((error) => {
+        const friendly = getFriendlyError(error, { fallbackTitle: 'Дайындала турган колдонуучулар жүктөлгөн жок' });
         toast({
-          title: 'Дайындала турган колдонуучулар жүктөлгөн жок',
+          title: friendly.title,
+          description: friendly.description,
           variant: 'destructive',
         });
       })
@@ -185,8 +188,9 @@ export default function LegacyContactDetailPage() {
       setContact(finalContact as LegacyContactDetail);
       setIsEditOpen(false);
       toast({ title: 'Эски байланыш ийгиликтүү өзгөртүлдү' });
-    } catch {
-      toast({ title: 'Эски байланышты өзгөртүүдө ката кетти', variant: 'destructive' });
+    } catch (error) {
+      const friendly = getFriendlyError(error, { fallbackTitle: 'Эски байланышты сактоо ишке ашкан жок' });
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
@@ -198,8 +202,9 @@ export default function LegacyContactDetailPage() {
     try {
       const lead = await leadsApi.importFromContact(contact.id);
       toast({ title: `Эски байланыш лидге өткөрүлдү (#${lead.id})` });
-    } catch {
-      toast({ title: 'Эски байланышты лидге өткөрүүдө ката кетти', variant: 'destructive' });
+    } catch (error) {
+      const friendly = getFriendlyError(error, { fallbackTitle: 'Эски байланышты лидге өткөрүү ишке ашкан жок' });
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setIsImporting(false);
     }

@@ -19,6 +19,7 @@ import { formatLmsDate, getCourseSalesSummary, getLmsGroupAvailability, getSeats
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { getFriendlyError } from '@/lib/error-messages';
 
 const mockDeals: Deal[] = [
   { id: 1, contact: { id: 1, fullName: 'Элнура Турдалиева' }, lmsCourseId: 'c1', courseNameSnapshot: 'Python', lmsGroupId: 'g1', groupNameSnapshot: 'PY-24-1', amount: 15000, currency: 'KGS', stage: 'won', createdAt: '2024-02-20', updatedAt: '2024-03-10' },
@@ -184,8 +185,9 @@ export default function DealsPage() {
       setForm(emptyForm);
       clearPrefillParams();
       fetchDeals();
-    } catch {
-      toast({ title: 'Келишим кошууда ката кетти', variant: 'destructive' });
+    } catch (error) {
+      const friendly = getFriendlyError(error, { fallbackTitle: 'Келишимди сактоо ишке ашкан жок' });
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setIsCreating(false);
     }
@@ -199,8 +201,9 @@ export default function DealsPage() {
       toast({ title: ky.deals.deleteSuccess });
       setDeleteTarget(null);
       fetchDeals();
-    } catch {
-      toast({ title: ky.deals.deleteError, variant: 'destructive' });
+    } catch (error) {
+      const friendly = getFriendlyError(error, { fallbackTitle: ky.deals.deleteError });
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setIsDeleting(false);
     }

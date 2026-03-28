@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { profileApi } from '@/api/modules';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, PencilLine } from 'lucide-react';
+import { getFriendlyError } from '@/lib/error-messages';
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -56,8 +57,9 @@ export default function SettingsPage() {
       });
       setIsEditingProfile(false);
       toast({ title: 'Профиль ийгиликтүү сакталды' });
-    } catch {
-      toast({ title: 'Профилди сактоодо ката кетти', variant: 'destructive' });
+    } catch (error) {
+      const friendly = getFriendlyError(error, { fallbackTitle: 'Профилди сактоо ишке ашкан жок' });
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }

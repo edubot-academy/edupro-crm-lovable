@@ -6,6 +6,7 @@ import type {
   CreateEnrollmentRequest, ActivateEnrollmentRequest, PauseEnrollmentRequest,
 } from '@/types/lms';
 import { useToast } from '@/hooks/use-toast';
+import { getFriendlyError } from '@/lib/error-messages';
 
 function invalidateLmsQueries(queryClient: ReturnType<typeof useQueryClient>) {
   return Promise.all([
@@ -16,13 +17,9 @@ function invalidateLmsQueries(queryClient: ReturnType<typeof useQueryClient>) {
 }
 
 function formatLmsError(err: unknown, fallback: string) {
+  const friendly = getFriendlyError(err, { fallbackTitle: fallback });
   const apiError = (typeof err === 'object' && err !== null ? err as ApiError : null);
-  const message = apiError?.message || fallback;
-  const requestId = apiError?.requestId;
-  return {
-    title: requestId ? `${message} [Request ID: ${requestId}]` : message,
-    requestId,
-  };
+  return { ...friendly, requestId: apiError?.requestId };
 }
 
 // ==================== QUERIES (with retry) ====================
@@ -82,7 +79,7 @@ export function useCreateEnrollment() {
     },
     onError: (err: unknown) => {
       const error = formatLmsError(err, 'Каттоо түзүүдө ката кетти');
-      toast({ title: error.title, variant: 'destructive' });
+      toast({ title: error.title, description: error.description, variant: 'destructive' });
     },
   });
 }
@@ -101,7 +98,7 @@ export function useActivateEnrollment() {
     },
     onError: (err: unknown) => {
       const error = formatLmsError(err, 'Активдештирүүдө ката кетти');
-      toast({ title: error.title, variant: 'destructive' });
+      toast({ title: error.title, description: error.description, variant: 'destructive' });
     },
   });
 }
@@ -120,7 +117,7 @@ export function usePauseEnrollment() {
     },
     onError: (err: unknown) => {
       const error = formatLmsError(err, 'Тындырууда ката кетти');
-      toast({ title: error.title, variant: 'destructive' });
+      toast({ title: error.title, description: error.description, variant: 'destructive' });
     },
   });
 }

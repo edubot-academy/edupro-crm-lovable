@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/PageShell';
 import { DataTable, type Column } from '@/components/DataTable';
@@ -13,10 +13,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ky } from '@/lib/i18n';
 import { leadsApi, usersApi } from '@/api/modules';
 import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
+import { useAuth } from '@/contexts/AuthContext';
 import type { AssignableUser, Lead, LeadQualificationStatus, LeadSource } from '@/types';
 import { getLeadQualificationStatus } from '@/lib/crm-status';
 import { Plus, Filter, Trash2, Loader2, Save, Phone, Mail, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getFriendlyError } from '@/lib/error-messages';
 
 const mockLeads: Lead[] = [
   { id: 1, fullName: 'Азамат Токтогулов', phone: '+996 555 123456', email: 'azamat@mail.kg', source: 'instagram', interestedCourseId: 'c1', assignedManager: { id: 1, fullName: 'Нургуль' }, status: 'new', notes: '', tags: ['IT'], createdAt: '2024-03-01', updatedAt: '2024-03-01' },
@@ -32,10 +34,13 @@ const mockLeads: Lead[] = [
 export default function LeadsPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<Lead | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -55,6 +60,7 @@ export default function LeadsPage() {
     notes: '',
   };
   const [newLead, setNewLead] = useState(emptyLeadForm);
+  const canAssignToSales = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'superadmin';
   const { data: coursesData, isLoading: coursesLoading } = useLmsCourses({ isActive: 'true' });
   const courses = coursesData?.items ?? [];
   const selectedCourse = courses.find((course) => course.id === newLead.interestedCourseId);
@@ -64,24 +70,61 @@ export default function LeadsPage() {
   );
   const groups = groupsData?.items ?? [];
 
-  const fetchLeads = () => {
+  const fetchLeads = useCallback(() => {
     setIsLoading(true);
-    leadsApi.list({ search, qualificationStatus: statusFilter === 'all' ? undefined : statusFilter })
-      .then((res) => setLeads(res.items))
-      .catch(() => setLeads(mockLeads))
+    leadsApi.list({
+      search,
+      qualificationStatus: statusFilter === 'all' ? undefined : statusFilter,
+      page,
+      limit: 10,
+    })
+      .then((res) => {
+        setLeads(res.items);
+        setTotalPages(Math.max(res.totalPages || 1, 1));
+      })
+      .catch(() => {
+        setLeads(mockLeads);
+        setTotalPages(1);
+      })
       .finally(() => setIsLoading(false));
-  };
+  }, [page, search, statusFilter]);
 
-  useEffect(() => { fetchLeads(); }, [search, statusFilter]);
+  useEffect(() => {
+    fetchLeads();
+  }, [fetchLeads]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter]);
 
   useEffect(() => {
     if (!createOpen) return;
     setManagersLoading(true);
-    usersApi.assignables()
-      .then(setManagers)
+    usersApi.assignables(canAssignToSales ? { roles: 'sales' } : undefined)
+      .then((items) => {
+        if (!user) {
+          setManagers(items);
+          return;
+        }
+
+        const hasCurrentUser = items.some((item) => item.id === user.id);
+        const nextManagers = hasCurrentUser
+          ? items
+          : [{ id: user.id, fullName: user.fullName || user.email, email: user.email, role: user.role }, ...items];
+        setManagers(nextManagers);
+      })
       .catch(() => setManagers([]))
       .finally(() => setManagersLoading(false));
-  }, [createOpen]);
+  }, [createOpen, canAssignToSales, user]);
+
+  useEffect(() => {
+    if (!createOpen || !user) return;
+    setNewLead((prev) => (
+      prev.assignedManagerId
+        ? prev
+        : { ...prev, assignedManagerId: String(user.id) }
+    ));
+  }, [createOpen, user]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -91,8 +134,9 @@ export default function LeadsPage() {
       toast({ title: ky.leads.deleteSuccess });
       setDeleteTarget(null);
       fetchLeads();
-    } catch {
-      toast({ title: ky.leads.deleteError, variant: 'destructive' });
+    } catch (error) {
+      const friendly = getFriendlyError(error, { fallbackTitle: ky.leads.deleteError });
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setIsDeleting(false);
     }
@@ -117,10 +161,14 @@ export default function LeadsPage() {
       });
       toast({ title: 'Лид ийгиликтүү түзүлдү' });
       setCreateOpen(false);
-      setNewLead(emptyLeadForm);
+      setNewLead({
+        ...emptyLeadForm,
+        assignedManagerId: user ? String(user.id) : '',
+      });
       fetchLeads();
-    } catch {
-      toast({ title: 'Лид түзүүдө ката кетти', variant: 'destructive' });
+    } catch (error) {
+      const friendly = getFriendlyError(error, { fallbackTitle: 'Лидди сактоо ишке ашкан жок' });
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setIsCreating(false);
     }
@@ -298,6 +346,22 @@ export default function LeadsPage() {
             </div>
           </div>
         )}
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between rounded-2xl border bg-card px-4 py-3">
+            <p className="text-sm text-muted-foreground">
+              Бет {page} / {totalPages}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setPage((current) => Math.max(current - 1, 1))} disabled={page <= 1}>
+                Артка
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setPage((current) => Math.min(current + 1, totalPages))} disabled={page >= totalPages}>
+                Алга
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="hidden md:block">
@@ -308,6 +372,9 @@ export default function LeadsPage() {
           searchValue={search}
           onSearchChange={setSearch}
           searchPlaceholder="Лид издөө..."
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
           onRowClick={(lead) => navigate(`/leads/${lead.id}`)}
         />
       </div>
@@ -404,15 +471,21 @@ export default function LeadsPage() {
                 <Label>{ky.leads.assignedManager}</Label>
                 <Select value={newLead.assignedManagerId || '__none__'} onValueChange={(value) => setNewLead(p => ({ ...p, assignedManagerId: value === '__none__' ? '' : value }))} disabled={managersLoading}>
                   <SelectTrigger>
-                    <SelectValue placeholder={managersLoading ? 'Жүктөлүүдө...' : 'Менеджер тандаңыз'} />
+                    <SelectValue placeholder={managersLoading ? 'Жүктөлүүдө...' : canAssignToSales ? 'Жооптуу кызматкерди тандаңыз' : 'Жооптуу колдонуучу'} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">Тандалган эмес</SelectItem>
                     {managers.map((manager) => (
-                      <SelectItem key={manager.id} value={String(manager.id)}>{manager.fullName}</SelectItem>
+                      <SelectItem key={manager.id} value={String(manager.id)}>
+                        {manager.id === user?.id ? `${manager.fullName} (Мен)` : manager.fullName}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {canAssignToSales && (
+                  <p className="text-xs text-muted-foreground">
+                    Бул жерде жаңы лидди sales кызматкерге дайындаса болот.
+                  </p>
+                )}
               </div>
             </div>
             <div className="space-y-2">

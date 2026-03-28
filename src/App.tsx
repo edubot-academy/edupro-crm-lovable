@@ -76,7 +76,7 @@ const App = () => (
               <Route path="/timeline" element={<TimelinePage />} />
               <Route path="/retention" element={<RetentionPage />} />
               <Route path="/reports" element={<ProtectedRoute allowedRoles={['admin', 'superadmin']}><ReportsPage /></ProtectedRoute>} />
-              <Route path="/notifications" element={<ProtectedRoute allowedRoles={['admin', 'superadmin']}><NotificationsPage /></ProtectedRoute>} />
+              <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/users" element={<ProtectedRoute allowedRoles={['admin', 'superadmin']}><UsersPage /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute allowedRoles={['admin', 'superadmin']}><SettingsPage /></ProtectedRoute>} />
             </Route>

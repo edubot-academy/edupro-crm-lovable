@@ -95,7 +95,7 @@ export function AppSidebar() {
   const { user, logout } = useAuth();
   const isSystemAdmin = user?.role === 'admin' || user?.role === 'superadmin';
   const isSuperAdmin = user?.role === 'superadmin';
-  const visibleSystemNav = systemNav.filter((item) => !['/users', '/reports', '/notifications', '/settings'].includes(item.url) || isSystemAdmin);
+  const visibleSystemNav = systemNav.filter((item) => !['/users', '/reports', '/settings'].includes(item.url) || isSystemAdmin);
   const handleNavigate = () => {
     if (isMobile) setOpenMobile(false);
   };

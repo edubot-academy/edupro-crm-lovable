@@ -16,6 +16,7 @@ import { getTaskWorkflowStatus } from '@/lib/crm-status';
 import { contactApi, dealsApi, tasksApi } from '@/api/modules';
 import { Plus, Filter, CheckCircle, Trash2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getFriendlyError } from '@/lib/error-messages';
 
 const mockTasks: Task[] = [
   { id: 1, title: 'Азаматка чалуу', description: 'Python курсу жөнүндө', status: 'open', dueAt: '2024-03-11', assignedTo: { id: 1, fullName: 'Нургуль' }, createdAt: '2024-03-09' },
@@ -96,8 +97,9 @@ export default function TasksPage() {
       setShowCreate(false);
       setForm(emptyForm);
       fetchTasks();
-    } catch {
-      toast({ title: 'Тапшырма кошууда ката кетти', variant: 'destructive' });
+    } catch (error) {
+      const friendly = getFriendlyError(error, { fallbackTitle: 'Тапшырманы сактоо ишке ашкан жок' });
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setIsCreating(false);
     }
@@ -111,8 +113,9 @@ export default function TasksPage() {
       toast({ title: ky.tasks.deleteSuccess });
       setDeleteTarget(null);
       fetchTasks();
-    } catch {
-      toast({ title: ky.tasks.deleteError, variant: 'destructive' });
+    } catch (error) {
+      const friendly = getFriendlyError(error, { fallbackTitle: ky.tasks.deleteError });
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setIsDeleting(false);
     }
@@ -124,8 +127,9 @@ export default function TasksPage() {
       await tasksApi.update(task.id, { workflowStatus: 'completed' });
       toast({ title: 'Тапшырма аткарылды' });
       fetchTasks();
-    } catch {
-      toast({ title: 'Тапшырманы жаңыртууда ката кетти', variant: 'destructive' });
+    } catch (error) {
+      const friendly = getFriendlyError(error, { fallbackTitle: 'Тапшырманы жаңыртуу ишке ашкан жок' });
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setIsUpdatingTaskId(null);
     }

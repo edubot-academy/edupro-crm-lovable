@@ -16,6 +16,7 @@ import { Plus, Trash2, Mail, Loader2, Copy, Send } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { authApi } from '@/api/auth';
 import { useAuth } from '@/contexts/AuthContext';
+import { getFriendlyError } from '@/lib/error-messages';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -70,8 +71,9 @@ export default function UsersPage() {
       setForm(emptyForm);
       setInviteInfo({ email: createdUser.email || form.email, inviteUrl });
       fetchUsers();
-    } catch {
-      toast({ title: 'Колдонуучу кошууда ката кетти', variant: 'destructive' });
+    } catch (error) {
+      const friendly = getFriendlyError(error, { fallbackTitle: 'Колдонуучуну сактоо ишке ашкан жок' });
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setIsCreating(false);
     }
@@ -89,8 +91,9 @@ export default function UsersPage() {
     try {
       await authApi.resendInvite(inviteInfo.email);
       toast({ title: 'Чакыруу кайра жөнөтүлдү' });
-    } catch {
-      toast({ title: 'Чакыруу жөнөтүүдө ката кетти', variant: 'destructive' });
+    } catch (error) {
+      const friendly = getFriendlyError(error, { fallbackTitle: 'Чакырууну кайра жөнөтүү ишке ашкан жок' });
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setIsResendingInvite(false);
     }
@@ -104,8 +107,9 @@ export default function UsersPage() {
       toast({ title: ky.users.deleteSuccess });
       setDeleteTarget(null);
       fetchUsers();
-    } catch {
-      toast({ title: ky.users.deleteError, variant: 'destructive' });
+    } catch (error) {
+      const friendly = getFriendlyError(error, { fallbackTitle: ky.users.deleteError });
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setIsDeleting(false);
     }

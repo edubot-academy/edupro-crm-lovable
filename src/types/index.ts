@@ -228,7 +228,12 @@ export interface Payment {
   lmsEnrollmentId?: string;
   paidAt?: string;
   user?: { id: number; fullName: string };
-  deal?: { id: number };
+  deal?: {
+    id: number;
+    courseNameSnapshot?: string;
+    groupNameSnapshot?: string;
+    contact?: { id: number; fullName: string };
+  };
   contact?: { id: number; fullName: string };
   company?: CompanyRef;
   createdAt?: string;
@@ -317,6 +322,24 @@ export interface TelegramLinkResponse {
 export interface TelegramStatusResponse {
   linked: boolean;
   chatId?: string;
+}
+
+export interface InAppNotification {
+  id: number;
+  type: string;
+  leadId?: number | null;
+  userId?: number | null;
+  slotAt?: string | null;
+  channel: string;
+  title?: string | null;
+  content?: string | null;
+  linkUrl?: string | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface UnreadNotificationsResponse {
+  count: number;
 }
 
 // ==================== REPORTS ====================

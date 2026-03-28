@@ -4,18 +4,37 @@ import { PageHeader } from '@/components/PageShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ky } from '@/lib/i18n';
-import { ArrowLeft, Phone, Mail, User, Link2, Loader2, BookOpen, Activity, Workflow } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, User, Link2, Loader2, BookOpen, Activity, Workflow, Calendar } from 'lucide-react';
 import { contactApi } from '@/api/modules';
 import type { Contact } from '@/types';
 import { useLmsIntegrationHistory, useLmsStudentSummary } from '@/hooks/use-lms';
+import { ScheduleTimelineEventDialog } from '@/components/ScheduleTimelineEventDialog';
+import { ScheduledTimelineEventsCard } from '@/components/ScheduledTimelineEventsCard';
+import { useToast } from '@/hooks/use-toast';
+import { getFriendlyError } from '@/lib/error-messages';
 
 export default function ContactDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [contact, setContact] = useState<Contact | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isScheduleOpen, setIsScheduleOpen] = useState(false);
+  const [scheduleRefreshKey, setScheduleRefreshKey] = useState(0);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [form, setForm] = useState({
+    fullName: '',
+    phone: '',
+    email: '',
+    notes: '',
+  });
 
   useEffect(() => {
     if (!id) return;
@@ -40,6 +59,38 @@ export default function ContactDetailPage() {
     limit: 5,
   });
 
+  useEffect(() => {
+    if (!contact) return;
+    setForm({
+      fullName: contact.fullName,
+      phone: contact.phone,
+      email: contact.email || '',
+      notes: contact.notes || '',
+    });
+  }, [contact]);
+
+  const handleSave = async () => {
+    if (!contact || !form.fullName || !form.phone) return;
+
+    setIsSaving(true);
+    try {
+      const updatedContact = await contactApi.update(contact.id, {
+        fullName: form.fullName,
+        phone: form.phone,
+        email: form.email || undefined,
+        notes: form.notes || undefined,
+      });
+      setContact(updatedContact);
+      setIsEditOpen(false);
+      toast({ title: 'Байланыш ийгиликтүү өзгөртүлдү' });
+    } catch (error) {
+      const friendly = getFriendlyError(error, { fallbackTitle: 'Байланышты сактоо ишке ашкан жок' });
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (isLoading) {
     return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   }
@@ -62,7 +113,11 @@ export default function ContactDetailPage() {
             <Button variant="outline" onClick={() => navigate('/contacts')}>
               <ArrowLeft className="mr-2 h-4 w-4" />{ky.common.back}
             </Button>
-            <Button variant="outline">{ky.common.edit}</Button>
+            <Button variant="outline" onClick={() => setIsEditOpen(true)}>{ky.common.edit}</Button>
+            <Button variant="outline" onClick={() => setIsScheduleOpen(true)}>
+              <Calendar className="mr-2 h-4 w-4" />
+              Пландоо
+            </Button>
           </div>
         }
       />
@@ -221,8 +276,73 @@ export default function ContactDetailPage() {
               )}
             </CardContent>
           </Card>
+
+          <ScheduledTimelineEventsCard
+            contactId={contact.id}
+            refreshKey={scheduleRefreshKey}
+          />
         </div>
       </div>
+      {isScheduleOpen && (
+        <ScheduleTimelineEventDialog
+          open={isScheduleOpen}
+          onOpenChange={setIsScheduleOpen}
+          defaultType="call"
+          contactId={contact.id}
+          onSaved={() => setScheduleRefreshKey((prev) => prev + 1)}
+        />
+      )}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Байланышты өзгөртүү</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{ky.common.name} *</Label>
+              <Input
+                value={form.fullName}
+                onChange={(e) => setForm((prev) => ({ ...prev, fullName: e.target.value }))}
+                placeholder="Толук аты"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{ky.common.phone} *</Label>
+              <Input
+                value={form.phone}
+                onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
+                placeholder="+996 ..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{ky.common.email}</Label>
+              <Input
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                placeholder="email@example.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{ky.common.notes}</Label>
+              <Textarea
+                value={form.notes}
+                onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
+                placeholder="Эскертүүлөр..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditOpen(false)} disabled={isSaving}>
+              {ky.common.cancel}
+            </Button>
+            <Button onClick={handleSave} disabled={isSaving || !form.fullName || !form.phone}>
+              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {ky.common.save}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/PageShell';
 import { DataTable, type Column } from '@/components/DataTable';
@@ -11,6 +11,7 @@ import { legacyContactsApi, leadsApi } from '@/api/modules';
 import type { Contact } from '@/types';
 import { Loader2, Mail, Phone, Database, ArrowRightLeft, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getFriendlyError } from '@/lib/error-messages';
 
 type LegacyContactRow = Contact & {
   source?: string;
@@ -71,30 +72,47 @@ export default function LegacyContactsPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
   const [courseTypeFilter, setCourseTypeFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [importingId, setImportingId] = useState<number | null>(null);
 
-  const fetchContacts = () => {
+  const fetchContacts = useCallback(() => {
     setIsLoading(true);
     legacyContactsApi.list({
       search,
       status: statusFilter === 'all' ? undefined : statusFilter,
-      page: 1,
-      limit: 100,
+      source: sourceFilter === 'all' ? undefined : sourceFilter,
+      courseType: courseTypeFilter === 'all' ? undefined : courseTypeFilter,
+      page,
+      limit: 20,
     })
-      .then((res) => setContacts(res.items as LegacyContactRow[]))
-      .catch(() => setContacts(mockContacts))
+      .then((res) => {
+        setContacts(res.items as LegacyContactRow[]);
+        setTotalPages(Math.max(res.totalPages || 1, 1));
+      })
+      .catch(() => {
+        setContacts(mockContacts);
+        setTotalPages(1);
+      })
       .finally(() => setIsLoading(false));
-  };
+  }, [courseTypeFilter, page, search, sourceFilter, statusFilter]);
 
-  useEffect(() => { fetchContacts(); }, [search, statusFilter]);
+  useEffect(() => {
+    fetchContacts();
+  }, [fetchContacts]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, sourceFilter, courseTypeFilter]);
 
   const handleImport = async (contact: Contact) => {
     setImportingId(contact.id);
     try {
       const lead = await leadsApi.importFromContact(contact.id);
       toast({ title: `Эски байланыш лидге өткөрүлдү (#${lead.id})` });
-    } catch {
-      toast({ title: 'Эски байланышты лидге өткөрүүдө ката кетти', variant: 'destructive' });
+    } catch (error) {
+      const friendly = getFriendlyError(error, { fallbackTitle: 'Эски байланышты лидге өткөрүү ишке ашкан жок' });
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setImportingId(null);
     }
@@ -289,6 +307,22 @@ export default function LegacyContactsPage() {
             </div>
           </div>
         )}
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between rounded-2xl border bg-card px-4 py-3">
+            <p className="text-sm text-muted-foreground">
+              Бет {page} / {totalPages}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setPage((current) => Math.max(current - 1, 1))} disabled={page <= 1}>
+                Артка
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setPage((current) => Math.min(current + 1, totalPages))} disabled={page >= totalPages}>
+                Алга
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="hidden md:block">
@@ -299,6 +333,9 @@ export default function LegacyContactsPage() {
           searchValue={search}
           onSearchChange={setSearch}
           searchPlaceholder="Эски байланыш издөө..."
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
           onRowClick={(c) => navigate(`/legacy-contacts/${c.id}`)}
         />
       </div>

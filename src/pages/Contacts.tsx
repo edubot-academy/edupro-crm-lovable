@@ -14,6 +14,7 @@ import { contactApi } from '@/api/modules';
 import type { Contact } from '@/types';
 import { Plus, Trash2, Loader2, Mail, Phone, IdCard } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getFriendlyError } from '@/lib/error-messages';
 
 const mockContacts: Contact[] = [
   { id: 1, fullName: 'Элнура Турдалиева', phone: '+996 558 678901', email: 'elnura@mail.kg', lmsStudentId: 'LMS-001', createdAt: '2024-02-15', updatedAt: '2024-03-01' },
@@ -54,8 +55,9 @@ export default function ContactsPage() {
       setShowCreate(false);
       setForm(emptyForm);
       fetchContacts();
-    } catch {
-      toast({ title: 'Байланыш кошууда ката кетти', variant: 'destructive' });
+    } catch (error) {
+      const friendly = getFriendlyError(error, { fallbackTitle: 'Байланышты сактоо ишке ашкан жок' });
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setIsCreating(false);
     }
@@ -69,8 +71,9 @@ export default function ContactsPage() {
       toast({ title: ky.contacts.deleteSuccess });
       setDeleteTarget(null);
       fetchContacts();
-    } catch {
-      toast({ title: ky.contacts.deleteError, variant: 'destructive' });
+    } catch (error) {
+      const friendly = getFriendlyError(error, { fallbackTitle: ky.contacts.deleteError });
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setIsDeleting(false);
     }
