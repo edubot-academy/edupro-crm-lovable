@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] - 2026-03-28
+
+### Changed
+- CRM pages now show empty states instead of fabricated sample records when backend requests fail
+- Dashboard, reports, and pipeline views now fall back to empty datasets instead of mock metrics
+
+### Removed
+- All frontend mock data fallbacks across leads, contacts, deals, tasks, trial lessons, users, retention, dashboard, reports, pipeline, and legacy pages
+
+### Fixed
+- Legacy contact list and detail typings now support legacy source values without conflicting with CRM `ContactSource`
+- Legacy contact import action now accepts the correct legacy row shape for type-safe lead import
+
+### Notes
+- This is a frontend-only patch release on top of `1.2.1`
+
 ## [1.2.1] - 2026-03-28
 
 ### Changed

@@ -20,17 +20,6 @@ import { Plus, Filter, Trash2, Loader2, Save, Phone, Mail, User } from 'lucide-r
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
 
-const mockLeads: Lead[] = [
-  { id: 1, fullName: 'Азамат Токтогулов', phone: '+996 555 123456', email: 'azamat@mail.kg', source: 'instagram', interestedCourseId: 'c1', assignedManager: { id: 1, fullName: 'Нургуль' }, status: 'new', notes: '', tags: ['IT'], createdAt: '2024-03-01', updatedAt: '2024-03-01' },
-  { id: 2, fullName: 'Айгерим Сатыбалдиева', phone: '+996 700 234567', email: 'aigerim@mail.kg', source: 'telegram', interestedCourseId: 'c2', assignedManager: { id: 2, fullName: 'Айбек' }, status: 'contacted', notes: '', tags: ['IT'], createdAt: '2024-03-02', updatedAt: '2024-03-02' },
-  { id: 3, fullName: 'Бакыт Жумалиев', phone: '+996 770 345678', email: 'bakyt@mail.kg', source: 'whatsapp', interestedCourseId: 'c3', assignedManager: { id: 3, fullName: 'Эрлан' }, status: 'trial_scheduled', notes: '', tags: ['Дизайн'], createdAt: '2024-03-03', updatedAt: '2024-03-03' },
-  { id: 4, fullName: 'Гүлнара Касымова', phone: '+996 550 456789', email: 'gulnara@mail.kg', source: 'website', interestedCourseId: 'c4', assignedManager: { id: 4, fullName: 'Жылдыз' }, status: 'interested', notes: '', tags: ['Тил'], createdAt: '2024-03-04', updatedAt: '2024-03-04' },
-  { id: 5, fullName: 'Данияр Абдыраев', phone: '+996 502 567890', email: 'daniyar@mail.kg', source: 'referral', interestedCourseId: 'c5', assignedManager: { id: 1, fullName: 'Нургуль' }, status: 'offer_sent', notes: '', tags: ['IT'], createdAt: '2024-03-05', updatedAt: '2024-03-05' },
-  { id: 6, fullName: 'Элнура Турдалиева', phone: '+996 558 678901', email: 'elnura@mail.kg', source: 'phone_call', interestedCourseId: 'c1', assignedManager: { id: 2, fullName: 'Айбек' }, status: 'won', notes: '', tags: ['IT'], createdAt: '2024-03-06', updatedAt: '2024-03-06' },
-  { id: 7, fullName: 'Жаныл Бекова', phone: '+996 703 789012', email: 'janyl@mail.kg', source: 'instagram', interestedCourseId: 'c2', assignedManager: { id: 3, fullName: 'Эрлан' }, status: 'payment_pending', notes: '', tags: ['IT'], createdAt: '2024-03-07', updatedAt: '2024-03-07' },
-  { id: 8, fullName: 'Кайрат Орозбеков', phone: '+996 771 890123', email: 'kairat@mail.kg', source: 'telegram', interestedCourseId: 'c3', assignedManager: { id: 4, fullName: 'Жылдыз' }, status: 'lost', notes: 'Бааны кымбат деп тапты', tags: ['Дизайн'], createdAt: '2024-03-08', updatedAt: '2024-03-08' },
-];
-
 export default function LeadsPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -83,7 +72,7 @@ export default function LeadsPage() {
         setTotalPages(Math.max(res.totalPages || 1, 1));
       })
       .catch(() => {
-        setLeads(mockLeads);
+        setLeads([]);
         setTotalPages(1);
       })
       .finally(() => setIsLoading(false));

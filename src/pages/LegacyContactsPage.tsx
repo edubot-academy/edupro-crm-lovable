@@ -13,7 +13,7 @@ import { Loader2, Mail, Phone, Database, ArrowRightLeft, Filter } from 'lucide-r
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
 
-type LegacyContactRow = Contact & {
+type LegacyContactRow = Omit<Contact, 'source'> & {
   source?: string;
   status?: string;
   assignedToName?: string | null;
@@ -22,12 +22,6 @@ type LegacyContactRow = Contact & {
   contactAttempts?: number | null;
   lastAttemptAt?: string | null;
 };
-
-const mockContacts: LegacyContactRow[] = [
-  { id: 1, fullName: 'Asan Tek', phone: '+996221989089', source: 'WEBSITE', status: 'NEW', courseName: 'Frontend', courseType: 'offline', contactAttempts: 0, createdAt: '2024-02-15', updatedAt: '2024-03-01', email: '' },
-  { id: 2, fullName: 'Hello', phone: '+996221743738', source: 'SOCIAL', status: 'FOLLOW_UP', assignedToName: 'Айбек', courseName: 'Python', courseType: 'online_live', contactAttempts: 2, lastAttemptAt: '2024-02-21T10:00:00.000Z', createdAt: '2024-02-20', updatedAt: '2024-03-05', email: '' },
-  { id: 3, fullName: 'Zuura', phone: '+996220789782', source: 'IMPORT', status: 'ARCHIVED', contactAttempts: 1, createdAt: '2024-01-10', updatedAt: '2024-02-28', email: '' },
-];
 
 const sourceLabels: Record<string, string> = {
   WEBSITE: 'Веб-сайт',
@@ -91,7 +85,7 @@ export default function LegacyContactsPage() {
         setTotalPages(Math.max(res.totalPages || 1, 1));
       })
       .catch(() => {
-        setContacts(mockContacts);
+        setContacts([]);
         setTotalPages(1);
       })
       .finally(() => setIsLoading(false));
@@ -105,7 +99,7 @@ export default function LegacyContactsPage() {
     setPage(1);
   }, [search, statusFilter, sourceFilter, courseTypeFilter]);
 
-  const handleImport = async (contact: Contact) => {
+  const handleImport = async (contact: Pick<LegacyContactRow, 'id'>) => {
     setImportingId(contact.id);
     try {
       const lead = await leadsApi.importFromContact(contact.id);

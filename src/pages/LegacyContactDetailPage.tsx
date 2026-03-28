@@ -15,10 +15,11 @@ import type { AssignableUser, Contact } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
 
-type LegacyContactDetail = Contact & {
+type LegacyContactDetail = Omit<Contact, 'source' | 'sourceProvider' | 'status'> & {
   status?: string | null;
   source?: string | null;
   sourceProvider?: string | null;
+  assignedToUserId?: number | null;
   assignedToName?: string | null;
   createdByName?: string | null;
   updatedByName?: string | null;

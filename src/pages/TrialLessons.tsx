@@ -20,12 +20,6 @@ const trialResultVariant = (s: string) => {
   switch (s) { case 'pending': return 'info' as const; case 'attended': case 'passed': return 'success' as const; case 'failed': return 'destructive' as const; case 'missed': return 'warning' as const; default: return 'default' as const; }
 };
 
-const mockTrials: TrialLesson[] = [
-  { id: 1, contact: { id: 1, fullName: 'Азамат Токтогулов' }, deal: { id: 1 }, scheduledAt: '2024-03-10T14:00', result: 'pending', createdAt: '2024-03-01' },
-  { id: 2, contact: { id: 3, fullName: 'Бакыт Жумалиев' }, deal: { id: 3 }, scheduledAt: '2024-03-08T16:00', result: 'attended', notes: 'Абдан жакты, катталгысы келет', createdAt: '2024-03-03' },
-  { id: 3, contact: { id: 4, fullName: 'Гүлнара Касымова' }, deal: { id: 4 }, scheduledAt: '2024-03-09T10:00', result: 'missed', createdAt: '2024-03-04' },
-];
-
 const emptyForm = { contactId: '', dealId: '', scheduledAt: '', notes: '' };
 
 export default function TrialLessonsPage() {
@@ -46,7 +40,7 @@ export default function TrialLessonsPage() {
     setIsLoading(true);
     trialLessonsApi.list({ search })
       .then((res) => setTrials(res.items))
-      .catch(() => setTrials(mockTrials))
+      .catch(() => setTrials([]))
       .finally(() => setIsLoading(false));
   };
 

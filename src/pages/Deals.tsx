@@ -21,11 +21,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { getFriendlyError } from '@/lib/error-messages';
 
-const mockDeals: Deal[] = [
-  { id: 1, contact: { id: 1, fullName: 'Элнура Турдалиева' }, lmsCourseId: 'c1', courseNameSnapshot: 'Python', lmsGroupId: 'g1', groupNameSnapshot: 'PY-24-1', amount: 15000, currency: 'KGS', stage: 'won', createdAt: '2024-02-20', updatedAt: '2024-03-10' },
-  { id: 2, contact: { id: 2, fullName: 'Данияр Абдыраев' }, lmsCourseId: 'c2', courseNameSnapshot: 'Data Science', lmsGroupId: 'g2', groupNameSnapshot: 'DS-24-1', amount: 20000, currency: 'KGS', stage: 'payment_pending', createdAt: '2024-03-01', updatedAt: '2024-03-08' },
-];
-
 const emptyForm = {
   contactId: '',
   amount: '',
@@ -84,7 +79,7 @@ export default function DealsPage() {
     setIsLoading(true);
     dealsApi.list({ search })
       .then((res) => setDeals(res.items))
-      .catch(() => setDeals(mockDeals))
+      .catch(() => setDeals([]))
       .finally(() => setIsLoading(false));
   };
 

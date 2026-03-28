@@ -22,14 +22,6 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-const mockUsers: SystemUser[] = [
-  { id: 1, fullName: 'Айбек Сатыбалдиев', email: 'aibek@edubot.kg', role: 'admin' },
-  { id: 2, fullName: 'Нургуль Эсенова', email: 'nurgul@edubot.kg', role: 'sales' },
-  { id: 3, fullName: 'Эрлан Токтосунов', email: 'erlan@edubot.kg', role: 'sales' },
-  { id: 4, fullName: 'Жылдыз Асанова', email: 'jyldyz@edubot.kg', role: 'assistant' },
-  { id: 5, fullName: 'Мурат Алиев', email: 'murat@edubot.kg', role: 'manager' },
-];
-
 const emptyForm = {
   fullName: '',
   email: '',
@@ -54,7 +46,7 @@ export default function UsersPage() {
     setIsLoading(true);
     usersApi.list({ search })
       .then((res) => setUsers(res.items ?? []))
-      .catch(() => setUsers(mockUsers))
+      .catch(() => setUsers([]))
       .finally(() => setIsLoading(false));
   };
 

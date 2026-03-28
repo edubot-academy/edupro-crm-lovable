@@ -18,12 +18,6 @@ import { Plus, Filter, CheckCircle, Trash2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
 
-const mockTasks: Task[] = [
-  { id: 1, title: 'Азаматка чалуу', description: 'Python курсу жөнүндө', status: 'open', dueAt: '2024-03-11', assignedTo: { id: 1, fullName: 'Нургуль' }, createdAt: '2024-03-09' },
-  { id: 2, title: 'Сыноо сабакты ырастоо', description: 'Бакытка чалуу', status: 'in_progress', dueAt: '2024-03-10', assignedTo: { id: 2, fullName: 'Айбек' }, createdAt: '2024-03-08' },
-  { id: 3, title: 'Сунуш жиберүү', description: 'Гүлнарага сунуш', status: 'open', dueAt: '2024-03-12', assignedTo: { id: 3, fullName: 'Эрлан' }, createdAt: '2024-03-09' },
-];
-
 const emptyForm = { title: '', description: '', dueAt: '', contactId: '', dealId: '' };
 
 export default function TasksPage() {
@@ -46,7 +40,7 @@ export default function TasksPage() {
     setIsLoading(true);
     tasksApi.list({ search, workflowStatus: statusFilter === 'all' ? undefined : statusFilter })
       .then((res) => setTasks(res.items))
-      .catch(() => setTasks(mockTasks))
+      .catch(() => setTasks([]))
       .finally(() => setIsLoading(false));
   };
 

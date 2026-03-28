@@ -16,12 +16,6 @@ import { Plus, Trash2, Loader2, Mail, Phone, IdCard } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
 
-const mockContacts: Contact[] = [
-  { id: 1, fullName: 'Элнура Турдалиева', phone: '+996 558 678901', email: 'elnura@mail.kg', lmsStudentId: 'LMS-001', createdAt: '2024-02-15', updatedAt: '2024-03-01' },
-  { id: 2, fullName: 'Данияр Абдыраев', phone: '+996 502 567890', email: 'daniyar@mail.kg', lmsStudentId: 'LMS-002', createdAt: '2024-02-20', updatedAt: '2024-03-05' },
-  { id: 3, fullName: 'Айтурган Маматова', phone: '+996 555 111222', email: 'aiturgan@mail.kg', createdAt: '2024-01-10', updatedAt: '2024-02-28' },
-];
-
 const emptyForm = { fullName: '', phone: '', email: '', notes: '' };
 
 export default function ContactsPage() {
@@ -40,7 +34,7 @@ export default function ContactsPage() {
     setIsLoading(true);
     contactApi.list({ search })
       .then((res) => setContacts(res.items))
-      .catch(() => setContacts(mockContacts))
+      .catch(() => setContacts([]))
       .finally(() => setIsLoading(false));
   };
 

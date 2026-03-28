@@ -30,26 +30,17 @@ const COLORS = [
   'hsl(140, 60%, 45%)', 'hsl(30, 80%, 55%)',
 ];
 
-const mockStats: DashboardStats = {
-  totalLeads: 342, newLeads: 28, conversionRate: 23.5,
-  trialToSaleConversion: 67.8, paymentPendingCount: 12,
-  wonDeals: 156, openRetentionCases: 8,
-  leadsBySource: [
-    { source: 'Instagram', count: 89 }, { source: 'Telegram', count: 72 },
-    { source: 'WhatsApp', count: 56 }, { source: 'Веб-сайт', count: 48 },
-    { source: 'Телефон', count: 42 }, { source: 'Сунуштоо', count: 35 },
-  ],
-  managerPerformance: [
-    { manager: 'Айбек', leads: 45, deals: 12, conversion: 26.7 },
-    { manager: 'Нургуль', leads: 38, deals: 14, conversion: 36.8 },
-    { manager: 'Эрлан', leads: 52, deals: 11, conversion: 21.2 },
-    { manager: 'Жылдыз', leads: 33, deals: 9, conversion: 27.3 },
-  ],
-  popularCourses: [
-    { course: 'Python', enrollments: 45 }, { course: 'JavaScript', enrollments: 38 },
-    { course: 'UI/UX Design', enrollments: 29 }, { course: 'Data Science', enrollments: 22 },
-    { course: 'English B1', enrollments: 18 },
-  ],
+const emptyStats: DashboardStats = {
+  totalLeads: 0,
+  newLeads: 0,
+  conversionRate: 0,
+  trialToSaleConversion: 0,
+  paymentPendingCount: 0,
+  wonDeals: 0,
+  openRetentionCases: 0,
+  leadsBySource: [],
+  managerPerformance: [],
+  popularCourses: [],
 };
 
 function DateRangePicker({
@@ -119,7 +110,7 @@ function exportCSV(stats: DashboardStats) {
 }
 
 export default function ReportsPage() {
-  const [stats, setStats] = useState<DashboardStats>(mockStats);
+  const [stats, setStats] = useState<DashboardStats>(emptyStats);
   const [isLoading, setIsLoading] = useState(true);
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
@@ -138,7 +129,7 @@ export default function ReportsPage() {
 
     reportsApi.getStats(params)
       .then(setStats)
-      .catch(() => setStats(mockStats))
+      .catch(() => setStats(emptyStats))
       .finally(() => setIsLoading(false));
   }, [dateFrom, dateTo, sourceFilter, managerFilter, courseFilter]);
 
