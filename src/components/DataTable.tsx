@@ -45,6 +45,17 @@ export function DataTable<T extends { id: number | string }>({
   renderMobileCard,
 }: DataTableProps<T>) {
   const isMobile = useIsMobile();
+  const visiblePages = Array.from(
+    { length: totalPages },
+    (_, index) => index + 1,
+  ).filter((pageNumber) => {
+    if (totalPages <= 7) return true;
+    return (
+      pageNumber === 1
+      || pageNumber === totalPages
+      || Math.abs(pageNumber - page) <= 1
+    );
+  });
 
   return (
     <div className="space-y-4">
@@ -153,6 +164,26 @@ export function DataTable<T extends { id: number | string }>({
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
+            {visiblePages.map((pageNumber, index) => {
+              const previousPage = visiblePages[index - 1];
+              const needsGap = previousPage && pageNumber - previousPage > 1;
+
+              return (
+                <div key={pageNumber} className="flex items-center gap-1">
+                  {needsGap && (
+                    <span className="px-1 text-sm text-muted-foreground">...</span>
+                  )}
+                  <Button
+                    variant={pageNumber === page ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => onPageChange(pageNumber)}
+                    className="min-w-9"
+                  >
+                    {pageNumber}
+                  </Button>
+                </div>
+              );
+            })}
             <Button
               variant="outline"
               size="sm"

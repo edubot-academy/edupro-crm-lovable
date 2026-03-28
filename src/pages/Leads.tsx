@@ -174,8 +174,15 @@ export default function LeadsPage() {
     }
   };
 
+  const normalizedSearch = search.trim().toLowerCase();
   const filtered = leads.filter((l) => {
-    const matchSearch = !search || l.fullName.toLowerCase().includes(search.toLowerCase()) || l.phone.includes(search) || l.email.toLowerCase().includes(search.toLowerCase());
+    const fullName = (l.fullName || '').toLowerCase();
+    const phone = l.phone || '';
+    const email = (l.email || '').toLowerCase();
+    const matchSearch = !normalizedSearch
+      || fullName.includes(normalizedSearch)
+      || phone.includes(search)
+      || email.includes(normalizedSearch);
     const matchStatus = statusFilter === 'all' || getLeadQualificationStatus(l) === statusFilter;
     return matchSearch && matchStatus;
   });
@@ -185,11 +192,22 @@ export default function LeadsPage() {
   const groupedLeads = Object.fromEntries(
     mobileStatuses.map(([status]) => [status, filtered.filter((lead) => getLeadQualificationStatus(lead) === status)])
   );
+  const visiblePageNumbers = Array.from(
+    { length: totalPages },
+    (_, index) => index + 1,
+  ).filter((pageNumber) => {
+    if (totalPages <= 7) return true;
+    return (
+      pageNumber === 1
+      || pageNumber === totalPages
+      || Math.abs(pageNumber - page) <= 1
+    );
+  });
 
   const columns: Column<Lead>[] = [
-    { key: 'fullName', header: ky.common.name, render: (l) => <span className="font-medium">{l.fullName}</span> },
+    { key: 'fullName', header: ky.common.name, render: (l) => <span className="font-medium">{l.fullName || '—'}</span> },
     { key: 'phone', header: ky.common.phone },
-    { key: 'source', header: ky.leads.source, render: (l) => <span className="text-sm">{ky.leadSource[l.source]}</span> },
+    { key: 'source', header: ky.leads.source, render: (l) => <span className="text-sm">{l.source ? ky.leadSource[l.source] : '—'}</span> },
     { key: 'interestedCourseId', header: ky.leads.interestedCourse, render: (l) => <span className="text-sm">{l.interestedCourseId || '—'}</span> },
     { key: 'assignedManager', header: ky.leads.assignedManager, render: (l) => <span className="text-sm">{l.assignedManager?.fullName || '—'}</span> },
     { key: 'status', header: ky.common.status, render: (l) => { const status = getLeadQualificationStatus(l); return <StatusBadge variant={getLeadStatusVariant(status)} dot>{ky.leadQualificationStatus[status]}</StatusBadge>; } },
@@ -289,8 +307,8 @@ export default function LeadsPage() {
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0 space-y-1">
-                                <p className="truncate font-semibold text-foreground">{lead.fullName}</p>
-                                <p className="text-xs text-muted-foreground">{ky.leadSource[lead.source]}</p>
+                                <p className="truncate font-semibold text-foreground">{lead.fullName || '—'}</p>
+                                <p className="text-xs text-muted-foreground">{lead.source ? ky.leadSource[lead.source] : '—'}</p>
                               </div>
                               <Button
                                 variant="ghost"
@@ -356,6 +374,26 @@ export default function LeadsPage() {
               <Button variant="outline" size="sm" onClick={() => setPage((current) => Math.max(current - 1, 1))} disabled={page <= 1}>
                 Артка
               </Button>
+              <div className="flex items-center gap-1">
+                {visiblePageNumbers.map((pageNumber, index) => {
+                  const previousPage = visiblePageNumbers[index - 1];
+                  const needsGap = previousPage && pageNumber - previousPage > 1;
+
+                  return (
+                    <div key={pageNumber} className="flex items-center gap-1">
+                      {needsGap && <span className="px-1 text-xs text-muted-foreground">...</span>}
+                      <Button
+                        variant={pageNumber === page ? 'default' : 'outline'}
+                        size="sm"
+                        className="min-w-9"
+                        onClick={() => setPage(pageNumber)}
+                      >
+                        {pageNumber}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
               <Button variant="outline" size="sm" onClick={() => setPage((current) => Math.min(current + 1, totalPages))} disabled={page >= totalPages}>
                 Алга
               </Button>

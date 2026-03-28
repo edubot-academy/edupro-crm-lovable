@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-03-28
+
+### Changed
+- Table pagination now shows clickable page numbers for lead and legacy data lists
+- Mobile pagination for lead and legacy data views now also shows page numbers for faster navigation
+
+### Fixed
+- Lead search no longer crashes when backend records contain `null` values in searchable text fields
+- Legacy data table now shows the record creation date in both desktop and mobile views
+
+### Notes
+- This is a frontend-only patch release on top of `1.2.0`
+
 ## [1.2.0] - 2026-03-28
 
 ### Added

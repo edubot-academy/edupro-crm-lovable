@@ -129,6 +129,17 @@ export default function LegacyContactsPage() {
   const groupedContacts = Object.fromEntries(
     mobileStatuses.map(([status]) => [status, filteredContacts.filter((contact) => contact.status === status)])
   );
+  const visiblePageNumbers = Array.from(
+    { length: totalPages },
+    (_, index) => index + 1,
+  ).filter((pageNumber) => {
+    if (totalPages <= 7) return true;
+    return (
+      pageNumber === 1
+      || pageNumber === totalPages
+      || Math.abs(pageNumber - page) <= 1
+    );
+  });
 
   const columns: Column<LegacyContactRow>[] = [
     { key: 'fullName', header: ky.common.name, render: (c) => <span className="font-medium">{c.fullName}</span> },
@@ -140,6 +151,7 @@ export default function LegacyContactsPage() {
     { key: 'courseType', header: 'Курс түрү', render: (c) => <span className="text-sm">{courseTypeLabels[c.courseType || ''] || c.courseType || '—'}</span>, className: 'hidden xl:table-cell' },
     { key: 'contactAttempts', header: 'Аракет', render: (c) => <span className="text-sm">{c.contactAttempts ?? 0}</span>, className: 'hidden lg:table-cell' },
     { key: 'lastAttemptAt', header: 'Акыркы аракет', render: (c) => <span className="text-sm text-muted-foreground">{c.lastAttemptAt ? new Date(c.lastAttemptAt).toLocaleDateString('ky-KG') : '—'}</span>, className: 'hidden xl:table-cell' },
+    { key: 'createdAt', header: 'Түзүлгөн күнү', render: (c) => <span className="text-sm text-muted-foreground">{c.createdAt ? new Date(c.createdAt).toLocaleDateString('ky-KG') : '—'}</span>, className: 'hidden lg:table-cell' },
     {
       key: 'actions', header: '', render: (c) => (
         <Button variant="outline" size="sm" className="gap-2" disabled={importingId === c.id} onClick={(e) => { e.stopPropagation(); void handleImport(c); }}>
@@ -276,6 +288,9 @@ export default function LegacyContactsPage() {
                               )}
                               <div className="text-xs text-muted-foreground">Жооптуу: {contact.assignedToName || 'Дайындалган эмес'}</div>
                               <div className="text-xs text-muted-foreground">Аракет саны: {contact.contactAttempts ?? 0}</div>
+                              <div className="text-xs text-muted-foreground">
+                                Түзүлгөн күнү: {contact.createdAt ? new Date(contact.createdAt).toLocaleDateString('ky-KG') : '—'}
+                              </div>
                               {contact.courseName && (
                                 <div className="text-xs text-muted-foreground">
                                   Курс: {contact.courseName}
@@ -317,6 +332,26 @@ export default function LegacyContactsPage() {
               <Button variant="outline" size="sm" onClick={() => setPage((current) => Math.max(current - 1, 1))} disabled={page <= 1}>
                 Артка
               </Button>
+              <div className="flex items-center gap-1">
+                {visiblePageNumbers.map((pageNumber, index) => {
+                  const previousPage = visiblePageNumbers[index - 1];
+                  const needsGap = previousPage && pageNumber - previousPage > 1;
+
+                  return (
+                    <div key={pageNumber} className="flex items-center gap-1">
+                      {needsGap && <span className="px-1 text-xs text-muted-foreground">...</span>}
+                      <Button
+                        variant={pageNumber === page ? 'default' : 'outline'}
+                        size="sm"
+                        className="min-w-9"
+                        onClick={() => setPage(pageNumber)}
+                      >
+                        {pageNumber}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
               <Button variant="outline" size="sm" onClick={() => setPage((current) => Math.min(current + 1, totalPages))} disabled={page >= totalPages}>
                 Алга
               </Button>
