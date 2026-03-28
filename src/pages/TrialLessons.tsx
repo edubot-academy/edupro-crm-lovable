@@ -36,6 +36,11 @@ export default function TrialLessonsPage() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [optionsLoading, setOptionsLoading] = useState(false);
 
+  const resetCreateForm = () => {
+    setForm(emptyForm);
+    setShowCreate(false);
+  };
+
   const fetchTrials = () => {
     setIsLoading(true);
     trialLessonsApi.list({ search })
@@ -134,7 +139,13 @@ export default function TrialLessonsPage() {
       <DataTable columns={columns} data={trials} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Сыноо сабак издөө..." />
 
       {/* Create Dialog */}
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+      <Dialog open={showCreate} onOpenChange={(open) => {
+        if (!open) {
+          resetCreateForm();
+          return;
+        }
+        setShowCreate(open);
+      }}>
         <DialogContent className="max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-xl">
           <DialogHeader><DialogTitle>{ky.trialLessons.newTrialLesson}</DialogTitle></DialogHeader>
           <div className="space-y-4">
@@ -188,7 +199,7 @@ export default function TrialLessonsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>{ky.common.cancel}</Button>
+            <Button variant="outline" onClick={resetCreateForm}>{ky.common.cancel}</Button>
             <Button onClick={handleCreate} disabled={isCreating || !form.contactId || !form.scheduledAt}>
               {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {ky.common.create}

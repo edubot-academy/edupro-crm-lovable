@@ -52,6 +52,15 @@ export function ScheduleTimelineEventDialog({
     });
   }, [defaultType, open]);
 
+  const resetForm = () => {
+    setForm({
+      type: defaultType,
+      message: '',
+      scheduledAt: '',
+    });
+    onOpenChange(false);
+  };
+
   const handleSave = async () => {
     const trimmedMessage = form.message.trim();
     const fallbackMessage = form.type === 'call' ? 'Чалуу пландалды' : 'Жолугушуу пландалды';
@@ -89,7 +98,13 @@ export function ScheduleTimelineEventDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(nextOpen) => {
+      if (!nextOpen) {
+        resetForm();
+        return;
+      }
+      onOpenChange(nextOpen);
+    }}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{form.type === 'call' ? 'Чалуу пландоо' : 'Жолугушуу пландоо'}</DialogTitle>
@@ -126,7 +141,7 @@ export function ScheduleTimelineEventDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
+          <Button variant="outline" onClick={resetForm} disabled={isSaving}>
             {ky.common.cancel}
           </Button>
           <Button onClick={handleSave} disabled={isSaving || !form.scheduledAt}>

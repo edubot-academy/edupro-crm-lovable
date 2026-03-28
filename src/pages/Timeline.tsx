@@ -56,6 +56,12 @@ export default function TimelinePage() {
     }, { replace: true });
   }, [setSearchParams]);
 
+  const resetCreateForm = useCallback(() => {
+    setForm(emptyForm);
+    clearPrefillParams();
+    setShowCreate(false);
+  }, [clearPrefillParams]);
+
   const fetchEvents = useCallback(() => {
     setIsLoading(true);
     timelineApi.list({ search, type: typeFilter === 'all' ? undefined : typeFilter })
@@ -242,7 +248,7 @@ export default function TimelinePage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>{ky.common.cancel}</Button>
+            <Button variant="outline" onClick={resetCreateForm}>{ky.common.cancel}</Button>
             <Button onClick={handleCreate} disabled={isCreating || (!form.message.trim() && !isSchedulableType) || (isSchedulableType && !form.scheduledAt)}>
               {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {ky.common.create}

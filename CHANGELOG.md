@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.3] - 2026-03-29
+
+### Fixed
+- Modal forms now reset correctly when closed via `Cancel`, the header `X` button, or backdrop click
+- Lead, contact, legacy contact, schedule, payment, task, trial lesson, and user create/edit dialogs no longer keep stale unsaved input after close
+- Lead create dialog duplicate-check state now also clears on close, so old duplicate warnings do not remain when reopening the modal
+
+### Notes
+- This is a frontend-only patch release on top of `1.2.2`
+
 ## [1.2.2] - 2026-03-28
 
 ### Changed

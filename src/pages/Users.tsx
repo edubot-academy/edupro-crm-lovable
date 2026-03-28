@@ -42,6 +42,11 @@ export default function UsersPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const creatableRoles = Object.entries(ky.userRole).filter(([role]) => user?.role === 'superadmin' || role !== 'superadmin');
 
+  const resetCreateForm = () => {
+    setForm(emptyForm);
+    setShowCreate(false);
+  };
+
   const fetchUsers = () => {
     setIsLoading(true);
     usersApi.list({ search })
@@ -145,7 +150,13 @@ export default function UsersPage() {
       <PageHeader title={ky.users.title} actions={<Button onClick={() => setShowCreate(true)}><Plus className="mr-2 h-4 w-4" />{ky.users.newUser}</Button>} />
       <DataTable columns={columns} data={users} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Колдонуучу издөө..." renderMobileCard={renderMobileCard} />
 
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+      <Dialog open={showCreate} onOpenChange={(open) => {
+        if (!open) {
+          resetCreateForm();
+          return;
+        }
+        setShowCreate(open);
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{ky.users.newUser}</DialogTitle>
@@ -174,7 +185,7 @@ export default function UsersPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>{ky.common.cancel}</Button>
+            <Button variant="outline" onClick={resetCreateForm}>{ky.common.cancel}</Button>
             <Button onClick={handleCreate} disabled={isCreating || !form.fullName || !form.email}>
               {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {ky.common.create}

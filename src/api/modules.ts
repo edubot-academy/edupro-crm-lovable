@@ -57,6 +57,8 @@ export const leadsApi = {
   create: (data: Partial<Lead>) => apiClient.post<Lead>('/api/leads', data),
   update: (id: number, data: Partial<Lead>) => apiClient.patch<Lead>(`/api/leads/${id}`, data),
   delete: (id: number) => apiClient.delete<{ success: boolean }>(`/api/leads/${id}`),
+  checkDuplicates: (data: { phone: string; email?: string }) =>
+    apiClient.post<{ hasDuplicate: boolean; duplicateFields?: string[]; existingLead?: Lead }>('/api/leads/check-duplicates', data),
   listNotes: (leadId: number, params?: { before?: string; limit?: number }) =>
     apiClient.get<ContactNote[]>(`/api/leads/${leadId}/notes`, params as Record<string, string | number | undefined>),
   addNote: (leadId: number, data: { body: string }) =>
@@ -226,8 +228,8 @@ function lmsRequestOptions(companyId?: string, idempotencyKey?: string) {
     },
     getAttemptHeaders: SHOULD_SEND_LMS_REQUEST_ID
       ? () => ({
-          'X-Request-Id': crypto.randomUUID(),
-        })
+        'X-Request-Id': crypto.randomUUID(),
+      })
       : undefined,
   };
 }

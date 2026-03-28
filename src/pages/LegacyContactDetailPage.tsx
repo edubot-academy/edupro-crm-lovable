@@ -157,6 +157,29 @@ export default function LegacyContactDetailPage() {
       .finally(() => setIsAssignablesLoading(false));
   }, [isEditOpen, toast]);
 
+  const resetEditForm = () => {
+    if (!contact) {
+      setIsEditOpen(false);
+      return;
+    }
+
+    setForm({
+      fullName: contact.fullName,
+      status: contact.status || '',
+      assigneeUserId: contact.assignedToUserId != null ? String(contact.assignedToUserId) : '',
+      notes: contact.notes || '',
+      priority: contact.priority != null ? String(contact.priority) : '',
+      tags: contact.tags?.join(', ') || '',
+      courseName: contact.courseName || '',
+      courseType: contact.courseType || '',
+      nextFollowUpAt: toDateTimeLocal(contact.nextFollowUpAt),
+      lastContactedAt: toDateTimeLocal(contact.lastContactedAt),
+      outcome: contact.outcome || '',
+      outcomeDetail: contact.outcomeDetail || '',
+    });
+    setIsEditOpen(false);
+  };
+
   const handleSave = async () => {
     if (!contact || !form.fullName) return;
 
@@ -324,7 +347,13 @@ export default function LegacyContactDetailPage() {
         </div>
       </div>
 
-      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+      <Dialog open={isEditOpen} onOpenChange={(open) => {
+        if (!open) {
+          resetEditForm();
+          return;
+        }
+        setIsEditOpen(open);
+      }}>
         <DialogContent className="w-[calc(100vw-2rem)] max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{ky.common.edit}</DialogTitle>
@@ -424,7 +453,7 @@ export default function LegacyContactDetailPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditOpen(false)} disabled={isSaving}>
+            <Button variant="outline" onClick={resetEditForm} disabled={isSaving}>
               {ky.common.cancel}
             </Button>
             <Button onClick={handleSave} disabled={isSaving || !form.fullName}>

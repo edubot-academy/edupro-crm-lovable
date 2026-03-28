@@ -75,6 +75,12 @@ export default function DealsPage() {
     }, { replace: true });
   };
 
+  const resetCreateForm = () => {
+    setForm(emptyForm);
+    clearPrefillParams();
+    setShowCreate(false);
+  };
+
   const fetchDeals = () => {
     setIsLoading(true);
     dealsApi.list({ search })
@@ -363,7 +369,7 @@ export default function DealsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>{ky.common.cancel}</Button>
+            <Button variant="outline" onClick={resetCreateForm}>{ky.common.cancel}</Button>
             <Button onClick={handleCreate} disabled={isCreating || !form.contactId || !form.amount || !form.initialTaskTitle.trim()}>
               {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {ky.common.create}

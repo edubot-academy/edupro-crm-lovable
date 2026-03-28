@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/PageShell';
 import { DataTable, type Column } from '@/components/DataTable';
@@ -49,6 +49,9 @@ export default function LeadsPage() {
     notes: '',
   };
   const [newLead, setNewLead] = useState(emptyLeadForm);
+  const [duplicateCheck, setDuplicateCheck] = useState<{ hasDuplicate: boolean; duplicateFields?: string[]; existingLead?: Lead } | null>(null);
+  const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
+  const duplicateCheckRequestRef = useRef(0);
   const canAssignToSales = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'superadmin';
   const { data: coursesData, isLoading: coursesLoading } = useLmsCourses({ isActive: 'true' });
   const courses = coursesData?.items ?? [];
@@ -106,14 +109,72 @@ export default function LeadsPage() {
       .finally(() => setManagersLoading(false));
   }, [createOpen, canAssignToSales, user]);
 
+  const checkForDuplicates = useCallback(async (phone: string, email?: string) => {
+    const normalizedPhone = phone.trim();
+    const normalizedEmail = email?.trim() || undefined;
+    const requestId = ++duplicateCheckRequestRef.current;
+
+    if (!normalizedPhone) {
+      setDuplicateCheck(null);
+      setIsCheckingDuplicates(false);
+      return null;
+    }
+
+    setIsCheckingDuplicates(true);
+    try {
+      const result = await leadsApi.checkDuplicates({ phone: normalizedPhone, email: normalizedEmail });
+      if (requestId === duplicateCheckRequestRef.current) {
+        setDuplicateCheck(result);
+      }
+      return result;
+    } catch (error) {
+      if (requestId === duplicateCheckRequestRef.current) {
+        console.error('Duplicate check failed:', error);
+        setDuplicateCheck(null);
+      }
+      return null;
+    } finally {
+      if (requestId === duplicateCheckRequestRef.current) {
+        setIsCheckingDuplicates(false);
+      }
+    }
+  }, []);
+
   useEffect(() => {
-    if (!createOpen || !user) return;
+    if (!user) return;
     setNewLead((prev) => (
       prev.assignedManagerId
         ? prev
         : { ...prev, assignedManagerId: String(user.id) }
     ));
   }, [createOpen, user]);
+
+  const resetCreateForm = () => {
+    duplicateCheckRequestRef.current += 1;
+    setIsCheckingDuplicates(false);
+    setDuplicateCheck(null);
+    setNewLead({
+      ...emptyLeadForm,
+      assignedManagerId: user ? String(user.id) : '',
+    });
+    setCreateOpen(false);
+  };
+
+  useEffect(() => {
+    if (!createOpen) {
+      duplicateCheckRequestRef.current += 1;
+      setIsCheckingDuplicates(false);
+      setDuplicateCheck(null);
+      return;
+    }
+
+    // Check duplicates when phone or email changes
+    const timeoutId = setTimeout(() => {
+      checkForDuplicates(newLead.phone, newLead.email);
+    }, 500); // Debounce 500ms
+
+    return () => clearTimeout(timeoutId);
+  }, [newLead.phone, newLead.email, createOpen, checkForDuplicates]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -133,13 +194,24 @@ export default function LeadsPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newLead.fullName || !newLead.phone) return;
+    if (!newLead.fullName.trim() || !newLead.phone.trim()) return;
+
+    const latestDuplicateCheck = await checkForDuplicates(newLead.phone, newLead.email);
+    if (latestDuplicateCheck?.hasDuplicate) {
+      toast({
+        title: 'Кайталанган лид табылды',
+        description: 'Бул телефон номери же email менен лид мурунтан эле бар. Адегенде бар болгон жазууну текшериңиз.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsCreating(true);
     try {
       await leadsApi.create({
-        fullName: newLead.fullName,
-        phone: newLead.phone,
-        email: newLead.email || undefined,
+        fullName: newLead.fullName.trim(),
+        phone: newLead.phone.trim(),
+        email: newLead.email.trim() || undefined,
         source: newLead.source || undefined,
         qualificationStatus: newLead.qualificationStatus,
         interestedCourseId: newLead.interestedCourseId || undefined,
@@ -154,8 +226,19 @@ export default function LeadsPage() {
         ...emptyLeadForm,
         assignedManagerId: user ? String(user.id) : '',
       });
+      setDuplicateCheck(null);
       fetchLeads();
     } catch (error) {
+      if (typeof error === 'object' && error !== null && 'status' in error && (error as { status?: number }).status === 409) {
+        const apiError = error as { details?: { duplicateFields?: string[]; existingLeadId?: number } };
+        setDuplicateCheck({
+          hasDuplicate: true,
+          duplicateFields: apiError.details?.duplicateFields,
+          existingLead: apiError.details?.existingLeadId
+            ? ({ id: apiError.details.existingLeadId } as Lead)
+            : undefined,
+        });
+      }
       const friendly = getFriendlyError(error, { fallbackTitle: 'Лидди сактоо ишке ашкан жок' });
       toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
@@ -421,7 +504,13 @@ export default function LeadsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog open={createOpen} onOpenChange={(open) => {
+        if (!open) {
+          resetCreateForm();
+          return;
+        }
+        setCreateOpen(open);
+      }}>
         <DialogContent className="max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{ky.leads.newLead}</DialogTitle>
@@ -440,6 +529,32 @@ export default function LeadsPage() {
                 <Label>{ky.common.email}</Label>
                 <Input type="email" value={newLead.email} onChange={(e) => setNewLead(p => ({ ...p, email: e.target.value }))} />
               </div>
+
+              {/* Duplicate Warning */}
+              {duplicateCheck?.hasDuplicate && (
+                <div className="sm:col-span-2 rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <div className="h-5 w-5 rounded-full bg-amber-200 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-amber-800 text-xs font-bold">!</span>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-amber-800">Кайталанган лид табылды</p>
+                      <p className="text-xs text-amber-700">
+                        {duplicateCheck.duplicateFields?.includes('phone') && (
+                          <span>Бул телефон номери менен лид мурунтан эле бар. </span>
+                        )}
+                        {duplicateCheck.duplicateFields?.includes('email') && (
+                          <span>Бул email дареги менен лид мурунтан эле бар. </span>
+                        )}
+                        {duplicateCheck.existingLead && (
+                          <span>Бар болгон лиддин ID: {duplicateCheck.existingLead.id}</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label>{ky.leads.source}</Label>
                 <Select value={newLead.source} onValueChange={(v) => setNewLead(p => ({ ...p, source: v as LeadSource }))}>
@@ -524,11 +639,21 @@ export default function LeadsPage() {
               <Textarea value={newLead.notes} onChange={(e) => setNewLead(p => ({ ...p, notes: e.target.value }))} rows={2} />
             </div>
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>{ky.common.cancel}</Button>
-              <Button type="submit" disabled={!newLead.fullName || !newLead.phone || isCreating}>
+              <Button type="button" variant="outline" onClick={resetCreateForm}>{ky.common.cancel}</Button>
+              <Button
+                type="submit"
+                disabled={
+                  !newLead.fullName ||
+                  !newLead.phone ||
+                  isCreating ||
+                  isCheckingDuplicates ||
+                  duplicateCheck?.hasDuplicate
+                }
+              >
                 {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isCheckingDuplicates && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Save className="mr-2 h-4 w-4" />
-                {ky.common.save}
+                {duplicateCheck?.hasDuplicate ? 'Кайталанган лид бар' : ky.common.save}
               </Button>
             </div>
           </form>

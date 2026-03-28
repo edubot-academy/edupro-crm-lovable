@@ -49,6 +49,12 @@ export default function PaymentsPage() {
     }, { replace: true });
   };
 
+  const resetCreateForm = () => {
+    setForm(emptyForm);
+    clearPrefillParams();
+    setShowCreate(false);
+  };
+
   const fetchPayments = useCallback(() => {
     setIsLoading(true);
     setLoadError(null);
@@ -197,8 +203,11 @@ export default function PaymentsPage() {
 
       {/* Create Dialog */}
       <Dialog open={showCreate} onOpenChange={(open) => {
+        if (!open) {
+          resetCreateForm();
+          return;
+        }
         setShowCreate(open);
-        if (!open) clearPrefillParams();
       }}>
         <DialogContent className="max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-xl">
           <DialogHeader><DialogTitle>{ky.payments.newPayment}</DialogTitle></DialogHeader>
@@ -265,7 +274,7 @@ export default function PaymentsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>{ky.common.cancel}</Button>
+            <Button variant="outline" onClick={resetCreateForm}>{ky.common.cancel}</Button>
             <Button onClick={handleCreate} disabled={isCreating || !form.dealId || !form.amount}>
               {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {form.kind === 'deposit' ? ky.payments.depositPayment : ky.common.create}

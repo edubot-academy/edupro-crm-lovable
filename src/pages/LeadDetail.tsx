@@ -103,6 +103,26 @@ export default function LeadDetailPage() {
       .finally(() => setManagersLoading(false));
   }, [isEditOpen, canAssignToSales, user]);
 
+  const resetEditForm = () => {
+    if (!lead) {
+      setIsEditOpen(false);
+      return;
+    }
+
+    setForm({
+      fullName: lead.fullName,
+      phone: lead.phone,
+      email: lead.email,
+      source: lead.source,
+      qualificationStatus: getLeadQualificationStatus(lead),
+      interestedCourseId: lead.interestedCourseId || '',
+      interestedGroupId: lead.interestedGroupId || '',
+      assignedManagerId: lead.assignedManager?.id ? String(lead.assignedManager.id) : '',
+      notes: lead.notes || '',
+    });
+    setIsEditOpen(false);
+  };
+
   const handleSave = async () => {
     if (!lead || !form.fullName || !form.phone || !form.source) return;
 
@@ -238,7 +258,13 @@ export default function LeadDetailPage() {
         </div>
       </div>
 
-      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+      <Dialog open={isEditOpen} onOpenChange={(open) => {
+        if (!open) {
+          resetEditForm();
+          return;
+        }
+        setIsEditOpen(open);
+      }}>
         <DialogContent className="max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{ky.common.edit}</DialogTitle>
@@ -352,7 +378,7 @@ export default function LeadDetailPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditOpen(false)} disabled={isSaving}>
+            <Button variant="outline" onClick={resetEditForm} disabled={isSaving}>
               {ky.common.cancel}
             </Button>
             <Button onClick={handleSave} disabled={isSaving || !form.fullName || !form.phone || !form.source}>

@@ -30,6 +30,11 @@ export default function ContactsPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState(emptyForm);
 
+  const resetCreateForm = () => {
+    setForm(emptyForm);
+    setShowCreate(false);
+  };
+
   const fetchContacts = () => {
     setIsLoading(true);
     contactApi.list({ search })
@@ -120,7 +125,10 @@ export default function ContactsPage() {
       />
       <DataTable columns={columns} data={contacts} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Байланыш издөө..." onRowClick={(c) => navigate(`/contacts/${c.id}`)} renderMobileCard={renderMobileCard} />
 
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+      <Dialog open={showCreate} onOpenChange={(open) => {
+        setShowCreate(open);
+        if (!open) setForm(emptyForm);
+      }}>
         <DialogContent>
           <DialogHeader><DialogTitle>{ky.contacts.newContact}</DialogTitle></DialogHeader>
           <div className="space-y-4">
@@ -142,7 +150,7 @@ export default function ContactsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>{ky.common.cancel}</Button>
+            <Button variant="outline" onClick={resetCreateForm}>{ky.common.cancel}</Button>
             <Button onClick={handleCreate} disabled={isCreating || !form.fullName || !form.phone}>
               {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {ky.common.create}

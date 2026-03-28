@@ -36,6 +36,11 @@ export default function TasksPage() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [optionsLoading, setOptionsLoading] = useState(false);
 
+  const resetCreateForm = () => {
+    setForm(emptyForm);
+    setShowCreate(false);
+  };
+
   const fetchTasks = () => {
     setIsLoading(true);
     tasksApi.list({ search, workflowStatus: statusFilter === 'all' ? undefined : statusFilter })
@@ -211,7 +216,13 @@ export default function TasksPage() {
       <DataTable columns={columns} data={filtered} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Тапшырма издөө..." renderMobileCard={renderMobileCard} />
 
       {/* Create Dialog */}
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+      <Dialog open={showCreate} onOpenChange={(open) => {
+        if (!open) {
+          resetCreateForm();
+          return;
+        }
+        setShowCreate(open);
+      }}>
         <DialogContent className="max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-xl">
           <DialogHeader><DialogTitle>{ky.tasks.newTask}</DialogTitle></DialogHeader>
           <div className="space-y-4">
@@ -271,7 +282,7 @@ export default function TasksPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>{ky.common.cancel}</Button>
+            <Button variant="outline" onClick={resetCreateForm}>{ky.common.cancel}</Button>
             <Button onClick={handleCreate} disabled={isCreating || !form.title}>
               {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {ky.common.create}

@@ -69,6 +69,21 @@ export default function ContactDetailPage() {
     });
   }, [contact]);
 
+  const resetEditForm = () => {
+    if (!contact) {
+      setIsEditOpen(false);
+      return;
+    }
+
+    setForm({
+      fullName: contact.fullName,
+      phone: contact.phone,
+      email: contact.email || '',
+      notes: contact.notes || '',
+    });
+    setIsEditOpen(false);
+  };
+
   const handleSave = async () => {
     if (!contact || !form.fullName || !form.phone) return;
 
@@ -292,7 +307,13 @@ export default function ContactDetailPage() {
           onSaved={() => setScheduleRefreshKey((prev) => prev + 1)}
         />
       )}
-      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+      <Dialog open={isEditOpen} onOpenChange={(open) => {
+        if (!open) {
+          resetEditForm();
+          return;
+        }
+        setIsEditOpen(open);
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Байланышты өзгөртүү</DialogTitle>
@@ -333,7 +354,7 @@ export default function ContactDetailPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditOpen(false)} disabled={isSaving}>
+            <Button variant="outline" onClick={resetEditForm} disabled={isSaving}>
               {ky.common.cancel}
             </Button>
             <Button onClick={handleSave} disabled={isSaving || !form.fullName || !form.phone}>
