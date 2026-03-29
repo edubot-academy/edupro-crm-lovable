@@ -9,7 +9,7 @@ import type {
 import type {
   LmsCourseListParams, LmsGroupListParams,
   CreateEnrollmentRequest, ActivateEnrollmentRequest, PauseEnrollmentRequest,
-  LmsEnrollmentResponse, LmsStudentSummary, LmsIntegrationHistoryResponse,
+  LmsEnrollmentResponse, LmsStudentSummary, LmsIntegrationHistoryResponse, LmsOnboardingLinkResponse,
 } from '@/types/lms';
 
 // ==================== COMPANIES ====================
@@ -252,6 +252,9 @@ export const lmsApi = {
 
   getStudentSummary: (studentId: string, companyId?: string) =>
     apiClient.get<LmsStudentSummary>(`/api/integrations/lms/students/${studentId}/summary`, undefined, lmsRequestOptions(companyId)),
+
+  createStudentOnboardingLink: (studentId: string, companyId?: string) =>
+    apiClient.post<LmsOnboardingLinkResponse>(`/api/integrations/lms/students/${studentId}/onboarding-link`, {}, lmsRequestOptions(companyId)),
 };
 
 // ==================== INTEGRATION ADMIN ====================

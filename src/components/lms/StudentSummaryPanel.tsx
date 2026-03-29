@@ -4,8 +4,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, User, BookOpen, Activity } from 'lucide-react';
-import { useLmsStudentSummary } from '@/hooks/use-lms';
+import { Search, User, BookOpen, Activity, Link as LinkIcon } from 'lucide-react';
+import { useLmsStudentSummary, useCreateStudentOnboardingLink } from '@/hooks/use-lms';
+import { useToast } from '@/hooks/use-toast';
 import { ActivateEnrollmentDialog, PauseEnrollmentDialog } from './EnrollmentActions';
 
 function ProgressBar({ value, label, color }: { value?: number; label: string; color: string }) {
@@ -43,6 +44,8 @@ const statusLabel: Record<string, string> = {
 export function StudentSummaryPanel({ initialStudentId }: { initialStudentId?: string }) {
   const [studentIdInput, setStudentIdInput] = useState(initialStudentId || '');
   const [searchId, setSearchId] = useState<string | undefined>(initialStudentId || undefined);
+  const [onboardingLink, setOnboardingLink] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!initialStudentId) return;
@@ -51,9 +54,50 @@ export function StudentSummaryPanel({ initialStudentId }: { initialStudentId?: s
   }, [initialStudentId]);
 
   const { data: summary, isLoading, isError, error } = useLmsStudentSummary(searchId);
+  const onboardingMutation = useCreateStudentOnboardingLink();
 
   const handleSearch = () => {
-    if (studentIdInput.trim()) setSearchId(studentIdInput.trim());
+    if (studentIdInput.trim()) {
+      setSearchId(studentIdInput.trim());
+      setOnboardingLink(null);
+    }
+  };
+
+  const handleCreateOnboardingLink = () => {
+    if (!summary?.studentId) return;
+
+    onboardingMutation.mutate(
+      { studentId: summary.studentId },
+      {
+        onSuccess: async (response) => {
+          const setupLink = response.onboarding?.setupLink || null;
+          setOnboardingLink(setupLink);
+
+          if (!setupLink) {
+            toast({ title: 'Жаңы LMS кирүү шилтемеси түзүлгөн жок', variant: 'destructive' });
+            return;
+          }
+
+          try {
+            await navigator.clipboard.writeText(setupLink);
+            toast({ title: 'LMS кирүү шилтемеси көчүрүлдү' });
+          } catch {
+            toast({ title: 'LMS кирүү шилтемеси даяр болду' });
+          }
+        },
+      },
+    );
+  };
+
+  const handleCopyOnboardingLink = async () => {
+    if (!onboardingLink) return;
+
+    try {
+      await navigator.clipboard.writeText(onboardingLink);
+      toast({ title: 'LMS кирүү шилтемеси көчүрүлдү' });
+    } catch {
+      toast({ title: 'Шилтемени көчүрүү мүмкүн болгон жок', variant: 'destructive' });
+    }
   };
 
   return (
@@ -100,6 +144,16 @@ export function StudentSummaryPanel({ initialStudentId }: { initialStudentId?: s
         )}
 
         {/* Empty */}
+        {!isLoading && !isError && !searchId && (
+          <div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground space-y-2">
+            <p className="font-medium text-foreground">Жаңы LMS шилтемесин кайра түзүү</p>
+            <p>
+              Эгер студент мурун эле LMSке катталган болсо, анын LMS студент ID номерин киргизип издеңиз.
+              Студент табылгандан кийин ушул жерде <span className="font-medium">Жаңы шилтеме</span> баскычы чыгат.
+            </p>
+          </div>
+        )}
+
         {!isLoading && !isError && searchId && !summary && (
           <p className="text-sm text-muted-foreground">Маалымат табылган жок.</p>
         )}
@@ -112,6 +166,39 @@ export function StudentSummaryPanel({ initialStudentId }: { initialStudentId?: s
               <p className="font-medium text-base">{summary.fullName}</p>
               {summary.phone && <p className="text-muted-foreground">{summary.phone}</p>}
               {summary.email && <p className="text-muted-foreground">{summary.email}</p>}
+            </div>
+
+            <div className="space-y-2 rounded-md border bg-muted/40 p-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <p className="text-sm font-medium">LMS кирүү шилтемеси</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCreateOnboardingLink}
+                  disabled={onboardingMutation.isPending}
+                >
+                  <LinkIcon className="mr-2 h-4 w-4" />
+                  {onboardingMutation.isPending ? 'Түзүлүүдө...' : 'Жаңы шилтеме'}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Студентке жаңы LMS кирүү шилтемесин түзүп, төмөндөн көрүп жана көчүрүп алсаңыз болот.
+              </p>
+              {onboardingLink && (
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <p className="min-w-0 flex-1 break-all text-xs text-muted-foreground">{onboardingLink}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopyOnboardingLink}
+                    className="w-full sm:w-auto"
+                  >
+                    Шилтемени көчүрүү
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Enrollments */}

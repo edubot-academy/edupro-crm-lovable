@@ -85,8 +85,13 @@ export default function LeadDetailPage() {
 
   useEffect(() => {
     if (!isEditOpen) return;
+    if (!canAssignToSales) {
+      setManagers(user ? [{ id: user.id, fullName: user.fullName || user.email, email: user.email, role: user.role }] : []);
+      setManagersLoading(false);
+      return;
+    }
     setManagersLoading(true);
-    usersApi.assignables(canAssignToSales ? { roles: 'sales' } : undefined)
+    usersApi.assignables({ roles: 'sales' })
       .then((items) => {
         if (!user) {
           setManagers(items);
@@ -136,7 +141,9 @@ export default function LeadDetailPage() {
         qualificationStatus: form.qualificationStatus,
         interestedCourseId: form.interestedCourseId || undefined,
         interestedGroupId: form.interestedGroupId || undefined,
-        assignedManagerId: form.assignedManagerId ? Number(form.assignedManagerId) : null,
+        assignedManagerId: canAssignToSales
+          ? (form.assignedManagerId ? Number(form.assignedManagerId) : null)
+          : undefined,
         notes: form.notes || undefined,
       });
       setLead(updatedLead);
@@ -357,19 +364,25 @@ export default function LeadDetailPage() {
               )}
               <div className="space-y-2 sm:col-span-2">
                 <Label>{ky.leads.assignedManager}</Label>
-                <Select value={form.assignedManagerId || '__none__'} onValueChange={(value) => setForm((prev) => ({ ...prev, assignedManagerId: value === '__none__' ? '' : value }))} disabled={managersLoading}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={managersLoading ? 'Жүктөлүүдө...' : canAssignToSales ? 'Жооптуу sales тандаңыз' : 'Менеджер тандаңыз'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Тандалган эмес</SelectItem>
-                    {managers.map((manager) => (
-                      <SelectItem key={manager.id} value={String(manager.id)}>
-                        {manager.id === user?.id ? `${manager.fullName} (Мен)` : manager.fullName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {canAssignToSales ? (
+                  <Select value={form.assignedManagerId || '__none__'} onValueChange={(value) => setForm((prev) => ({ ...prev, assignedManagerId: value === '__none__' ? '' : value }))} disabled={managersLoading}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={managersLoading ? 'Жүктөлүүдө...' : 'Жооптуу sales тандаңыз'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Тандалган эмес</SelectItem>
+                      {managers.map((manager) => (
+                        <SelectItem key={manager.id} value={String(manager.id)}>
+                          {manager.id === user?.id ? `${manager.fullName} (Мен)` : manager.fullName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="flex h-10 items-center rounded-md border bg-muted/40 px-3 text-sm text-muted-foreground">
+                    {lead.assignedManager?.fullName || 'Owner дайындалган эмес'}
+                  </div>
+                )}
               </div>
             </div>
             <div className="space-y-2">

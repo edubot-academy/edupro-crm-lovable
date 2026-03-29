@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/PageShell';
 import { DataTable, type Column } from '@/components/DataTable';
 import { StatusBadge, getPaymentStatusVariant } from '@/components/StatusBadge';
@@ -16,10 +16,13 @@ import type { Deal, Payment } from '@/types';
 import { dealsApi, paymentsApi } from '@/api/modules';
 import { Plus, CheckCircle, Loader2 } from 'lucide-react';
 import { getFriendlyError } from '@/lib/error-messages';
+import { useAuth } from '@/contexts/AuthContext';
 
 const emptyForm = { dealId: '', amount: '', kind: 'regular' as Payment['kind'], method: 'card' as string };
 
 export default function PaymentsPage() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,6 +42,18 @@ export default function PaymentsPage() {
   const selectedDeal = deals.find((deal) => String(deal.id) === form.dealId);
   const selectedDealPayments = payments.filter((payment) => String(payment.dealId) === form.dealId);
   const selectedDealSummary = selectedDealPayments[0]?.dealPaymentSummary ?? null;
+  const canConfirmPayments = user?.role !== 'sales';
+
+  const dealRequiresLmsEmail = (deal?: Deal | Payment['deal']) =>
+    !!deal?.lmsCourseId && !!deal?.courseType;
+
+  const selectedDealMissingEnrollmentEmail =
+    dealRequiresLmsEmail(selectedDeal) && !selectedDeal?.contact?.email?.trim();
+
+  const confirmTargetMissingEnrollmentEmail =
+    dealRequiresLmsEmail(confirmTarget?.deal) &&
+    !confirmTarget?.lmsEnrollmentId &&
+    !confirmTarget?.deal?.contact?.email?.trim();
 
   const clearPrefillParams = () => {
     setSearchParams((current) => {
@@ -96,6 +111,14 @@ export default function PaymentsPage() {
 
   const handleCreate = async () => {
     if (!form.dealId || !form.amount) return;
+    if (selectedDealMissingEnrollmentEmail) {
+      toast({
+        title: 'LMS каттоо үчүн email керек',
+        description: 'Бул келишим LMS каттоону түзөт. Адегенде байланыштын email дарегин толтуруңуз.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setIsCreating(true);
     try {
       const payload = {
@@ -124,6 +147,14 @@ export default function PaymentsPage() {
 
   const handleConfirm = async () => {
     if (!confirmTarget) return;
+    if (confirmTargetMissingEnrollmentEmail) {
+      toast({
+        title: 'LMS каттоо үчүн email керек',
+        description: 'Бул төлөмдү ырастоодон мурун байланыштын email дарегин толтуруңуз.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setIsConfirming(true);
     try {
       await paymentsApi.update(confirmTarget.id, { paymentStatus: 'confirmed' });
@@ -162,7 +193,7 @@ export default function PaymentsPage() {
     { key: 'status', header: ky.common.status, render: (p) => (
       <div className="flex items-center gap-2">
         <StatusBadge variant={getPaymentStatusVariant(getPaymentWorkflowStatus(p))} dot>{ky.paymentStatus[getPaymentWorkflowStatus(p)]}</StatusBadge>
-        {getPaymentWorkflowStatus(p) === 'submitted' && (
+        {canConfirmPayments && getPaymentWorkflowStatus(p) === 'submitted' && (
           <Button variant="ghost" size="sm" className="h-7 text-xs text-success hover:text-success" title={ky.payments.confirmPayment} onClick={() => setConfirmTarget(p)}>
             <CheckCircle className="h-3.5 w-3.5" />
           </Button>
@@ -249,6 +280,23 @@ export default function PaymentsPage() {
                   ) : null}
                 </div>
               )}
+              {selectedDealMissingEnrollmentEmail && (
+                <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive space-y-2">
+                  <p>
+                    Бул келишим LMS каттоону түзөт. Улантуу үчүн байланыштын email дарегин толтуруңуз.
+                  </p>
+                  {selectedDeal?.contact?.id && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate(`/contacts/${selectedDeal.contact?.id}`)}
+                    >
+                      Байланышты ачуу
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label>{ky.payments.kind}</Label>
@@ -275,7 +323,7 @@ export default function PaymentsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={resetCreateForm}>{ky.common.cancel}</Button>
-            <Button onClick={handleCreate} disabled={isCreating || !form.dealId || !form.amount}>
+            <Button onClick={handleCreate} disabled={isCreating || !form.dealId || !form.amount || selectedDealMissingEnrollmentEmail}>
               {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {form.kind === 'deposit' ? ky.payments.depositPayment : ky.common.create}
             </Button>
@@ -289,15 +337,23 @@ export default function PaymentsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Төлөмдү ырастоо</AlertDialogTitle>
             <AlertDialogDescription>
-              {confirmTarget?.user?.fullName} — {confirmTarget?.amount.toLocaleString()} сом төлөмүн ырастайсызбы?
+              {confirmTargetMissingEnrollmentEmail
+                ? 'Бул төлөм LMS каттоону активдештирет. Адегенде байланыштын email дарегин толтуруңуз.'
+                : `${confirmTarget ? getPaymentStudentName(confirmTarget) : 'Кардар'} — ${confirmTarget?.amount?.toLocaleString?.() ?? '0'} сом төлөмүн ырастайсызбы?`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isConfirming}>{ky.common.cancel}</AlertDialogCancel>
+            {confirmTargetMissingEnrollmentEmail && confirmTarget?.deal?.contact?.id ? (
+              <AlertDialogAction onClick={() => navigate(`/contacts/${confirmTarget.deal?.contact?.id}`)} disabled={isConfirming}>
+                Байланышты ачуу
+              </AlertDialogAction>
+            ) : (
             <AlertDialogAction onClick={handleConfirm} disabled={isConfirming}>
               {isConfirming && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Ырастоо
             </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

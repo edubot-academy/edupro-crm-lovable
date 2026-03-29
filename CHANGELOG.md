@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+Version bumps are classified by delivery scale; see `VERSIONING.md`.
+
+## [1.3.1] - 2026-03-29
+
+### Fixed
+- Sales users no longer call assignable-user endpoints on lead pages where assignment is not editable for their role
+- Payment confirmation dialogs now resolve the student name safely instead of showing `undefined`
+- Contact detail LMS action buttons now wrap correctly on narrower layouts
+- LMS enrollment screens now warn when the student already appears to be enrolled in the selected course/group
+
+## [1.3.0] - 2026-03-29
+
+### Changed
+- LMS enrollment forms now prefill student identity data more reliably from the selected CRM lead, deal, and contact context
+- Payment and LMS enrollment screens now explain LMS email requirements and onboarding state directly in the interface
+- Contact detail and LMS student summary panels now keep generated onboarding links visible with dedicated copy buttons
 
 ## [1.2.3] - 2026-03-29
 

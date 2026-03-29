@@ -187,7 +187,7 @@ export interface Deal {
   groupNameSnapshot?: string;
   notes?: string;
   lead?: { id: number; fullName: string };
-  contact?: { id: number; fullName: string };
+  contact?: { id: number; fullName: string; email?: string; lmsStudentId?: string };
   company?: CompanyRef;
   createdAt: string;
   updatedAt: string;
@@ -230,11 +230,13 @@ export interface Payment {
   user?: { id: number; fullName: string };
   deal?: {
     id: number;
+    lmsCourseId?: string;
+    courseType?: import('@/types/lms').LmsCourseType;
     courseNameSnapshot?: string;
     groupNameSnapshot?: string;
-    contact?: { id: number; fullName: string };
+    contact?: { id: number; fullName: string; email?: string };
   };
-  contact?: { id: number; fullName: string };
+  contact?: { id: number; fullName: string; email?: string };
   company?: CompanyRef;
   createdAt?: string;
   dealPaymentSummary?: {

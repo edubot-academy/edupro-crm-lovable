@@ -8,11 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Send } from 'lucide-react';
-import { useLmsCourses, useLmsGroups, useCreateEnrollment } from '@/hooks/use-lms';
+import { useLmsCourses, useLmsGroups, useCreateEnrollment, useLmsStudentSummary } from '@/hooks/use-lms';
 import { useAuth } from '@/contexts/AuthContext';
-import { dealsApi, leadsApi } from '@/api/modules';
-import type { Deal, Lead } from '@/types';
-import type { CreateEnrollmentRequest, LmsCourseType } from '@/types/lms';
+import { useToast } from '@/hooks/use-toast';
+import { contactApi, dealsApi, leadsApi } from '@/api/modules';
+import type { Contact, Deal, Lead } from '@/types';
+import type { CreateEnrollmentRequest, LmsCourseType, LmsEnrollmentResponse } from '@/types/lms';
 import { formatLmsDate, getCourseSalesSummary, getLmsGroupAvailability, getSeatsLeft } from '@/lib/lms-availability';
 
 const courseTypeLabels: Record<LmsCourseType, string> = {
@@ -43,8 +44,11 @@ export function EnrollmentForm() {
   const [dealId, setDealId] = useState('');
   const [notes, setNotes] = useState('');
   const [groupError, setGroupError] = useState('');
+  const [linkedContact, setLinkedContact] = useState<Contact | null>(null);
   const idempotencyRef = useRef<{ signature: string; key: string } | null>(null);
   const [submitError, setSubmitError] = useState('');
+  const [onboardingInfo, setOnboardingInfo] = useState<LmsEnrollmentResponse['onboarding'] | null>(null);
+  const { toast } = useToast();
 
   const { data: coursesData, isLoading: coursesLoading } = useLmsCourses({ isActive: 'true' });
   const courses = coursesData?.items ?? [];
@@ -72,10 +76,21 @@ export function EnrollmentForm() {
     () => deals.find((deal) => String(deal.id) === dealId),
     [deals, dealId]
   );
+  const resolvedContactId = selectedDeal?.contactId || selectedLead?.contactId || null;
   const prefillCourseId = searchParams.get('courseId') || '';
   const prefillGroupId = searchParams.get('groupId') || '';
+  const prefillLeadId = searchParams.get('crmLeadId') || '';
+  const prefillDealId = searchParams.get('crmDealId') || '';
 
   const createMutation = useCreateEnrollment();
+  const lmsStudentId = linkedContact?.lmsStudentId || selectedDeal?.contact?.lmsStudentId || undefined;
+  const { data: existingStudentSummary } = useLmsStudentSummary(lmsStudentId);
+
+  const fillStudentFields = (next: { fullName?: string | null; phone?: string | null; email?: string | null }) => {
+    setStudentName(next.fullName?.trim() || '');
+    setStudentPhone(next.phone?.trim() || '');
+    setStudentEmail(next.email?.trim() || '');
+  };
 
   useEffect(() => {
     setLeadsLoading(true);
@@ -92,6 +107,29 @@ export function EnrollmentForm() {
   }, []);
 
   useEffect(() => {
+    if (!resolvedContactId) {
+      setLinkedContact(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    contactApi.get(Number(resolvedContactId))
+      .then((contact) => {
+        if (cancelled) return;
+        setLinkedContact(contact);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLinkedContact(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedContactId]);
+
+  useEffect(() => {
     if (!courses.length || !prefillCourseId) return;
     const course = courses.find((item) => item.id === prefillCourseId);
     if (!course) return;
@@ -105,6 +143,44 @@ export function EnrollmentForm() {
     setGroupId((current) => (current === group.id ? current : group.id));
   }, [groups, prefillGroupId]);
 
+  useEffect(() => {
+    if (!prefillLeadId || !leads.length) return;
+    const lead = leads.find((item) => String(item.id) === prefillLeadId);
+    if (!lead) return;
+    setLeadId((current) => (current === String(lead.id) ? current : String(lead.id)));
+    fillStudentFields({
+      fullName: lead.fullName,
+      phone: lead.phone,
+      email: lead.email,
+    });
+  }, [leads, prefillLeadId]);
+
+  useEffect(() => {
+    if (!prefillDealId || !deals.length) return;
+    const deal = deals.find((item) => String(item.id) === prefillDealId);
+    if (!deal) return;
+    setDealId((current) => (current === String(deal.id) ? current : String(deal.id)));
+    if (deal.lmsCourseId) {
+      setCourseId((current) => current || deal.lmsCourseId || '');
+    }
+    if (deal.lmsGroupId) {
+      setGroupId((current) => current || deal.lmsGroupId || '');
+    }
+    if (deal.leadId) {
+      setLeadId((current) => current || String(deal.leadId));
+    }
+
+    const linkedLead = deal.leadId
+      ? leads.find((item) => item.id === deal.leadId)
+      : undefined;
+
+    fillStudentFields({
+      fullName: deal.contact?.fullName || linkedLead?.fullName || '',
+      phone: linkedLead?.phone || '',
+      email: deal.contact?.email || linkedLead?.email || '',
+    });
+  }, [deals, leads, prefillDealId]);
+
   const handleCourseChange = (value: string) => {
     setCourseId(value);
     setGroupId('');
@@ -113,13 +189,24 @@ export function EnrollmentForm() {
   };
 
   const handleLeadChange = (value: string) => {
+    if (value === '__none__') {
+      setLeadId('');
+      setStudentName('');
+      setStudentPhone('');
+      setStudentEmail('');
+      setSubmitError('');
+      return;
+    }
+
     const lead = leads.find((item) => String(item.id) === value);
     setLeadId(value);
     setSubmitError('');
     if (!lead) return;
-    setStudentName(lead.fullName || '');
-    setStudentPhone(lead.phone || '');
-    setStudentEmail(lead.email || '');
+    fillStudentFields({
+      fullName: lead.fullName,
+      phone: lead.phone,
+      email: lead.email || selectedDeal?.contact?.email || '',
+    });
   };
 
   const handleDealChange = (value: string) => {
@@ -138,6 +225,17 @@ export function EnrollmentForm() {
     } else {
       setGroupId('');
     }
+    const linkedLead = deal.leadId
+      ? leads.find((item) => item.id === deal.leadId)
+      : undefined;
+    if (deal.leadId) {
+      setLeadId(String(deal.leadId));
+    }
+    fillStudentFields({
+      fullName: deal.contact?.fullName || linkedLead?.fullName || '',
+      phone: linkedLead?.phone || studentPhone,
+      email: deal.contact?.email || linkedLead?.email || '',
+    });
   };
 
   const canSubmit =
@@ -145,8 +243,24 @@ export function EnrollmentForm() {
     (isVideo || groupId) &&
     studentName &&
     studentPhone &&
+    studentEmail.trim() &&
     leadId &&
     !createMutation.isPending;
+
+  const matchingExistingEnrollment = useMemo(() => {
+    if (!courseId || !existingStudentSummary?.enrollments?.length) return null;
+
+    return (
+      existingStudentSummary.enrollments.find((enrollment) => {
+        if (enrollment.courseId !== courseId) return false;
+        if (!['pending', 'active'].includes(enrollment.status)) return false;
+        if (isVideo) {
+          return !enrollment.groupId;
+        }
+        return (enrollment.groupId || '') === groupId;
+      }) || null
+    );
+  }, [courseId, existingStudentSummary?.enrollments, groupId, isVideo]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -167,6 +281,11 @@ export function EnrollmentForm() {
       return;
     }
 
+    if (!studentEmail.trim()) {
+      setSubmitError('LMS каттоо үчүн студенттин email дарегин жазыңыз');
+      return;
+    }
+
     if (!leadId) {
       setSubmitError('CRM лидди тандаңыз');
       return;
@@ -179,6 +298,7 @@ export function EnrollmentForm() {
     }
 
     setSubmitError('');
+    setOnboardingInfo(null);
 
     const payload: CreateEnrollmentRequest = {
       crmLeadId: leadId,
@@ -187,7 +307,7 @@ export function EnrollmentForm() {
       student: {
         fullName: studentName,
         phone: studentPhone,
-        email: studentEmail || null,
+        email: studentEmail.trim(),
       },
       courseId,
       courseType: selectedCourse?.courseType,
@@ -208,7 +328,9 @@ export function EnrollmentForm() {
     }
 
     createMutation.mutate({ data: payload, idempotencyKey: idempotencyRef.current.key }, {
-      onSuccess: () => {
+      onSuccess: (response) => {
+        const onboarding = response.onboarding ?? null;
+        setOnboardingInfo(onboarding);
         setCourseId('');
         setGroupId('');
         setStudentName('');
@@ -227,8 +349,30 @@ export function EnrollmentForm() {
           next.delete('groupId');
           return next;
         }, { replace: true });
+
+        if (onboarding?.required && onboarding.setupLink) {
+          toast({
+            title: onboarding.emailSent
+              ? 'LMS аккаунт шилтемеси даяр болуп, студентке жөнөтүлдү'
+              : 'LMS аккаунт шилтемеси даяр болду',
+            description: onboarding.emailSent
+              ? 'Кааласаңыз, төмөндөн көчүрүп, студентке өзүңүз да жөнөтө аласыз.'
+              : 'Төмөндөн көчүрүп, студентке жөнөтүңүз.',
+          });
+        }
       },
     });
+  };
+
+  const copyOnboardingLink = async () => {
+    if (!onboardingInfo?.setupLink) return;
+
+    try {
+      await navigator.clipboard.writeText(onboardingInfo.setupLink);
+      toast({ title: 'LMS кирүү шилтемеси көчүрүлдү' });
+    } catch {
+      toast({ title: 'Шилтемени көчүрүү мүмкүн болгон жок', variant: 'destructive' });
+    }
   };
 
   return (
@@ -337,35 +481,24 @@ export function EnrollmentForm() {
             </div>
           )}
 
-          {/* Student info */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Студент аты *</Label>
-              <Input value={studentName} onChange={(e) => { setStudentName(e.target.value); setSubmitError(''); }} />
-            </div>
-            <div className="space-y-2">
-              <Label>Телефон *</Label>
-              <Input value={studentPhone} onChange={(e) => { setStudentPhone(e.target.value); setSubmitError(''); }} />
-            </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input type="email" value={studentEmail} onChange={(e) => setStudentEmail(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>CRM Лид *</Label>
-              <Select value={leadId} onValueChange={handleLeadChange} disabled={leadsLoading}>
-                <SelectTrigger>
-                  <SelectValue placeholder={leadsLoading ? 'Жүктөлүүдө...' : 'Лид тандаңыз'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {leads.map((lead) => (
-                    <SelectItem key={lead.id} value={String(lead.id)}>
-                      {lead.fullName} {lead.phone ? `• ${lead.phone}` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <Label>CRM Лид *</Label>
+            <Select value={leadId || '__none__'} onValueChange={handleLeadChange} disabled={leadsLoading}>
+              <SelectTrigger>
+                <SelectValue placeholder={leadsLoading ? 'Жүктөлүүдө...' : 'Алгач CRM лидди тандаңыз'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Тандалган эмес</SelectItem>
+                {leads.map((lead) => (
+                  <SelectItem key={lead.id} value={String(lead.id)}>
+                    {lead.fullName} {lead.phone ? `• ${lead.phone}` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Лид тандалганда студенттин аты, телефону жана email талаалары автоматтык толот.
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -398,6 +531,41 @@ export function EnrollmentForm() {
             </p>
           )}
 
+          {/* Student info */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Студент аты *</Label>
+              <Input
+                value={studentName}
+                onChange={(e) => { setStudentName(e.target.value); setSubmitError(''); }}
+                placeholder={leadId ? 'Студенттин аты' : 'Алгач CRM лидди тандаңыз'}
+                disabled={!leadId}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Телефон *</Label>
+              <Input
+                value={studentPhone}
+                onChange={(e) => { setStudentPhone(e.target.value); setSubmitError(''); }}
+                placeholder={leadId ? '+996 ...' : 'Алгач CRM лидди тандаңыз'}
+                disabled={!leadId}
+              />
+            </div>
+          <div className="space-y-2">
+              <Label>Email *</Label>
+              <Input
+                type="email"
+                value={studentEmail}
+                onChange={(e) => { setStudentEmail(e.target.value); setSubmitError(''); }}
+                placeholder={leadId ? 'email@example.com' : 'Алгач CRM лидди тандаңыз'}
+                disabled={!leadId}
+              />
+              <p className="text-xs text-muted-foreground">
+                LMS аккаунтун даярдоо жана кирүү шилтемесин жөнөтүү үчүн чыныгы email милдеттүү.
+              </p>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label>Эскертүүлөр</Label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
@@ -405,6 +573,36 @@ export function EnrollmentForm() {
 
           {submitError && (
             <p className="text-sm text-destructive">{submitError}</p>
+          )}
+
+          {matchingExistingEnrollment && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 space-y-1 text-sm text-amber-900">
+              <p className="font-medium">Бул студент бул курска мурунтан эле катталган.</p>
+              <p>
+                Учурдагы каттоо: {matchingExistingEnrollment.courseName || matchingExistingEnrollment.courseId}
+                {matchingExistingEnrollment.groupName || matchingExistingEnrollment.groupId
+                  ? ` • ${matchingExistingEnrollment.groupName || matchingExistingEnrollment.groupId}`
+                  : ''}
+                {` • ${matchingExistingEnrollment.status}`}
+              </p>
+              <p className="text-xs text-amber-800">
+                Улантсаңыз, LMS учурдагы каттоону кайра колдонуп же жаңыртып коёт.
+              </p>
+            </div>
+          )}
+
+          {onboardingInfo?.required && onboardingInfo.setupLink && (
+            <div className="rounded-md border bg-muted/40 p-3 space-y-2">
+              <p className="text-sm font-medium">Студент үчүн LMS кирүү шилтемеси даяр</p>
+              <p className="text-xs text-muted-foreground break-all">{onboardingInfo.setupLink}</p>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                {onboardingInfo.expiresAt && <span>Мөөнөтү: {formatLmsDate(onboardingInfo.expiresAt)}</span>}
+                {onboardingInfo.emailSent && <span>Студентке email да жөнөтүлдү</span>}
+              </div>
+              <Button type="button" variant="outline" onClick={copyOnboardingLink}>
+                Шилтемени көчүрүү
+              </Button>
+            </div>
           )}
 
           <Button type="submit" disabled={!canSubmit} className="w-full sm:w-auto">

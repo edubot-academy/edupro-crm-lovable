@@ -88,7 +88,27 @@ export interface LmsEnrollmentResponse {
   enrollmentId?: string;
   status: LmsEnrollmentStatus;
   message?: string;
+  studentId?: string;
+  accessActive?: boolean;
+  onboarding?: {
+    required: boolean;
+    setupLink: string | null;
+    expiresAt: string | null;
+    emailSent: boolean;
+  };
   [key: string]: unknown;
+}
+
+export interface LmsOnboardingLinkResponse {
+  success: boolean;
+  message?: string;
+  studentId: string;
+  onboarding: {
+    required: boolean;
+    setupLink: string | null;
+    expiresAt: string | null;
+    emailSent: boolean;
+  };
 }
 
 export interface LmsIntegrationHistoryItem {

@@ -12,7 +12,7 @@ import { ky } from '@/lib/i18n';
 import { ArrowLeft, Phone, Mail, User, Link2, Loader2, BookOpen, Activity, Workflow, Calendar } from 'lucide-react';
 import { contactApi } from '@/api/modules';
 import type { Contact } from '@/types';
-import { useLmsIntegrationHistory, useLmsStudentSummary } from '@/hooks/use-lms';
+import { useCreateStudentOnboardingLink, useLmsIntegrationHistory, useLmsStudentSummary } from '@/hooks/use-lms';
 import { ScheduleTimelineEventDialog } from '@/components/ScheduleTimelineEventDialog';
 import { ScheduledTimelineEventsCard } from '@/components/ScheduledTimelineEventsCard';
 import { useToast } from '@/hooks/use-toast';
@@ -29,6 +29,7 @@ export default function ContactDetailPage() {
   const [scheduleRefreshKey, setScheduleRefreshKey] = useState(0);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [onboardingLink, setOnboardingLink] = useState<string | null>(null);
   const [form, setForm] = useState({
     fullName: '',
     phone: '',
@@ -40,7 +41,10 @@ export default function ContactDetailPage() {
     if (!id) return;
     setIsLoading(true);
     contactApi.get(Number(id))
-      .then(setContact)
+      .then((data) => {
+        setContact(data);
+        setOnboardingLink(null);
+      })
       .catch(() => setError('Байланыш табылган жок'))
       .finally(() => setIsLoading(false));
   }, [id]);
@@ -58,6 +62,7 @@ export default function ContactDetailPage() {
     lmsStudentId: contact?.lmsStudentId,
     limit: 5,
   });
+  const createOnboardingLinkMutation = useCreateStudentOnboardingLink();
 
   useEffect(() => {
     if (!contact) return;
@@ -106,6 +111,43 @@ export default function ContactDetailPage() {
     }
   };
 
+  const handleCreateOnboardingLink = () => {
+    if (!contact?.lmsStudentId) return;
+
+    createOnboardingLinkMutation.mutate(
+      { studentId: contact.lmsStudentId },
+      {
+        onSuccess: async (response) => {
+          const setupLink = response.onboarding?.setupLink || null;
+          setOnboardingLink(setupLink);
+
+          if (!setupLink) {
+            toast({ title: 'Жаңы LMS кирүү шилтемеси түзүлгөн жок', variant: 'destructive' });
+            return;
+          }
+
+          try {
+            await navigator.clipboard.writeText(setupLink);
+            toast({ title: 'LMS кирүү шилтемеси көчүрүлдү' });
+          } catch {
+            toast({ title: 'LMS кирүү шилтемеси даяр болду' });
+          }
+        },
+      },
+    );
+  };
+
+  const handleCopyOnboardingLink = async () => {
+    if (!onboardingLink) return;
+
+    try {
+      await navigator.clipboard.writeText(onboardingLink);
+      toast({ title: 'LMS кирүү шилтемеси көчүрүлдү' });
+    } catch {
+      toast({ title: 'Шилтемени көчүрүү мүмкүн болгон жок', variant: 'destructive' });
+    }
+  };
+
   if (isLoading) {
     return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   }
@@ -124,7 +166,7 @@ export default function ContactDetailPage() {
       <PageHeader
         title={contact.fullName}
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => navigate('/contacts')}>
               <ArrowLeft className="mr-2 h-4 w-4" />{ky.common.back}
             </Button>
@@ -159,22 +201,54 @@ export default function ContactDetailPage() {
           </Card>
 
           <Card className="shadow-card border-border/50">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-base flex items-center gap-2">
+            <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-start sm:justify-between">
+              <CardTitle className="text-base flex items-center gap-2 leading-tight">
                 <BookOpen className="h-4 w-4" />
                 LMS маалыматы
               </CardTitle>
               {contact.lmsStudentId && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate(`/enrollments?studentId=${encodeURIComponent(contact.lmsStudentId || '')}`)}
-                >
-                  LMS каттоо
-                </Button>
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCreateOnboardingLink}
+                    disabled={createOnboardingLinkMutation.isPending}
+                    className="w-full sm:w-auto"
+                  >
+                    {createOnboardingLinkMutation.isPending ? 'Түзүлүүдө...' : 'Жаңы LMS шилтемеси'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate(`/enrollments?studentId=${encodeURIComponent(contact.lmsStudentId || '')}`)}
+                    className="w-full sm:w-auto"
+                  >
+                    LMS каттоо
+                  </Button>
+                </div>
               )}
             </CardHeader>
             <CardContent className="space-y-4">
+              {onboardingLink && (
+                <div className="rounded-md border bg-muted/40 p-3 space-y-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">Жаңы LMS кирүү шилтемеси</p>
+                      <p className="mt-1 break-all text-xs text-muted-foreground">{onboardingLink}</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCopyOnboardingLink}
+                      className="w-full sm:w-auto"
+                    >
+                      Шилтемени көчүрүү
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {!contact.lmsStudentId ? (
                 <p className="text-sm text-muted-foreground">LMS студент байланышы жок.</p>
               ) : lmsLoading ? (

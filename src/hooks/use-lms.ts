@@ -53,6 +53,19 @@ export function useLmsStudentSummary(studentId: string | undefined) {
   });
 }
 
+export function useCreateStudentOnboardingLink() {
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ studentId }: { studentId: string }) => lmsApi.createStudentOnboardingLink(studentId),
+    retry: false,
+    onError: (err: unknown) => {
+      const error = formatLmsError(err, 'LMS кирүү шилтемесин түзүүдө ката кетти');
+      toast({ title: error.title, description: error.description, variant: 'destructive' });
+    },
+  });
+}
+
 export function useLmsIntegrationHistory(params?: Record<string, string | number | undefined>) {
   return useQuery({
     queryKey: ['lms-integration-history', params],
