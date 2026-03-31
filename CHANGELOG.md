@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Version bumps are classified by delivery scale; see `VERSIONING.md`.
 
+## [1.4.1] - 2026-03-31
+
+### Added
+- Deal detail now includes an LMS edit dialog for correcting the sold LMS course/group directly on the deal before payment confirmation
+
+### Fixed
+- Payment confirmation now blocks more clearly when an offline or online-live deal is missing its LMS group and routes the operator to the deal that needs correction
+- Payment-related frontend typings now include `deal.lmsGroupId`, matching the actual data used by the confirmation guard
+- Deal-side LMS edit flow now fills the workflow gap where payment confirmation depended on deal LMS data but the UI had no way to update it
+
 ## [1.4.0] - 2026-03-31
 
 ### Added

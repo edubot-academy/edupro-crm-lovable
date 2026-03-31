@@ -231,6 +231,7 @@ export interface Payment {
   deal?: {
     id: number;
     lmsCourseId?: string;
+    lmsGroupId?: string;
     courseType?: import('@/types/lms').LmsCourseType;
     courseNameSnapshot?: string;
     groupNameSnapshot?: string;

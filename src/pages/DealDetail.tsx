@@ -4,40 +4,55 @@ import { PageHeader } from '@/components/PageShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, ArrowLeft, BookOpen, CreditCard, Workflow, User, CalendarDays, Clock3, Users } from 'lucide-react';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Loader2, ArrowLeft, BookOpen, CreditCard, Workflow, User, CalendarDays, Clock3, Users, Pencil } from 'lucide-react';
 import { contactApi, dealsApi, paymentsApi } from '@/api/modules';
 import type { Contact, Deal, Payment } from '@/types';
-import { useLmsGroups } from '@/hooks/use-lms';
+import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
 import { formatLmsDate, getLmsGroupAvailability, getSeatsLeft } from '@/lib/lms-availability';
 import { IntegrationHistoryPanel } from '@/components/lms/IntegrationHistoryPanel';
+import { useToast } from '@/hooks/use-toast';
+import { getFriendlyError } from '@/lib/error-messages';
 
 export default function DealDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [deal, setDeal] = useState<Deal | null>(null);
   const [contact, setContact] = useState<Contact | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [paymentsLoading, setPaymentsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editForm, setEditForm] = useState({
+    lmsCourseId: '',
+    lmsGroupId: '',
+  });
+
+  const loadDeal = async (dealId: number) => {
+    const dealResult = await dealsApi.get(dealId);
+    setDeal(dealResult);
+    if (dealResult.contactId) {
+      try {
+        const contactResult = await contactApi.get(dealResult.contactId);
+        setContact(contactResult);
+      } catch {
+        setContact(null);
+      }
+    } else {
+      setContact(null);
+    }
+    return dealResult;
+  };
 
   useEffect(() => {
     if (!id) return;
     setIsLoading(true);
-    dealsApi.get(Number(id))
-      .then(async (dealResult) => {
-        setDeal(dealResult);
-        if (dealResult.contactId) {
-          try {
-            const contactResult = await contactApi.get(dealResult.contactId);
-            setContact(contactResult);
-          } catch {
-            setContact(null);
-          }
-        } else {
-          setContact(null);
-        }
-      })
+    loadDeal(Number(id))
       .catch(() => setError('Келишим табылган жок'))
       .finally(() => setIsLoading(false));
   }, [id]);
@@ -51,14 +66,29 @@ export default function DealDetailPage() {
       .finally(() => setPaymentsLoading(false));
   }, [id]);
 
-  const { data: groupsData } = useLmsGroups(
-    deal?.lmsCourseId ? { courseId: deal.lmsCourseId, limit: 100 } : undefined,
+  const { data: coursesData, isLoading: coursesLoading } = useLmsCourses({ isActive: 'true' });
+  const courses = coursesData?.items ?? [];
+  const selectedEditCourse = courses.find((course) => course.id === editForm.lmsCourseId);
+  const editNeedsGroup = !!selectedEditCourse && selectedEditCourse.courseType !== 'video';
+  const { data: groupsData, isLoading: groupsLoading } = useLmsGroups(
+    editOpen
+      ? (editNeedsGroup ? { courseId: editForm.lmsCourseId, limit: 100 } : undefined)
+      : deal?.lmsCourseId ? { courseId: deal.lmsCourseId, limit: 100 } : undefined,
   );
+  const groups = groupsData?.items ?? [];
 
   const liveGroup = useMemo(
     () => groupsData?.items?.find((group) => group.id === deal?.lmsGroupId) ?? null,
     [groupsData?.items, deal?.lmsGroupId],
   );
+
+  useEffect(() => {
+    if (!deal || !editOpen) return;
+    setEditForm({
+      lmsCourseId: deal.lmsCourseId || '',
+      lmsGroupId: deal.lmsGroupId || '',
+    });
+  }, [deal, editOpen]);
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
@@ -78,6 +108,53 @@ export default function DealDetailPage() {
   const availability = liveGroup ? getLmsGroupAvailability(liveGroup) : null;
   const paymentSummary = payments[0]?.dealPaymentSummary ?? null;
 
+  const handleSaveLmsData = async () => {
+    if (!deal) return;
+
+    if (!selectedEditCourse) {
+      toast({
+        title: 'Курс тандоо керек',
+        description: 'Алгач LMS курсун тандаңыз.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (editNeedsGroup && !editForm.lmsGroupId) {
+      toast({
+        title: 'Топ тандоо керек',
+        description: 'Оффлайн жана онлайн түз эфир курстары үчүн LMS тобун сактаңыз.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const selectedGroup = groups.find((group) => group.id === editForm.lmsGroupId);
+
+    setIsSaving(true);
+    try {
+      await dealsApi.update(deal.id, {
+        lmsCourseId: editForm.lmsCourseId,
+        courseType: selectedEditCourse.courseType,
+        courseNameSnapshot: selectedEditCourse.name || undefined,
+        lmsGroupId: selectedEditCourse.courseType === 'video' ? undefined : editForm.lmsGroupId || undefined,
+        groupNameSnapshot: selectedEditCourse.courseType === 'video' ? undefined : selectedGroup?.name || undefined,
+      });
+
+      await loadDeal(deal.id);
+      setEditOpen(false);
+      toast({
+        title: 'LMS маалымат жаңыртылды',
+        description: 'Келишимдеги курс жана топ маалыматы сакталды.',
+      });
+    } catch (error) {
+      const friendly = getFriendlyError(error, { fallbackTitle: 'Келишимди жаңыртуу ишке ашкан жок' });
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
@@ -93,6 +170,10 @@ export default function DealDetailPage() {
               onClick={() => navigate(`/payments?create=1&dealId=${deal.id}`)}
             >
               Төлөм кошуу
+            </Button>
+            <Button variant="outline" onClick={() => setEditOpen(true)}>
+              <Pencil className="mr-2 h-4 w-4" />
+              LMS маалыматты оңдоо
             </Button>
             {deal.lmsCourseId && (
               <Button
@@ -221,6 +302,81 @@ export default function DealDetailPage() {
           </Card>
         </div>
       </div>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>LMS маалыматты оңдоо</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>LMS курс</Label>
+              <Select
+                value={editForm.lmsCourseId || '__none__'}
+                onValueChange={(value) => setEditForm({
+                  lmsCourseId: value === '__none__' ? '' : value,
+                  lmsGroupId: '',
+                })}
+                disabled={coursesLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={coursesLoading ? 'Жүктөлүүдө...' : 'Курс тандаңыз'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Тандалган эмес</SelectItem>
+                  {courses.map((course) => (
+                    <SelectItem key={course.id} value={course.id}>
+                      {course.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Курс түрү</Label>
+              <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                {selectedEditCourse ? formatCourseType(selectedEditCourse.courseType) : '—'}
+              </div>
+            </div>
+
+            {selectedEditCourse && selectedEditCourse.courseType !== 'video' ? (
+              <div className="space-y-2">
+                <Label>LMS топ</Label>
+                <Select
+                  value={editForm.lmsGroupId || '__none__'}
+                  onValueChange={(value) => setEditForm((current) => ({
+                    ...current,
+                    lmsGroupId: value === '__none__' ? '' : value,
+                  }))}
+                  disabled={groupsLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={groupsLoading ? 'Жүктөлүүдө...' : 'Топ тандаңыз'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Тандалган эмес</SelectItem>
+                    {groups.map((group) => (
+                      <SelectItem key={group.id} value={group.id}>
+                        {group.name} {group.teacherName ? `• ${group.teacherName}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
+              Жабуу
+            </Button>
+            <Button onClick={handleSaveLmsData} disabled={isSaving}>
+              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Сактоо
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

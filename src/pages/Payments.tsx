@@ -47,6 +47,12 @@ export default function PaymentsPage() {
   const dealRequiresLmsEmail = (deal?: Deal | Payment['deal']) =>
     !!deal?.lmsCourseId && !!deal?.courseType;
 
+  const dealMissingLmsGroup = (deal?: Deal | Payment['deal']) =>
+    !!deal?.lmsCourseId &&
+    !!deal?.courseType &&
+    deal.courseType !== 'video' &&
+    !deal?.lmsGroupId;
+
   const selectedDealMissingEnrollmentEmail =
     dealRequiresLmsEmail(selectedDeal) && !selectedDeal?.contact?.email?.trim();
 
@@ -54,6 +60,10 @@ export default function PaymentsPage() {
     dealRequiresLmsEmail(confirmTarget?.deal) &&
     !confirmTarget?.lmsEnrollmentId &&
     !confirmTarget?.deal?.contact?.email?.trim();
+
+  const confirmTargetMissingEnrollmentGroup =
+    dealMissingLmsGroup(confirmTarget?.deal) &&
+    !confirmTarget?.lmsEnrollmentId;
 
   const clearPrefillParams = () => {
     setSearchParams((current) => {
@@ -151,6 +161,14 @@ export default function PaymentsPage() {
       toast({
         title: 'LMS каттоо үчүн email керек',
         description: 'Бул төлөмдү ырастоодон мурун байланыштын email дарегин толтуруңуз.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (confirmTargetMissingEnrollmentGroup) {
+      toast({
+        title: 'LMS тобу келишимде көрсөтүлгөн эмес',
+        description: 'Бул төлөм оффлайн же онлайн түз эфир курсу үчүн. Алгач deal ичиндеги LMS тобун толтуруңуз.',
         variant: 'destructive',
       });
       return;
@@ -339,6 +357,8 @@ export default function PaymentsPage() {
             <AlertDialogDescription>
               {confirmTargetMissingEnrollmentEmail
                 ? 'Бул төлөм LMS каттоону активдештирет. Адегенде байланыштын email дарегин толтуруңуз.'
+                : confirmTargetMissingEnrollmentGroup
+                  ? 'Бул төлөм LMS каттоону активдештирет. Оффлайн жана онлайн түз эфир курстары үчүн deal ичинде LMS тобу милдеттүү.'
                 : `${confirmTarget ? getPaymentStudentName(confirmTarget) : 'Кардар'} — ${confirmTarget?.amount?.toLocaleString?.() ?? '0'} сом төлөмүн ырастайсызбы?`}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -347,6 +367,10 @@ export default function PaymentsPage() {
             {confirmTargetMissingEnrollmentEmail && confirmTarget?.deal?.contact?.id ? (
               <AlertDialogAction onClick={() => navigate(`/contacts/${confirmTarget.deal?.contact?.id}`)} disabled={isConfirming}>
                 Байланышты ачуу
+              </AlertDialogAction>
+            ) : confirmTargetMissingEnrollmentGroup && confirmTarget?.deal?.id ? (
+              <AlertDialogAction onClick={() => navigate(`/deals/${confirmTarget.deal?.id}`)} disabled={isConfirming}>
+                Келишимди ачуу
               </AlertDialogAction>
             ) : (
             <AlertDialogAction onClick={handleConfirm} disabled={isConfirming}>
