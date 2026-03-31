@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Version bumps are classified by delivery scale; see `VERSIONING.md`.
 
+## [1.4.3] - 2026-03-31
+
+### Fixed
+- Admin LMS approval queue now shows already-approved direct enrollments that still need activation instead of hiding them from the Enrollments page
+- Enrollments page approval actions now adapt their labels for already-approved rows, making stalled activations explicit
+- Contact and LMS navigation flows recover more reliably once backend enrollment records already contain an LMS student mapping
+
 ## [1.4.2] - 2026-03-31
 
 ### Added

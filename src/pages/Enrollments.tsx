@@ -24,6 +24,7 @@ interface PendingEnrollment {
   crmLeadId: string;
   courseId: string;
   courseType: string;
+  status?: string;
   groupId?: string;
   student: {
     fullName: string;
@@ -219,6 +220,11 @@ export default function EnrollmentsPage() {
       ),
     },
     {
+      key: 'status',
+      header: 'Абалы',
+      render: (row) => renderStatusBadge(row.status || 'pending_approval'),
+    },
+    {
       key: 'enrollmentId',
       header: 'Enrollment ID',
       render: (row) => (
@@ -243,7 +249,7 @@ export default function EnrollmentsPage() {
           }}
         >
           <CheckCircle className="mr-2 h-4 w-4" />
-          Бекитүү
+          {row.status === 'approved' ? 'Активдештирүү' : 'Бекитүү'}
         </Button>
       ),
     },
@@ -419,7 +425,7 @@ export default function EnrollmentsPage() {
       <Dialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Түз каттоону бекитүү</DialogTitle>
+            <DialogTitle>{selectedEnrollment?.status === 'approved' ? 'Каттоону активдештирүү' : 'Түз каттоону бекитүү'}</DialogTitle>
           </DialogHeader>
           {selectedEnrollment ? (
             <div className="space-y-4">
@@ -453,7 +459,7 @@ export default function EnrollmentsPage() {
                 </Button>
                 <Button onClick={handleApprove} disabled={approveMutation.isPending}>
                   {approveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                  Бекитүү жана активдештирүү
+                  {selectedEnrollment?.status === 'approved' ? 'Активдештирүү' : 'Бекитүү жана активдештирүү'}
                 </Button>
               </div>
             </div>
