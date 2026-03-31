@@ -69,7 +69,7 @@ export const leadsApi = {
 };
 
 export const enrollmentsApi = {
-  create: (data: { leadId: number; courseId: string; courseType: 'video' | 'offline' | 'online_live'; groupId?: string }) =>
+  create: (data: { leadId: number; courseId: string; courseType: 'video' | 'offline' | 'online_live'; groupId?: string; recreateExistingAccount?: boolean }) =>
     apiClient.post<{
       success: boolean;
       enrollmentId: string;

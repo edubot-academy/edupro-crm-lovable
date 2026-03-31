@@ -266,6 +266,70 @@ export function EnrollmentForm() {
     );
   }, [courseId, existingStudentSummary?.enrollments, groupId, isVideo]);
 
+  const lmsEmailLooksPlaceholder = (existingStudentSummary?.email || '').trim().toLowerCase().endsWith('@placeholder.local');
+  const crmEmailLooksReal = !!studentEmail.trim() && !studentEmail.trim().toLowerCase().endsWith('@placeholder.local');
+  const canRecreatePlaceholderAccount =
+    (user?.role === 'admin' || user?.role === 'superadmin') &&
+    !!matchingExistingEnrollment &&
+    lmsEmailLooksPlaceholder &&
+    crmEmailLooksReal;
+
+  const submitManagedEnrollment = async (options?: { recreateExistingAccount?: boolean }) => {
+    const response = await createManagedEnrollment.mutateAsync({
+      leadId: Number(leadId),
+      courseId,
+      courseType: selectedCourse?.courseType || 'video',
+      groupId: isVideo ? undefined : groupId,
+      recreateExistingAccount: options?.recreateExistingAccount,
+    });
+
+    let onboarding: LmsEnrollmentResponse['onboarding'] | null = null;
+    if (!response.requiresApproval && response.studentId) {
+      try {
+        const onboardingResponse = await lmsApi.createStudentOnboardingLink(response.studentId);
+        onboarding = onboardingResponse.onboarding;
+      } catch {
+        onboarding = null;
+      }
+    }
+
+    setOnboardingInfo(onboarding);
+    setCourseId('');
+    setGroupId('');
+    setStudentName('');
+    setStudentPhone('');
+    setStudentEmail('');
+    setLeadId('');
+    setDealId('');
+    setNotes('');
+    setGroupError('');
+    idempotencyRef.current = null;
+    setSubmitError('');
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete('courseId');
+      next.delete('courseType');
+      next.delete('groupId');
+      return next;
+    }, { replace: true });
+
+    toast({
+      title: response.requiresApproval ? 'Каттоо суроо-талабы түзүлдү' : 'Каттоо ийгиликтүү түзүлдү',
+      description: response.message,
+    });
+
+    if (onboarding?.required && onboarding.setupLink) {
+      toast({
+        title: onboarding.emailSent
+          ? 'LMS аккаунт шилтемеси даяр болуп, студентке жөнөтүлдү'
+          : 'LMS аккаунт шилтемеси даяр болду',
+        description: onboarding.emailSent
+          ? 'Кааласаңыз, төмөндөн көчүрүп, студентке өзүңүз да жөнөтө аласыз.'
+          : 'Төмөндөн көчүрүп, студентке жөнөтүңүз.',
+      });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -322,60 +386,23 @@ export function EnrollmentForm() {
     }
 
     try {
-      const response = await createManagedEnrollment.mutateAsync({
-        leadId: Number(leadId),
-        courseId,
-        courseType: selectedCourse?.courseType || 'video',
-        groupId: isVideo ? undefined : groupId,
-      });
-
-      let onboarding: LmsEnrollmentResponse['onboarding'] | null = null;
-      if (!response.requiresApproval && response.studentId) {
-        try {
-          const onboardingResponse = await lmsApi.createStudentOnboardingLink(response.studentId);
-          onboarding = onboardingResponse.onboarding;
-        } catch {
-          onboarding = null;
-        }
-      }
-
-      setOnboardingInfo(onboarding);
-      setCourseId('');
-      setGroupId('');
-      setStudentName('');
-      setStudentPhone('');
-      setStudentEmail('');
-      setLeadId('');
-      setDealId('');
-      setNotes('');
-      setGroupError('');
-      idempotencyRef.current = null;
-      setSubmitError('');
-      setSearchParams((current) => {
-        const next = new URLSearchParams(current);
-        next.delete('courseId');
-        next.delete('courseType');
-        next.delete('groupId');
-        return next;
-      }, { replace: true });
-
-      toast({
-        title: response.requiresApproval ? 'Каттоо суроо-талабы түзүлдү' : 'Каттоо ийгиликтүү түзүлдү',
-        description: response.message,
-      });
-
-      if (onboarding?.required && onboarding.setupLink) {
-        toast({
-          title: onboarding.emailSent
-            ? 'LMS аккаунт шилтемеси даяр болуп, студентке жөнөтүлдү'
-            : 'LMS аккаунт шилтемеси даяр болду',
-          description: onboarding.emailSent
-            ? 'Кааласаңыз, төмөндөн көчүрүп, студентке өзүңүз да жөнөтө аласыз.'
-            : 'Төмөндөн көчүрүп, студентке жөнөтүңүз.',
-        });
-      }
+      await submitManagedEnrollment();
     } catch (err) {
       const error = getFriendlyError(err, { fallbackTitle: 'Каттоо түзүүдө ката кетти' });
+      setSubmitError(error.description || error.title);
+    }
+  };
+
+  const handleRecreatePlaceholderAccount = async () => {
+    if (!canRecreatePlaceholderAccount) return;
+
+    setSubmitError('');
+    setOnboardingInfo(null);
+
+    try {
+      await submitManagedEnrollment({ recreateExistingAccount: true });
+    } catch (err) {
+      const error = getFriendlyError(err, { fallbackTitle: 'LMS аккаунтун кайра түзүү ишке ашкан жок' });
       setSubmitError(error.description || error.title);
     }
   };
@@ -604,6 +631,22 @@ export function EnrollmentForm() {
               <p className="text-xs text-amber-800">
                 Улантсаңыз, LMS учурдагы каттоону кайра колдонуп же жаңыртып коёт.
               </p>
+              {canRecreatePlaceholderAccount && (
+                <div className="space-y-2 pt-2">
+                  <p className="text-xs text-amber-800">
+                    LMS студентинде placeholder email бар, ал эми CRMде чыныгы email көрсөтүлгөн. Admin катары жаңы LMS аккаунтун кайра түзө аласыз.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void handleRecreatePlaceholderAccount()}
+                    disabled={createMutationPending}
+                  >
+                    {createMutationPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Placeholder аккаунтту кайра түзүү
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 

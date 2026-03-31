@@ -36,7 +36,7 @@ export function useCreateManagedEnrollment() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: (data: { leadId: number; courseId: string; courseType: 'video' | 'offline' | 'online_live'; groupId?: string }) =>
+    mutationFn: (data: { leadId: number; courseId: string; courseType: 'video' | 'offline' | 'online_live'; groupId?: string; recreateExistingAccount?: boolean }) =>
       enrollmentsApi.create(data),
     onSuccess: async () => {
       await invalidateEnrollmentQueries(queryClient);

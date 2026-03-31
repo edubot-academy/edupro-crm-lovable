@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Version bumps are classified by delivery scale; see `VERSIONING.md`.
 
+## [1.4.2] - 2026-03-31
+
+### Added
+- Admin recovery action on the LMS enrollment form for recreating placeholder-email LMS accounts with the real CRM contact email
+
+### Fixed
+- Managed enrollment flow can now request placeholder-account recreation instead of only returning the existing enrollment when LMS email is stuck on `@placeholder.local`
+- Frontend enrollment API and hooks now support the placeholder-account recovery flag
+- Admins can immediately generate a fresh onboarding link after recreating a placeholder LMS account
+
 ## [1.4.1] - 2026-03-31
 
 ### Added
