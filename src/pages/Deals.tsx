@@ -16,7 +16,7 @@ import type { Contact, Deal, DealPipelineStage } from '@/types';
 import { getDealPipelineStage } from '@/lib/crm-status';
 import type { LmsCourseType } from '@/types/lms';
 import { formatLmsDate, getCourseSalesSummary, getLmsGroupAvailability, getSeatsLeft } from '@/lib/lms-availability';
-import { Plus, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Loader2, GraduationCap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { getFriendlyError } from '@/lib/error-messages';
@@ -218,9 +218,22 @@ export default function DealsPage() {
     { key: 'stage', header: ky.deals.stage, render: (d) => { const stage = getDealPipelineStage(d); return <StatusBadge variant={getLeadStatusVariant(stage)} dot>{ky.dealPipelineStage[stage]}</StatusBadge>; } },
     {
       key: 'actions', header: '', render: (d) => (
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(d); }}>
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/enrollments?crmDealId=${d.id}${d.contact?.lmsStudentId ? `&studentId=${encodeURIComponent(d.contact.lmsStudentId)}` : ''}`);
+            }}
+          >
+            <GraduationCap className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(d); }}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
       ),
     },
   ];

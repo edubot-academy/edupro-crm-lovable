@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Version bumps are classified by delivery scale; see `VERSIONING.md`.
 
+## [1.4.0] - 2026-03-31
+
+### Added
+- Canonical LMS enrollment hooks and API client coverage for:
+  - `POST /api/enrollments`
+  - `GET /api/enrollments/pending`
+  - `GET /api/enrollments/history`
+  - `POST /api/enrollments/:id/approve`
+- Admin enrollment regression specs for:
+  - pending approval
+  - immediate activation
+  - onboarding-link generation after auto-activation
+- LMS shortcuts from lead, deal, and contact list pages into the canonical Enrollments page
+- Inline history detail dialog on the Enrollments page for admin review
+
+### Changed
+- The Enrollments page is now the single CRM workflow for manual LMS requests and admin approval
+- Enrollment approval/history UI now uses the canonical backend enrollment API instead of lead-shaped compatibility routes
+- LMS enrollment form now blocks requests until the selected lead is converted to a contact or a contact-linked deal is selected
+- Frontend build now uses basic manual chunk splitting for React, Radix, and TanStack Query
+
+### Fixed
+- Admin approval UI on the Enrollments page is now wired into the reachable `/enrollments` workspace instead of a disconnected screen
+- LMS course/group resolution in the managed enrollment flow now uses the selected enrollment context consistently
+- Enrollment form submission no longer relies on duplicated lead-level enrollment UI
+- Enrollment tests no longer emit React Router future-flag noise during normal runs
+
 ## [1.3.1] - 2026-03-29
 
 ### Fixed

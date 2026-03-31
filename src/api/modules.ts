@@ -68,6 +68,69 @@ export const leadsApi = {
     apiClient.post<Lead>(`/api/leads/import-from-contact/${contactId}`),
 };
 
+export const enrollmentsApi = {
+  create: (data: { leadId: number; courseId: string; courseType: 'video' | 'offline' | 'online_live'; groupId?: string }) =>
+    apiClient.post<{
+      success: boolean;
+      enrollmentId: string;
+      studentId: string;
+      onboardingLink?: string;
+      status: string;
+      message: string;
+      requiresApproval: boolean;
+    }>('/api/enrollments', data),
+  approve: (id: number, data?: { notes?: string }) =>
+    apiClient.post<{
+      success: boolean;
+      enrollmentId: string;
+      status: string;
+      message: string;
+    }>(`/api/enrollments/${id}/approve`, data ?? {}),
+  getPending: () =>
+    apiClient.get<{
+      pending: Array<{
+        enrollmentId: string;
+        crmLeadId: string;
+        courseId: string;
+        courseType: string;
+        groupId?: string;
+        student: {
+          fullName: string;
+          email: string;
+          phone: string;
+        };
+        createdAt: string;
+        requestId: string;
+      }>;
+      total: number;
+    }>('/api/enrollments/pending'),
+  getHistory: (params?: { status?: string; limit?: number; offset?: number }) =>
+    apiClient.get<{
+      enrollments: Array<{
+        id: string;
+        type: string;
+        direction: string;
+        createdAt: string;
+        enrollmentId: string;
+        crmLeadId: string;
+        courseId: string;
+        courseType: string;
+        status: string;
+        endpoint: string;
+        method: string;
+        message: string;
+        student: {
+          fullName: string;
+          email: string;
+        };
+      }>;
+      total: number;
+      limit: number;
+      offset: number;
+      status: string;
+    }>('/api/enrollments/history', params as Record<string, string | number | undefined>),
+};
+
 // ==================== LEGACY CONTACTS ====================
 export const legacyContactsApi = {
   list: (params?: Record<string, string | number | undefined>) =>

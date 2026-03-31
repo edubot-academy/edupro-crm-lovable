@@ -8,12 +8,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Send } from 'lucide-react';
-import { useLmsCourses, useLmsGroups, useCreateEnrollment, useLmsStudentSummary } from '@/hooks/use-lms';
+import { useLmsCourses, useLmsGroups, useLmsStudentSummary } from '@/hooks/use-lms';
+import { useCreateManagedEnrollment } from '@/hooks/use-enrollments';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { contactApi, dealsApi, leadsApi } from '@/api/modules';
+import { contactApi, dealsApi, leadsApi, lmsApi } from '@/api/modules';
 import type { Contact, Deal, Lead } from '@/types';
-import type { CreateEnrollmentRequest, LmsCourseType, LmsEnrollmentResponse } from '@/types/lms';
+import type { LmsCourseType, LmsEnrollmentResponse } from '@/types/lms';
+import { getFriendlyError } from '@/lib/error-messages';
 import { formatLmsDate, getCourseSalesSummary, getLmsGroupAvailability, getSeatsLeft } from '@/lib/lms-availability';
 
 const courseTypeLabels: Record<LmsCourseType, string> = {
@@ -82,9 +84,9 @@ export function EnrollmentForm() {
   const prefillLeadId = searchParams.get('crmLeadId') || '';
   const prefillDealId = searchParams.get('crmDealId') || '';
 
-  const createMutation = useCreateEnrollment();
   const lmsStudentId = linkedContact?.lmsStudentId || selectedDeal?.contact?.lmsStudentId || undefined;
   const { data: existingStudentSummary } = useLmsStudentSummary(lmsStudentId);
+  const createManagedEnrollment = useCreateManagedEnrollment();
 
   const fillStudentFields = (next: { fullName?: string | null; phone?: string | null; email?: string | null }) => {
     setStudentName(next.fullName?.trim() || '');
@@ -238,6 +240,8 @@ export function EnrollmentForm() {
     });
   };
 
+  const createMutationPending = createManagedEnrollment.isPending;
+
   const canSubmit =
     courseId &&
     (isVideo || groupId) &&
@@ -245,7 +249,7 @@ export function EnrollmentForm() {
     studentPhone &&
     studentEmail.trim() &&
     leadId &&
-    !createMutation.isPending;
+    !createMutationPending;
 
   const matchingExistingEnrollment = useMemo(() => {
     if (!courseId || !existingStudentSummary?.enrollments?.length) return null;
@@ -262,7 +266,7 @@ export function EnrollmentForm() {
     );
   }, [courseId, existingStudentSummary?.enrollments, groupId, isVideo]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
@@ -291,6 +295,11 @@ export function EnrollmentForm() {
       return;
     }
 
+    if (!selectedLead?.contactId && !selectedDeal?.contactId) {
+      setSubmitError('Адегенде лидди контактка айландырыңыз же контакт байланышкан келишимди тандаңыз');
+      return;
+    }
+
     if (needsGroup && !groupId) {
       setGroupError('Топту тандаңыз (группа/когорта)');
       setSubmitError('');
@@ -300,26 +309,11 @@ export function EnrollmentForm() {
     setSubmitError('');
     setOnboardingInfo(null);
 
-    const payload: CreateEnrollmentRequest = {
-      crmLeadId: leadId,
-      crmContactId: selectedDeal?.contactId ? String(selectedDeal.contactId) : selectedLead?.contactId ? String(selectedLead.contactId) : null,
-      crmDealId: dealId || null,
-      student: {
-        fullName: studentName,
-        phone: studentPhone,
-        email: studentEmail.trim(),
-      },
+    const payload = {
+      leadId: Number(leadId),
       courseId,
       courseType: selectedCourse?.courseType,
-      groupId: isVideo ? null : groupId,
-      paymentStatus: 'submitted',
-      enrollmentStatus: 'pending',
-      sourceSystem: 'crm',
-      meta: {
-        submittedByUserId: String(user.id),
-        submittedByName: user.fullName,
-        notes: notes || null,
-      },
+      groupId: isVideo ? undefined : groupId,
     };
 
     const signature = JSON.stringify(payload);
@@ -327,41 +321,63 @@ export function EnrollmentForm() {
       idempotencyRef.current = { signature, key: crypto.randomUUID() };
     }
 
-    createMutation.mutate({ data: payload, idempotencyKey: idempotencyRef.current.key }, {
-      onSuccess: (response) => {
-        const onboarding = response.onboarding ?? null;
-        setOnboardingInfo(onboarding);
-        setCourseId('');
-        setGroupId('');
-        setStudentName('');
-        setStudentPhone('');
-        setStudentEmail('');
-        setLeadId('');
-        setDealId('');
-        setNotes('');
-        setGroupError('');
-        idempotencyRef.current = null;
-        setSubmitError('');
-        setSearchParams((current) => {
-          const next = new URLSearchParams(current);
-          next.delete('courseId');
-          next.delete('courseType');
-          next.delete('groupId');
-          return next;
-        }, { replace: true });
+    try {
+      const response = await createManagedEnrollment.mutateAsync({
+        leadId: Number(leadId),
+        courseId,
+        courseType: selectedCourse?.courseType || 'video',
+        groupId: isVideo ? undefined : groupId,
+      });
 
-        if (onboarding?.required && onboarding.setupLink) {
-          toast({
-            title: onboarding.emailSent
-              ? 'LMS аккаунт шилтемеси даяр болуп, студентке жөнөтүлдү'
-              : 'LMS аккаунт шилтемеси даяр болду',
-            description: onboarding.emailSent
-              ? 'Кааласаңыз, төмөндөн көчүрүп, студентке өзүңүз да жөнөтө аласыз.'
-              : 'Төмөндөн көчүрүп, студентке жөнөтүңүз.',
-          });
+      let onboarding: LmsEnrollmentResponse['onboarding'] | null = null;
+      if (!response.requiresApproval && response.studentId) {
+        try {
+          const onboardingResponse = await lmsApi.createStudentOnboardingLink(response.studentId);
+          onboarding = onboardingResponse.onboarding;
+        } catch {
+          onboarding = null;
         }
-      },
-    });
+      }
+
+      setOnboardingInfo(onboarding);
+      setCourseId('');
+      setGroupId('');
+      setStudentName('');
+      setStudentPhone('');
+      setStudentEmail('');
+      setLeadId('');
+      setDealId('');
+      setNotes('');
+      setGroupError('');
+      idempotencyRef.current = null;
+      setSubmitError('');
+      setSearchParams((current) => {
+        const next = new URLSearchParams(current);
+        next.delete('courseId');
+        next.delete('courseType');
+        next.delete('groupId');
+        return next;
+      }, { replace: true });
+
+      toast({
+        title: response.requiresApproval ? 'Каттоо суроо-талабы түзүлдү' : 'Каттоо ийгиликтүү түзүлдү',
+        description: response.message,
+      });
+
+      if (onboarding?.required && onboarding.setupLink) {
+        toast({
+          title: onboarding.emailSent
+            ? 'LMS аккаунт шилтемеси даяр болуп, студентке жөнөтүлдү'
+            : 'LMS аккаунт шилтемеси даяр болду',
+          description: onboarding.emailSent
+            ? 'Кааласаңыз, төмөндөн көчүрүп, студентке өзүңүз да жөнөтө аласыз.'
+            : 'Төмөндөн көчүрүп, студентке жөнөтүңүз.',
+        });
+      }
+    } catch (err) {
+      const error = getFriendlyError(err, { fallbackTitle: 'Каттоо түзүүдө ката кетти' });
+      setSubmitError(error.description || error.title);
+    }
   };
 
   const copyOnboardingLink = async () => {
@@ -606,7 +622,7 @@ export function EnrollmentForm() {
           )}
 
           <Button type="submit" disabled={!canSubmit} className="w-full sm:w-auto">
-            {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {createMutationPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             <Send className="mr-2 h-4 w-4" />
             Каттоо жиберүү
           </Button>

@@ -123,11 +123,20 @@ Post-sale LMS visibility:
 - the `Enrollments` page can open with a prefilled LMS student summary via `studentId` query param
 - `Contact detail` also shows recent LMS integration events and links into the full enrollments/integration history view with prefilled filters
 - `Deal detail` shows the sold LMS snapshot, linked payments, and filtered integration history for the specific sale
+- lead, deal, and contact list pages now also expose direct LMS shortcuts into the canonical `Enrollments` page
 
 Auto-fill behavior:
 - selecting a lead in LMS enrollment auto-fills student name, phone, and email
 - selecting a deal auto-fills linked contact and LMS course/group where available
 - selecting a deal in tasks and trial lessons auto-fills linked contact when available
+
+Canonical LMS enrollment UI:
+- `/enrollments` is the single CRM page for:
+  - manual LMS enrollment requests
+  - admin/superadmin approval of pending requests
+  - CRM-managed enrollment history
+  - LMS transport/webhook troubleshooting via the integration history panel
+- the frontend no longer depends on lead-specific enrollment endpoints for the current workflow
 
 ## Reporting Split
 

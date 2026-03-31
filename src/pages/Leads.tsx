@@ -16,7 +16,7 @@ import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
 import { useAuth } from '@/contexts/AuthContext';
 import type { AssignableUser, Lead, LeadQualificationStatus, LeadSource } from '@/types';
 import { getLeadQualificationStatus } from '@/lib/crm-status';
-import { Plus, Filter, Trash2, Loader2, Save, Phone, Mail, User } from 'lucide-react';
+import { Plus, Filter, Trash2, Loader2, Save, Phone, Mail, User, GraduationCap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
 
@@ -291,9 +291,29 @@ export default function LeadsPage() {
     { key: 'createdAt', header: ky.common.date, render: (l) => <span className="text-sm text-muted-foreground">{new Date(l.createdAt).toLocaleDateString('ky-KG')}</span>, className: 'hidden md:table-cell' },
     {
       key: 'actions', header: '', render: (l) => (
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(l); }}>
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={(e) => {
+              e.stopPropagation();
+              const params = new URLSearchParams({ crmLeadId: String(l.id) });
+              if (l.interestedCourseId) {
+                params.set('courseId', l.interestedCourseId);
+              }
+              if (l.interestedGroupId) {
+                params.set('groupId', l.interestedGroupId);
+              }
+              navigate(`/enrollments?${params.toString()}`);
+            }}
+          >
+            <GraduationCap className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(l); }}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
       ),
     },
   ];
@@ -417,20 +437,41 @@ export default function LeadsPage() {
                               </div>
                             </div>
 
-                            {(lead.interestedCourseId || (lead.tags?.length ?? 0) > 0) && (
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                {lead.interestedCourseId && (
-                                  <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                                    {lead.interestedCourseId}
-                                  </span>
-                                )}
-                                {lead.tags?.slice(0, 2).map((tag) => (
-                                  <span key={tag} className="rounded-full bg-secondary px-2.5 py-1 text-xs text-secondary-foreground">
-                                    {tag}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
+                            <div className="mt-3 flex items-center justify-between gap-2">
+                              {(lead.interestedCourseId || (lead.tags?.length ?? 0) > 0) && (
+                                <div className="flex flex-wrap gap-2">
+                                  {lead.interestedCourseId && (
+                                    <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                                      {lead.interestedCourseId}
+                                    </span>
+                                  )}
+                                  {lead.tags?.slice(0, 2).map((tag) => (
+                                    <span key={tag} className="rounded-full bg-secondary px-2.5 py-1 text-xs text-secondary-foreground">
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const params = new URLSearchParams({ crmLeadId: String(lead.id) });
+                                  if (lead.interestedCourseId) {
+                                    params.set('courseId', lead.interestedCourseId);
+                                  }
+                                  if (lead.interestedGroupId) {
+                                    params.set('groupId', lead.interestedGroupId);
+                                  }
+                                  navigate(`/enrollments?${params.toString()}`);
+                                }}
+                              >
+                                <GraduationCap className="mr-2 h-4 w-4" />
+                                LMS
+                              </Button>
+                            </div>
+                            
                           </div>
                         ))
                       )}
