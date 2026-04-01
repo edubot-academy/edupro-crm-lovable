@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Version bumps are classified by delivery scale; see `VERSIONING.md`.
 
+## [1.5.0] - 2026-04-01
+
+### Added
+- New "Төлөмдөр" (Payments) analytics tab on Reports page with comprehensive payment metrics
+- Revenue trend line chart showing daily payment amounts over time
+- Payment status distribution pie chart (confirmed/submitted/failed)
+- Payment methods bar chart with count and amount breakdowns
+- Revenue by course horizontal bar chart showing top performing courses
+- Manager performance table with payment counts and revenue totals
+- New API methods: `reportsApi.getPaymentReports()` and `reportsApi.getRevenueReports()`
+- Payment summary stat cards showing total payments, total amount, confirmed count, and pending count
+
 ## [1.4.4] - 2026-04-01
 
 ### Fixed

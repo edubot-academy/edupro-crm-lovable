@@ -268,6 +268,26 @@ export const reportsApi = {
     apiClient.get<DashboardStats>('/api/reports/stats', params),
   getFunnel: (params?: Record<string, string | number | undefined>) =>
     apiClient.get<FunnelReport>('/api/reports/funnel', params),
+  getPaymentReports: (params?: Record<string, string | number | undefined>) =>
+    apiClient.get<{
+      totalAmount: number;
+      totalCount: number;
+      byStatus: {
+        confirmed: { count: number; amount: number };
+        submitted: { count: number; amount: number };
+        failed: { count: number; amount: number };
+      };
+      byMethod: Array<{ method: string; count: number; amount: number }>;
+      byCourse: Array<{ course: string; count: number; amount: number }>;
+      byManager: Array<{ manager: string; count: number; amount: number }>;
+    }>('/api/reports/payments', params),
+  getRevenueReports: (params?: Record<string, string | number | undefined>) =>
+    apiClient.get<{
+      totalRevenue: number;
+      paymentCount: number;
+      averagePayment: number;
+      trend: Array<{ date: string; amount: number }>;
+    }>('/api/reports/revenue', params),
 };
 
 // ==================== PROFILE ====================

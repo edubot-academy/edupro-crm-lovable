@@ -16,7 +16,7 @@ import type { DashboardStats, DashboardStatsQueryParams } from '@/types';
 import {
   Users, UserPlus, TrendingUp, Target, CreditCard, Trophy,
   AlertTriangle, CalendarIcon, Download, RefreshCw, GraduationCap,
-  BarChart3, PieChart as PieChartIcon, Activity,
+  BarChart3, PieChart as PieChartIcon, Activity, DollarSign,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -41,6 +41,26 @@ const emptyStats: DashboardStats = {
   leadsBySource: [],
   managerPerformance: [],
   popularCourses: [],
+};
+
+const emptyPaymentReports = {
+  totalAmount: 0,
+  totalCount: 0,
+  byStatus: {
+    confirmed: { count: 0, amount: 0 },
+    submitted: { count: 0, amount: 0 },
+    failed: { count: 0, amount: 0 },
+  },
+  byMethod: [],
+  byCourse: [],
+  byManager: [],
+};
+
+const emptyRevenueReports = {
+  totalRevenue: 0,
+  paymentCount: 0,
+  averagePayment: 0,
+  trend: [],
 };
 
 function DateRangePicker({
@@ -111,6 +131,8 @@ function exportCSV(stats: DashboardStats) {
 
 export default function ReportsPage() {
   const [stats, setStats] = useState<DashboardStats>(emptyStats);
+  const [paymentReports, setPaymentReports] = useState(emptyPaymentReports);
+  const [revenueReports, setRevenueReports] = useState(emptyRevenueReports);
   const [isLoading, setIsLoading] = useState(true);
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
@@ -127,9 +149,21 @@ export default function ReportsPage() {
     if (managerFilter !== 'all') params.managerId = managerFilter;
     if (courseFilter !== 'all') params.courseId = courseFilter;
 
-    reportsApi.getStats(params)
-      .then(setStats)
-      .catch(() => setStats(emptyStats))
+    Promise.all([
+      reportsApi.getStats(params),
+      reportsApi.getPaymentReports(params as Record<string, string | number | undefined>),
+      reportsApi.getRevenueReports(params as Record<string, string | number | undefined>),
+    ])
+      .then(([statsData, paymentData, revenueData]) => {
+        setStats(statsData);
+        setPaymentReports(paymentData);
+        setRevenueReports(revenueData);
+      })
+      .catch(() => {
+        setStats(emptyStats);
+        setPaymentReports(emptyPaymentReports);
+        setRevenueReports(emptyRevenueReports);
+      })
       .finally(() => setIsLoading(false));
   }, [dateFrom, dateTo, sourceFilter, managerFilter, courseFilter]);
 
@@ -217,10 +251,11 @@ export default function ReportsPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="flex w-full min-w-max items-center justify-start gap-1 overflow-x-auto rounded-lg p-1 lg:inline-grid lg:w-auto lg:grid-cols-4">
+        <TabsList className="flex w-full min-w-max items-center justify-start gap-1 overflow-x-auto rounded-lg p-1 lg:inline-grid lg:w-auto lg:grid-cols-5">
           <TabsTrigger value="overview" className="text-xs gap-1.5"><BarChart3 className="h-3.5 w-3.5" />Жалпы</TabsTrigger>
           <TabsTrigger value="sales" className="text-xs gap-1.5"><TrendingUp className="h-3.5 w-3.5" />Сатуу</TabsTrigger>
           <TabsTrigger value="courses" className="text-xs gap-1.5"><GraduationCap className="h-3.5 w-3.5" />Курстар</TabsTrigger>
+          <TabsTrigger value="payments" className="text-xs gap-1.5"><DollarSign className="h-3.5 w-3.5" />Төлөмдөр</TabsTrigger>
           <TabsTrigger value="retention" className="text-xs gap-1.5"><Activity className="h-3.5 w-3.5" />Тобокелдик</TabsTrigger>
         </TabsList>
 
@@ -460,6 +495,166 @@ export default function ReportsPage() {
                           </td>
                         </tr>
                       ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ===== PAYMENTS TAB ===== */}
+        <TabsContent value="payments" className="space-y-6">
+          {/* Payment Summary Cards */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard title="Жалпы төлөмдөр" value={paymentReports.totalCount} icon={CreditCard} variant="primary" />
+            <StatCard title="Жалпы сумма" value={`${paymentReports.totalAmount.toLocaleString()} сом`} icon={DollarSign} variant="success" />
+            <StatCard title="Ырасталган" value={paymentReports.byStatus.confirmed.count} icon={Trophy} variant="success" />
+            <StatCard title="Күтүлүүдө" value={paymentReports.byStatus.submitted.count} icon={AlertTriangle} variant="warning" />
+          </div>
+
+          {/* Revenue Stats */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <StatCard title="Диңгеөө киреше" value={`${revenueReports.totalRevenue.toLocaleString()} сом`} icon={DollarSign} variant="success" />
+            <StatCard title="Төлөмдөр саны" value={revenueReports.paymentCount} icon={CreditCard} variant="info" />
+            <StatCard title="Орточо төлөм" value={`${revenueReports.averagePayment.toLocaleString()} сом`} icon={TrendingUp} variant="info" />
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Revenue Trend Chart */}
+            <Card className="shadow-card border-border/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                  Кише динамикасы
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">Күн боюнча тастыкталган төлөмдөр</p>
+              </CardHeader>
+              <CardContent>
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={revenueReports.trend}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(v) => v.slice(5)} />
+                      <YAxis tick={{ fontSize: 10 }} />
+                      <Tooltip formatter={(v: number) => `${v.toLocaleString()} сом`} />
+                      <Line type="monotone" dataKey="amount" stroke="hsl(167, 65%, 44%)" strokeWidth={2} dot={false} name="Кише" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Payment Status Distribution */}
+            <Card className="shadow-card border-border/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <PieChartIcon className="h-4 w-4 text-primary" />
+                  Төлөм абалдары
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">Статус боюнча бөлүштүрүү</p>
+              </CardHeader>
+              <CardContent>
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { name: 'Ырасталган', value: paymentReports.byStatus.confirmed.count, fill: 'hsl(167, 65%, 44%)' },
+                          { name: 'Күтүлүүдө', value: paymentReports.byStatus.submitted.count, fill: 'hsl(38, 92%, 50%)' },
+                          { name: 'Жокко чыгарылган', value: paymentReports.byStatus.failed.count, fill: 'hsl(0, 72%, 51%)' },
+                        ]}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={100}
+                        paddingAngle={5}
+                        dataKey="value"
+                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      >
+                        <Cell fill="hsl(167, 65%, 44%)" />
+                        <Cell fill="hsl(38, 92%, 50%)" />
+                        <Cell fill="hsl(0, 72%, 51%)" />
+                      </Pie>
+                      <Tooltip formatter={(v: number) => `${v} төлөм`} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Payment Methods & Revenue by Course */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Payment Methods */}
+            <Card className="shadow-card border-border/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">Төлөм методу боюнча</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={paymentReports.byMethod}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="method" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} />
+                      <Tooltip formatter={(v: number, name: string) => [name === 'amount' ? `${v.toLocaleString()} сом` : `${v} шт`, name === 'amount' ? 'Сумма' : 'Саны']} />
+                      <Legend />
+                      <Bar dataKey="count" fill="hsl(220, 70%, 50%)" radius={[4, 4, 0, 0]} name="Саны" />
+                      <Bar dataKey="amount" fill="hsl(167, 65%, 44%)" radius={[4, 4, 0, 0]} name="Сумма" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Revenue by Course */}
+            <Card className="shadow-card border-border/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">Курс боюнча кише</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={paymentReports.byCourse.slice(0, 10)} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis type="number" tick={{ fontSize: 10 }} />
+                      <YAxis type="category" dataKey="course" width={100} tick={{ fontSize: 10 }} />
+                      <Tooltip formatter={(v: number) => `${v.toLocaleString()} сом`} />
+                      <Bar dataKey="amount" fill="hsl(200, 80%, 50%)" radius={[0, 4, 4, 0]} name="Кише" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Manager Performance Table */}
+          <Card className="shadow-card border-border/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Менеджер боюнча төлөмдөр</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Менеджер</th>
+                      <th className="text-right py-2 px-3 font-medium text-muted-foreground">Төлөмдөр</th>
+                      <th className="text-right py-2 px-3 font-medium text-muted-foreground">Жалпы сумма</th>
+                      <th className="text-right py-2 px-3 font-medium text-muted-foreground">Орточо</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paymentReports.byManager.map((m) => (
+                      <tr key={m.manager} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
+                        <td className="py-2.5 px-3 font-medium">{m.manager}</td>
+                        <td className="py-2.5 px-3 text-right">{m.count}</td>
+                        <td className="py-2.5 px-3 text-right font-medium">{m.amount.toLocaleString()} сом</td>
+                        <td className="py-2.5 px-3 text-right text-muted-foreground">
+                          {m.count > 0 ? (m.amount / m.count).toFixed(0) : 0} сом
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
