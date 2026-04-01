@@ -13,6 +13,19 @@ function isApiError(error: unknown): error is ApiError {
   return typeof error === 'object' && error !== null && 'message' in error;
 }
 
+function normalizeMessage(message: unknown): string {
+  if (typeof message === 'string') {
+    return message;
+  }
+  if (Array.isArray(message)) {
+    return message.join(', ');
+  }
+  if (typeof message === 'object' && message !== null) {
+    return JSON.stringify(message);
+  }
+  return String(message || '');
+}
+
 function stringifyDetails(details: unknown): string | undefined {
   if (!details) return undefined;
 
@@ -50,7 +63,7 @@ export function getFriendlyError(error: unknown, options: FriendlyErrorOptions):
     return { title: options.fallbackTitle };
   }
 
-  const rawMessage = (error.message || '').trim();
+  const rawMessage = normalizeMessage(error.message).trim();
   const details = stringifyDetails(error.details);
   const combined = `${rawMessage} ${details || ''}`.toLowerCase();
 

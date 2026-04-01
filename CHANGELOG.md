@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Version bumps are classified by delivery scale; see `VERSIONING.md`.
 
+## [1.4.4] - 2026-04-01
+
+### Fixed
+- Enrollment history status filter now uses correct API enum values (`activated`, `pending_approval`, `failed`) instead of invalid values (`success`, `pending`, `error`)
+- `getFriendlyError` now properly handles API error messages that are arrays instead of strings, preventing "trim is not a function" runtime errors
+- Error messages from backend validation failures now display correctly in UI notifications
+
 ## [1.4.3] - 2026-03-31
 
 ### Fixed

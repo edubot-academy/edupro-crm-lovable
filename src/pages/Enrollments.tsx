@@ -64,7 +64,7 @@ export default function EnrollmentsPage() {
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [historyDetailOpen, setHistoryDetailOpen] = useState(false);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<EnrollmentHistoryItem | null>(null);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'pending' | 'error'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'requested' | 'pending_approval' | 'approved' | 'activated' | 'failed' | 'cancelled'>('all');
   const [historyPage, setHistoryPage] = useState(0);
   const initialStudentId = searchParams.get('studentId') || undefined;
   const initialHistoryFilters = {
@@ -375,13 +375,13 @@ export default function EnrollmentsPage() {
                     <Button variant={statusFilter === 'all' ? 'default' : 'outline'} size="sm" onClick={() => { setHistoryPage(0); setStatusFilter('all'); }}>
                       Баары
                     </Button>
-                    <Button variant={statusFilter === 'success' ? 'default' : 'outline'} size="sm" onClick={() => { setHistoryPage(0); setStatusFilter('success'); }}>
-                      Ийгиликтүү
+                    <Button variant={statusFilter === 'activated' ? 'default' : 'outline'} size="sm" onClick={() => { setHistoryPage(0); setStatusFilter('activated'); }}>
+                      Активировано
                     </Button>
-                    <Button variant={statusFilter === 'pending' ? 'default' : 'outline'} size="sm" onClick={() => { setHistoryPage(0); setStatusFilter('pending'); }}>
-                      Күтүүдө
+                    <Button variant={statusFilter === 'pending_approval' ? 'default' : 'outline'} size="sm" onClick={() => { setHistoryPage(0); setStatusFilter('pending_approval'); }}>
+                      Бекитүү күтүүдө
                     </Button>
-                    <Button variant={statusFilter === 'error' ? 'default' : 'outline'} size="sm" onClick={() => { setHistoryPage(0); setStatusFilter('error'); }}>
+                    <Button variant={statusFilter === 'failed' ? 'default' : 'outline'} size="sm" onClick={() => { setHistoryPage(0); setStatusFilter('failed'); }}>
                       Ката
                     </Button>
                   </div>
