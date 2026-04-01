@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { PageHeader } from '@/components/PageShell';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ky } from '@/lib/i18n';
-import { Bell, Send, Link2, CheckCircle, Loader2, ExternalLink } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Bell, Send, Link2, CheckCircle, Loader2, ExternalLink, CreditCard, GraduationCap } from 'lucide-react';
 import { notificationsApi } from '@/api/modules';
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
@@ -11,12 +12,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import type { InAppNotification } from '@/types';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function NotificationsPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
   const isSystemAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+  const [activeTab, setActiveTab] = useState<'all' | 'approvals'>('all');
   const [isLinked, setIsLinked] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
   const [isLoadingStatus, setIsLoadingStatus] = useState(true);
@@ -25,6 +28,21 @@ export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(true);
   const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
+
+  // Filter notifications based on active tab
+  const filteredNotifications = useMemo(() => {
+    if (activeTab === 'approvals') {
+      return notifications.filter(
+        (n) => n.type === 'payment_pending_approval' || n.type === 'enrollment_pending_approval'
+      );
+    }
+    return notifications;
+  }, [notifications, activeTab]);
+
+  const approvalCount = useMemo(
+    () => notifications.filter((n) => n.type === 'payment_pending_approval' || n.type === 'enrollment_pending_approval').length,
+    [notifications]
+  );
 
   const fetchInAppNotifications = () => {
     setIsLoadingNotifications(true);
@@ -141,33 +159,57 @@ export default function NotificationsPage() {
             </Button>
           </div>
 
+          {isSystemAdmin && (
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'all' | 'approvals')}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="all">Бардыгы ({notifications.length})</TabsTrigger>
+                <TabsTrigger value="approvals">
+                  Бекитүү күтүү ({approvalCount})
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
+
           {isLoadingNotifications ? (
             <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-          ) : notifications.length === 0 ? (
-            <p className="text-sm text-muted-foreground">CRM ичинде билдирүү жок.</p>
+          ) : filteredNotifications.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {activeTab === 'approvals' ? 'Бекитүү күтүүчү билдирүүлөр жок.' : 'CRM ичинде билдирүү жок.'}
+            </p>
           ) : (
             <div className="space-y-3">
-              {notifications.map((notification) => (
-                <button
-                  key={notification.id}
-                  type="button"
-                  onClick={() => handleOpenNotification(notification)}
-                  className="w-full rounded-lg border p-4 text-left transition-colors hover:bg-muted/40"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium">{notification.title || 'CRM билдирүү'}</p>
-                        {!notification.isRead && <Badge variant="destructive">Жаңы</Badge>}
+              {filteredNotifications.map((notification) => {
+                const isApproval = notification.type === 'payment_pending_approval' || notification.type === 'enrollment_pending_approval';
+                return (
+                  <button
+                    key={notification.id}
+                    type="button"
+                    onClick={() => handleOpenNotification(notification)}
+                    className={cn(
+                      'w-full rounded-lg border p-4 text-left transition-colors hover:bg-muted/40',
+                      isApproval && 'border-amber-200 bg-amber-50/50 hover:bg-amber-50'
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-2">
+                          {notification.type === 'payment_pending_approval' && <CreditCard className="h-4 w-4 text-amber-600" />}
+                          {notification.type === 'enrollment_pending_approval' && <GraduationCap className="h-4 w-4 text-amber-600" />}
+                          <p className={cn('text-sm', isApproval ? 'font-semibold' : 'font-medium')}>
+                            {notification.title || 'CRM билдирүү'}
+                          </p>
+                          {!notification.isRead && <Badge variant="destructive">Жаңы</Badge>}
+                          {isApproval && <Badge variant="outline" className="text-amber-600 border-amber-200">Бекитүү</Badge>}
+                        </div>
+                        <p className="text-sm text-muted-foreground">{notification.content || 'Кошумча маалымат жок'}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(notification.createdAt).toLocaleString('ky-KG', { dateStyle: 'short', timeStyle: 'short' })}
+                        </p>
                       </div>
-                      <p className="text-sm text-muted-foreground">{notification.content || 'Кошумча маалымат жок'}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(notification.createdAt).toLocaleString('ky-KG', { dateStyle: 'short', timeStyle: 'short' })}
-                      </p>
                     </div>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           )}
         </CardContent>
@@ -175,58 +217,58 @@ export default function NotificationsPage() {
 
       {isSystemAdmin && (
         <Card className="shadow-card border-border/50">
-        <CardContent className="p-6 space-y-6">
-          <div className="flex items-center gap-3">
-            <Bell className="h-5 w-5 text-primary" />
-            <h3 className="text-base font-semibold">Telegram билдирүүлөрү</h3>
-          </div>
+          <CardContent className="p-6 space-y-6">
+            <div className="flex items-center gap-3">
+              <Bell className="h-5 w-5 text-primary" />
+              <h3 className="text-base font-semibold">Telegram билдирүүлөрү</h3>
+            </div>
 
-          {isLoadingStatus ? (
-            <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-          ) : (
-            <>
-              {/* Status */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Статус:</span>
-                {isLinked ? (
-                  <span className="flex items-center gap-1.5 text-sm font-medium text-success">
-                    <CheckCircle className="h-4 w-4" /> Байланыштырылган
-                  </span>
-                ) : (
-                  <span className="text-sm font-medium text-warning">Байланыштырыла элек</span>
-                )}
-              </div>
-
-              {/* Actions */}
-              {!isLinked && (
-                <div className="space-y-3">
-                  {!linkUrl ? (
-                    <Button onClick={handleGetLink} disabled={isLoadingLink} variant="outline">
-                      {isLoadingLink ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Link2 className="mr-2 h-4 w-4" />}
-                      Telegram шилтемесин алуу
-                    </Button>
+            {isLoadingStatus ? (
+              <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+            ) : (
+              <>
+                {/* Status */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Статус:</span>
+                  {isLinked ? (
+                    <span className="flex items-center gap-1.5 text-sm font-medium text-success">
+                      <CheckCircle className="h-4 w-4" /> Байланыштырылган
+                    </span>
                   ) : (
-                    <div className="space-y-2">
-                      <a href={linkUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-primary hover:underline">
-                        <ExternalLink className="h-4 w-4" /> Telegram ботту ачуу
-                      </a>
-                      <p className="text-xs text-muted-foreground">Ботту ачып, /start басыңыз, анан "Статусту жаңыртуу" баскычын басыңыз.</p>
-                      <Button onClick={refreshStatus} variant="outline" size="sm">Статусту жаңыртуу</Button>
-                    </div>
+                    <span className="text-sm font-medium text-warning">Байланыштырыла элек</span>
                   )}
                 </div>
-              )}
 
-              {isLinked && (
-                <Button onClick={handleTestMessage} disabled={isSendingTest} variant="outline">
-                  {isSendingTest ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                  Тест билдирүү жиберүү
-                </Button>
-              )}
-            </>
-          )}
-        </CardContent>
-      </Card>
+                {/* Actions */}
+                {!isLinked && (
+                  <div className="space-y-3">
+                    {!linkUrl ? (
+                      <Button onClick={handleGetLink} disabled={isLoadingLink} variant="outline">
+                        {isLoadingLink ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Link2 className="mr-2 h-4 w-4" />}
+                        Telegram шилтемесин алуу
+                      </Button>
+                    ) : (
+                      <div className="space-y-2">
+                        <a href={linkUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-primary hover:underline">
+                          <ExternalLink className="h-4 w-4" /> Telegram ботту ачуу
+                        </a>
+                        <p className="text-xs text-muted-foreground">Ботту ачып, /start басыңыз, анан "Статусту жаңыртуу" баскычын басыңыз.</p>
+                        <Button onClick={refreshStatus} variant="outline" size="sm">Статусту жаңыртуу</Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {isLinked && (
+                  <Button onClick={handleTestMessage} disabled={isSendingTest} variant="outline">
+                    {isSendingTest ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                    Тест билдирүү жиберүү
+                  </Button>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   );

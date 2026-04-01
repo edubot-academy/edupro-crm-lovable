@@ -514,7 +514,7 @@ export default function ReportsPage() {
 
           {/* Revenue Stats */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <StatCard title="Диңгеөө киреше" value={`${revenueReports.totalRevenue.toLocaleString()} сом`} icon={DollarSign} variant="success" />
+            <StatCard title="Жалпы киреше" value={`${revenueReports.totalRevenue.toLocaleString()} сом`} icon={DollarSign} variant="success" />
             <StatCard title="Төлөмдөр саны" value={revenueReports.paymentCount} icon={CreditCard} variant="info" />
             <StatCard title="Орточо төлөм" value={`${revenueReports.averagePayment.toLocaleString()} сом`} icon={TrendingUp} variant="info" />
           </div>
@@ -525,7 +525,7 @@ export default function ReportsPage() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-primary" />
-                  Кише динамикасы
+                  Киреше динамикасы
                 </CardTitle>
                 <p className="text-xs text-muted-foreground">Күн боюнча тастыкталган төлөмдөр</p>
               </CardHeader>

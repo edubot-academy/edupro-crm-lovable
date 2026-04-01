@@ -9,6 +9,12 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 ## [1.5.0] - 2026-04-01
 
 ### Added
+- Admin notification system with approval workflow
+  - New "Бекитүү күтүү" (Pending Approvals) tab in Notifications page for admin users
+  - Visual distinction for approval notifications with amber styling and icons
+  - Payment approval notifications display with CreditCard icon
+  - Enrollment approval notifications display with GraduationCap icon
+  - Notification count badges on tabs showing total vs approval counts
 - New "Төлөмдөр" (Payments) analytics tab on Reports page with comprehensive payment metrics
 - Revenue trend line chart showing daily payment amounts over time
 - Payment status distribution pie chart (confirmed/submitted/failed)
