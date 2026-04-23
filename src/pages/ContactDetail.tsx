@@ -180,14 +180,14 @@ export default function ContactDetailPage() {
       />
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="shadow-card border-border/50 lg:col-span-2">
-          <CardHeader><CardTitle className="text-base">Байланыш маалыматы</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">{ky.contacts.infoTitle}</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <InfoRow icon={User} label={ky.common.name} value={contact.fullName} />
               <InfoRow icon={Phone} label={ky.common.phone} value={contact.phone} />
               <InfoRow icon={Mail} label={ky.common.email} value={contact.email} />
-              <InfoRow icon={Link2} label="LMS ID" value={contact.lmsStudentId || '—'} />
-              <InfoRow icon={Link2} label="Тышкы ID" value={contact.externalStudentId || '—'} />
+              <InfoRow icon={Link2} label={ky.contacts.lmsId} value={contact.lmsStudentId || '—'} />
+              <InfoRow icon={Link2} label={ky.contacts.externalId} value={contact.externalStudentId || '—'} />
             </div>
           </CardContent>
         </Card>
@@ -204,7 +204,7 @@ export default function ContactDetailPage() {
             <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-start sm:justify-between">
               <CardTitle className="text-base flex items-center gap-2 leading-tight">
                 <BookOpen className="h-4 w-4" />
-                LMS маалыматы
+                {ky.contacts.lmsInfoTitle}
               </CardTitle>
               {contact.lmsStudentId && (
                 <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
@@ -215,7 +215,7 @@ export default function ContactDetailPage() {
                     disabled={createOnboardingLinkMutation.isPending}
                     className="w-full sm:w-auto"
                   >
-                    {createOnboardingLinkMutation.isPending ? 'Түзүлүүдө...' : 'Жаңы LMS шилтемеси'}
+                    {createOnboardingLinkMutation.isPending ? 'Түзүлүүдө...' : ky.contacts.newLmsLink}
                   </Button>
                   <Button
                     variant="outline"
@@ -223,7 +223,7 @@ export default function ContactDetailPage() {
                     onClick={() => navigate(`/enrollments?studentId=${encodeURIComponent(contact.lmsStudentId || '')}`)}
                     className="w-full sm:w-auto"
                   >
-                    LMS каттоо
+                    {ky.contacts.lmsEnrollment}
                   </Button>
                 </div>
               )}
@@ -390,7 +390,7 @@ export default function ContactDetailPage() {
       }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Байланышты өзгөртүү</DialogTitle>
+            <DialogTitle>{ky.contacts.editTitle}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -398,7 +398,7 @@ export default function ContactDetailPage() {
               <Input
                 value={form.fullName}
                 onChange={(e) => setForm((prev) => ({ ...prev, fullName: e.target.value }))}
-                placeholder="Толук аты"
+                placeholder={ky.common.fullNamePlaceholder}
               />
             </div>
             <div className="space-y-2">
@@ -415,7 +415,7 @@ export default function ContactDetailPage() {
                 type="email"
                 value={form.email}
                 onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-                placeholder="email@example.com"
+                placeholder={ky.common.emailPlaceholder}
               />
             </div>
             <div className="space-y-2">
@@ -423,7 +423,7 @@ export default function ContactDetailPage() {
               <Textarea
                 value={form.notes}
                 onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
-                placeholder="Эскертүүлөр..."
+                placeholder={ky.common.notesPlaceholder}
               />
             </div>
           </div>

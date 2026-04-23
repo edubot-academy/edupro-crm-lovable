@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { PageHeader } from '@/components/PageShell';
+import { PageError, PageHeader, PageLoading } from '@/components/PageShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -175,14 +175,22 @@ export default function LeadDetailPage() {
   };
 
   if (isLoading) {
-    return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
+    return <PageLoading />;
   }
 
   if (error || !lead) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <p className="text-muted-foreground">{error || 'Лид табылган жок'}</p>
-        <Button variant="outline" onClick={() => navigate('/leads')}><ArrowLeft className="mr-2 h-4 w-4" />{ky.common.back}</Button>
+      <div className="space-y-6 animate-fade-in">
+        <PageHeader
+          title="Лид"
+          actions={
+            <Button variant="outline" onClick={() => navigate('/leads')}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              {ky.common.back}
+            </Button>
+          }
+        />
+        <PageError message={error || 'Лид табылган жок'} onRetry={() => navigate('/leads')} />
       </div>
     );
   }
@@ -223,8 +231,8 @@ export default function LeadDetailPage() {
               <InfoRow icon={Phone} label={ky.common.phone} value={lead.phone} />
               <InfoRow icon={Mail} label={ky.common.email} value={lead.email} />
               <InfoRow icon={MessageSquare} label={ky.leads.source} value={ky.leadSource[lead.source]} />
-              <InfoRow icon={BookOpen} label={ky.leads.interestedCourse} value={lead.interestedCourseId || '—'} />
-              <InfoRow icon={BookOpen} label="Кызыккан топ" value={lead.interestedGroupId || '—'} />
+              <InfoRow icon={BookOpen} label={ky.leads.interestedCourse} value={courses.find((c) => c.id === lead.interestedCourseId)?.name || '—'} />
+              <InfoRow icon={BookOpen} label="Кызыккан топ" value={groups.find((g) => g.id === lead.interestedGroupId)?.name || '—'} />
               <InfoRow icon={User} label={ky.leads.assignedManager} value={lead.assignedManager?.fullName || '—'} />
             </div>
             <div>

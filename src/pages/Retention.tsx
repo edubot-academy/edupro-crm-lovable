@@ -9,7 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ky } from '@/lib/i18n';
 import type { RetentionCase } from '@/types';
 import { retentionApi } from '@/api/modules';
-import { Filter, Phone, ArrowUpCircle, CheckCircle, Trash2 } from 'lucide-react';
+import { Phone, ArrowUpCircle, CheckCircle, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
 
@@ -23,6 +23,7 @@ export default function RetentionPage() {
   const [cases, setCases] = useState<RetentionCase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [totalItems, setTotalItems] = useState(0);
   const [statusFilter, setStatusFilter] = useState('all');
   const [deleteTarget, setDeleteTarget] = useState<RetentionCase | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -30,8 +31,14 @@ export default function RetentionPage() {
   const fetchCases = () => {
     setIsLoading(true);
     retentionApi.list({ search, status: statusFilter === 'all' ? undefined : statusFilter })
-      .then((res) => setCases(res.items))
-      .catch(() => setCases([]))
+      .then((res) => {
+        setCases(res.items);
+        setTotalItems(res.total || 0);
+      })
+      .catch(() => {
+        setCases([]);
+        setTotalItems(0);
+      })
       .finally(() => setIsLoading(false));
   };
 
@@ -54,6 +61,48 @@ export default function RetentionPage() {
   };
 
   const filtered = cases.filter((c) => statusFilter === 'all' || c.status === statusFilter);
+  const mobileBoardColumns = Object.entries(caseStatusLabel)
+    .filter(([value]) => statusFilter === 'all' || value === statusFilter)
+    .map(([value, label]) => ({ id: value, title: label }));
+  const activeFilters = [
+    ...(search.trim()
+      ? [{
+        key: 'search',
+        label: `Издөө: ${search.trim()}`,
+        onRemove: () => setSearch(''),
+      }]
+      : []),
+    ...(statusFilter !== 'all'
+      ? [{
+        key: 'status',
+        label: `Статус: ${caseStatusLabel[statusFilter]}`,
+        onRemove: () => setStatusFilter('all'),
+      }]
+      : []),
+  ];
+  const headerActions = (
+    <div className="flex flex-wrap items-end gap-2">
+      <div className="space-y-1">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Статус</p>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="h-9 w-[180px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Бардык статус</SelectItem>
+            {Object.entries(caseStatusLabel).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="hidden items-center gap-2 text-xs text-muted-foreground xl:flex">
+        <span className="rounded-full bg-secondary px-2.5 py-1">{totalItems} учур</span>
+        <span className="rounded-full bg-secondary px-2.5 py-1">
+          {cases.filter((item) => item.status === 'open').length} ачык
+        </span>
+        <span className="rounded-full bg-secondary px-2.5 py-1">
+          {cases.filter((item) => item.status === 'escalated').length} жогорулатылган
+        </span>
+      </div>
+    </div>
+  );
 
   const columns: Column<RetentionCase>[] = [
     { key: 'summary', header: ky.retention.summary, render: (c) => (
@@ -69,10 +118,10 @@ export default function RetentionPage() {
     { key: 'status', header: ky.common.status, render: (c) => <StatusBadge variant={caseStatusVariant(c.status)} dot>{caseStatusLabel[c.status]}</StatusBadge> },
     { key: 'actions', header: ky.common.actions, render: (c) => (
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="sm" className="h-7 text-xs" title={ky.retention.contactStudent}><Phone className="h-3.5 w-3.5" /></Button>
-        {c.status === 'open' && <Button variant="ghost" size="sm" className="h-7 text-xs text-success" title={ky.retention.resolve}><CheckCircle className="h-3.5 w-3.5" /></Button>}
-        {(c.status === 'open' || c.status === 'contacted') && <Button variant="ghost" size="sm" className="h-7 text-xs text-warning" title={ky.retention.escalate}><ArrowUpCircle className="h-3.5 w-3.5" /></Button>}
-        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(c); }}>
+        <Button variant="ghost" size="sm" className="h-7 text-xs" title={ky.retention.contactStudent} aria-label={`${c.summary || 'Учур'}: ${ky.retention.contactStudent.toLowerCase()}`}><Phone className="h-3.5 w-3.5" /></Button>
+        {c.status === 'open' && <Button variant="ghost" size="sm" className="h-7 text-xs text-success" title={ky.retention.resolve} aria-label={`${c.summary || 'Учур'}: ${ky.retention.resolve.toLowerCase()}`}><CheckCircle className="h-3.5 w-3.5" /></Button>}
+        {(c.status === 'open' || c.status === 'contacted') && <Button variant="ghost" size="sm" className="h-7 text-xs text-warning" title={ky.retention.escalate} aria-label={`${c.summary || 'Учур'}: ${ky.retention.escalate.toLowerCase()}`}><ArrowUpCircle className="h-3.5 w-3.5" /></Button>}
+        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(c); }} aria-label={`${ky.common.delete} ${c.summary || 'учур'}`}>
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
       </div>
@@ -113,19 +162,25 @@ export default function RetentionPage() {
   );
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <PageHeader title={ky.retention.title} />
-      <div className="flex items-center gap-3">
-        <Filter className="h-4 w-4 text-muted-foreground" />
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{ky.common.all}</SelectItem>
-            {Object.entries(caseStatusLabel).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
-      <DataTable columns={columns} data={filtered} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Учур издөө..." renderMobileCard={renderMobileCard} />
+    <div className="space-y-4 animate-fade-in">
+      <PageHeader title={ky.retention.title} description="Тобокелдик учурларды көзөмөлдөп, чара көрүүнү талап кылгандарды биринчи орунга чыгарыңыз." />
+      <DataTable
+        columns={columns}
+        data={filtered}
+        isLoading={isLoading}
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Учур издөө..."
+        headerActions={headerActions}
+        activeFilters={activeFilters}
+        totalItems={totalItems}
+        totalItemsLabel="учур"
+        stickyHeader
+        renderMobileCard={renderMobileCard}
+        mobileBoardColumns={mobileBoardColumns}
+        getMobileBoardColumnId={(retentionCase) => retentionCase.status}
+        mobileBoardEmptyMessage="Бул тилкеде учур жок"
+      />
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>

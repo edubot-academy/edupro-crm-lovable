@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
-import { PageHeader, PageLoading } from '@/components/PageShell';
+import { useSearchParams } from 'react-router-dom';
+import { PageError, PageHeader, PageLoading } from '@/components/PageShell';
 import { StatCard } from '@/components/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
@@ -13,9 +12,10 @@ import { cn } from '@/lib/utils';
 import { ky } from '@/lib/i18n';
 import { reportsApi } from '@/api/modules';
 import type { DashboardStats, DashboardStatsQueryParams } from '@/types';
+import { DateRangeFilter } from '@/components/DateRangeFilter';
 import {
   Users, UserPlus, TrendingUp, Target, CreditCard, Trophy,
-  AlertTriangle, CalendarIcon, Download, RefreshCw, GraduationCap,
+  AlertTriangle, Download, RefreshCw, GraduationCap,
   BarChart3, PieChart as PieChartIcon, Activity, DollarSign,
 } from 'lucide-react';
 import {
@@ -63,42 +63,6 @@ const emptyRevenueReports = {
   trend: [],
 };
 
-function DateRangePicker({
-  from, to, onChange,
-}: {
-  from: Date | undefined;
-  to: Date | undefined;
-  onChange: (from: Date | undefined, to: Date | undefined) => void;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" className={cn('w-[140px] justify-start text-left font-normal text-xs', !from && 'text-muted-foreground')}>
-            <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
-            {from ? format(from, 'dd.MM.yyyy') : 'Баштоо'}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <Calendar mode="single" selected={from} onSelect={(d) => onChange(d, to)} initialFocus className="p-3 pointer-events-auto" />
-        </PopoverContent>
-      </Popover>
-      <span className="text-xs text-muted-foreground">—</span>
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" className={cn('w-[140px] justify-start text-left font-normal text-xs', !to && 'text-muted-foreground')}>
-            <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
-            {to ? format(to, 'dd.MM.yyyy') : 'Аяктоо'}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <Calendar mode="single" selected={to} onSelect={(d) => onChange(from, d)} initialFocus className="p-3 pointer-events-auto" />
-        </PopoverContent>
-      </Popover>
-    </div>
-  );
-}
-
 // CSV export helper
 function exportCSV(stats: DashboardStats) {
   const rows: string[] = [];
@@ -130,21 +94,43 @@ function exportCSV(stats: DashboardStats) {
 }
 
 export default function ReportsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const getSearchParam = (key: string, fallback = '') => searchParams.get(key) ?? fallback;
   const [stats, setStats] = useState<DashboardStats>(emptyStats);
   const [paymentReports, setPaymentReports] = useState(emptyPaymentReports);
   const [revenueReports, setRevenueReports] = useState(emptyRevenueReports);
   const [isLoading, setIsLoading] = useState(true);
-  const [dateFrom, setDateFrom] = useState<Date | undefined>();
-  const [dateTo, setDateTo] = useState<Date | undefined>();
-  const [sourceFilter, setSourceFilter] = useState('all');
-  const [managerFilter, setManagerFilter] = useState('all');
-  const [courseFilter, setCourseFilter] = useState('all');
+  const [error, setError] = useState<string | null>(null);
+  const [dateFilter, setDateFilter] = useState<string>(() => getSearchParam('date', 'all'));
+  const [customFromDate, setCustomFromDate] = useState<string>(() => getSearchParam('from'));
+  const [customToDate, setCustomToDate] = useState<string>(() => getSearchParam('to'));
+  const [sourceFilter, setSourceFilter] = useState(() => getSearchParam('source', 'all'));
+  const [managerFilter, setManagerFilter] = useState(() => getSearchParam('manager', 'all'));
+  const [courseFilter, setCourseFilter] = useState(() => getSearchParam('course', 'all'));
 
   const fetchStats = useCallback(() => {
     setIsLoading(true);
+    setError(null);
     const params: DashboardStatsQueryParams = {};
-    if (dateFrom) params.from = format(dateFrom, 'yyyy-MM-dd');
-    if (dateTo) params.to = format(dateTo, 'yyyy-MM-dd');
+    if (dateFilter === 'today') {
+      const today = new Date();
+      params.from = format(today, 'yyyy-MM-dd');
+      params.to = format(today, 'yyyy-MM-dd');
+    } else if (dateFilter === 'week') {
+      const today = new Date();
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - today.getDay());
+      params.from = format(startOfWeek, 'yyyy-MM-dd');
+      params.to = format(today, 'yyyy-MM-dd');
+    } else if (dateFilter === 'month') {
+      const today = new Date();
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      params.from = format(startOfMonth, 'yyyy-MM-dd');
+      params.to = format(today, 'yyyy-MM-dd');
+    } else if (dateFilter === 'custom') {
+      if (customFromDate) params.from = customFromDate;
+      if (customToDate) params.to = customToDate;
+    }
     if (sourceFilter !== 'all') params.source = sourceFilter;
     if (managerFilter !== 'all') params.managerId = managerFilter;
     if (courseFilter !== 'all') params.courseId = courseFilter;
@@ -163,11 +149,54 @@ export default function ReportsPage() {
         setStats(emptyStats);
         setPaymentReports(emptyPaymentReports);
         setRevenueReports(emptyRevenueReports);
+        setError('Отчет маалыматтарын жүктөө мүмкүн болгон жок. Кийинчерээк кайра аракет кылыңыз.');
       })
       .finally(() => setIsLoading(false));
-  }, [dateFrom, dateTo, sourceFilter, managerFilter, courseFilter]);
+  }, [dateFilter, customFromDate, customToDate, sourceFilter, managerFilter, courseFilter]);
 
   useEffect(() => { fetchStats(); }, [fetchStats]);
+
+  useEffect(() => {
+    const nextDate = searchParams.get('date') ?? 'all';
+    const nextFrom = searchParams.get('from') ?? '';
+    const nextTo = searchParams.get('to') ?? '';
+    const nextSource = searchParams.get('source') ?? 'all';
+    const nextManager = searchParams.get('manager') ?? 'all';
+    const nextCourse = searchParams.get('course') ?? 'all';
+
+    if (nextDate !== dateFilter) setDateFilter(nextDate);
+    if (nextFrom !== customFromDate) setCustomFromDate(nextFrom);
+    if (nextTo !== customToDate) setCustomToDate(nextTo);
+    if (nextSource !== sourceFilter) setSourceFilter(nextSource);
+    if (nextManager !== managerFilter) setManagerFilter(nextManager);
+    if (nextCourse !== courseFilter) setCourseFilter(nextCourse);
+  }, [searchParams]);
+
+  useEffect(() => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+
+      if (dateFilter !== 'all') next.set('date', dateFilter);
+      else next.delete('date');
+
+      if (dateFilter === 'custom' && customFromDate) next.set('from', customFromDate);
+      else next.delete('from');
+
+      if (dateFilter === 'custom' && customToDate) next.set('to', customToDate);
+      else next.delete('to');
+
+      if (sourceFilter !== 'all') next.set('source', sourceFilter);
+      else next.delete('source');
+
+      if (managerFilter !== 'all') next.set('manager', managerFilter);
+      else next.delete('manager');
+
+      if (courseFilter !== 'all') next.set('course', courseFilter);
+      else next.delete('course');
+
+      return next.toString() === current.toString() ? current : next;
+    }, { replace: true });
+  }, [dateFilter, customFromDate, customToDate, sourceFilter, managerFilter, courseFilter, setSearchParams]);
 
   // Filtered data for client-side filtering
   const filteredSources = sourceFilter === 'all'
@@ -196,6 +225,24 @@ export default function ReportsPage() {
 
   if (isLoading) return <PageLoading />;
 
+  if (error) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <PageHeader
+          title={ky.reports.title}
+          actions={
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={fetchStats}>
+                <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Жаңыртуу
+              </Button>
+            </div>
+          }
+        />
+        <PageError message={error} onRetry={fetchStats} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -217,7 +264,18 @@ export default function ReportsPage() {
       <Card className="shadow-card border-border/50">
         <CardContent className="p-4">
           <div className="flex flex-wrap items-center gap-4">
-            <DateRangePicker from={dateFrom} to={dateTo} onChange={(f, t) => { setDateFrom(f); setDateTo(t); }} />
+            <DateRangeFilter
+              value={dateFilter}
+              onValueChange={setDateFilter}
+              fromDate={customFromDate}
+              toDate={customToDate}
+              onFromDateChange={setCustomFromDate}
+              onToDateChange={setCustomToDate}
+              onClearCustom={() => {
+                setCustomFromDate('');
+                setCustomToDate('');
+              }}
+            />
             <Separator orientation="vertical" className="h-8 hidden sm:block" />
             <Select value={sourceFilter} onValueChange={setSourceFilter}>
               <SelectTrigger className="h-9 w-full text-xs sm:w-[150px]"><SelectValue placeholder="Булак" /></SelectTrigger>
@@ -240,8 +298,20 @@ export default function ReportsPage() {
                 {stats.popularCourses.map((c) => <SelectItem key={c.course} value={c.course}>{c.course}</SelectItem>)}
               </SelectContent>
             </Select>
-            {(dateFrom || dateTo || sourceFilter !== 'all' || managerFilter !== 'all' || courseFilter !== 'all') && (
-              <Button variant="ghost" size="sm" className="text-xs h-9" onClick={() => { setDateFrom(undefined); setDateTo(undefined); setSourceFilter('all'); setManagerFilter('all'); setCourseFilter('all'); }}>
+            {(dateFilter !== 'all' || customFromDate || customToDate || sourceFilter !== 'all' || managerFilter !== 'all' || courseFilter !== 'all') && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-9"
+                onClick={() => {
+                  setDateFilter('all');
+                  setCustomFromDate('');
+                  setCustomToDate('');
+                  setSourceFilter('all');
+                  setManagerFilter('all');
+                  setCourseFilter('all');
+                }}
+              >
                 Тазалоо
               </Button>
             )}

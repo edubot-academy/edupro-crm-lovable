@@ -62,6 +62,12 @@ export function IntegrationHistoryPanel({ initialFilters }: { initialFilters?: R
       limit: 30,
     });
   };
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSearch();
+    }
+  };
 
   const items = data?.items || [];
 
@@ -75,16 +81,16 @@ export function IntegrationHistoryPanel({ initialFilters }: { initialFilters?: R
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-          <Input placeholder="CRM лид ID" value={filters.crmLeadId} onChange={(e) => setFilters((prev) => ({ ...prev, crmLeadId: e.target.value }))} />
-          <Input placeholder="CRM контакт ID" value={filters.crmContactId} onChange={(e) => setFilters((prev) => ({ ...prev, crmContactId: e.target.value }))} />
-          <Input placeholder="CRM келишим ID" value={filters.crmDealId} onChange={(e) => setFilters((prev) => ({ ...prev, crmDealId: e.target.value }))} />
-          <Input placeholder="CRM төлөм ID" value={filters.crmPaymentId} onChange={(e) => setFilters((prev) => ({ ...prev, crmPaymentId: e.target.value }))} />
-          <Input placeholder="LMS студент ID" value={filters.lmsStudentId} onChange={(e) => setFilters((prev) => ({ ...prev, lmsStudentId: e.target.value }))} />
-          <Input placeholder="LMS каттоо ID" value={filters.lmsEnrollmentId} onChange={(e) => setFilters((prev) => ({ ...prev, lmsEnrollmentId: e.target.value }))} />
+          <Input placeholder="CRM лид ID" aria-label="CRM лид идентификатору" value={filters.crmLeadId} onChange={(e) => setFilters((prev) => ({ ...prev, crmLeadId: e.target.value }))} onKeyDown={handleSearchKeyDown} />
+          <Input placeholder="CRM контакт ID" aria-label="CRM байланыш идентификатору" value={filters.crmContactId} onChange={(e) => setFilters((prev) => ({ ...prev, crmContactId: e.target.value }))} onKeyDown={handleSearchKeyDown} />
+          <Input placeholder="CRM келишим ID" aria-label="CRM келишим идентификатору" value={filters.crmDealId} onChange={(e) => setFilters((prev) => ({ ...prev, crmDealId: e.target.value }))} onKeyDown={handleSearchKeyDown} />
+          <Input placeholder="CRM төлөм ID" aria-label="CRM төлөм идентификатору" value={filters.crmPaymentId} onChange={(e) => setFilters((prev) => ({ ...prev, crmPaymentId: e.target.value }))} onKeyDown={handleSearchKeyDown} />
+          <Input placeholder="LMS студент ID" aria-label="LMS студент идентификатору" value={filters.lmsStudentId} onChange={(e) => setFilters((prev) => ({ ...prev, lmsStudentId: e.target.value }))} onKeyDown={handleSearchKeyDown} />
+          <Input placeholder="LMS каттоо ID" aria-label="LMS каттоо идентификатору" value={filters.lmsEnrollmentId} onChange={(e) => setFilters((prev) => ({ ...prev, lmsEnrollmentId: e.target.value }))} onKeyDown={handleSearchKeyDown} />
         </div>
 
         <div className="flex justify-end">
-          <Button onClick={handleSearch} variant="secondary" className="gap-2">
+          <Button onClick={handleSearch} variant="secondary" className="gap-2" aria-label="Интеграция тарыхын издөө">
             <Search className="h-4 w-4" />
             Издөө
           </Button>

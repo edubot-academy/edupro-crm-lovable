@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/PageShell';
 import { DataTable, type Column } from '@/components/DataTable';
 import { Button } from '@/components/ui/button';
@@ -20,30 +20,55 @@ const emptyForm = { fullName: '', phone: '', email: '', notes: '' };
 
 export default function ContactsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [totalItems, setTotalItems] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState(emptyForm);
 
+  const shouldOpenCreate = searchParams.get('create') === '1';
+
+  const clearCreateParam = () => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete('create');
+      return next;
+    }, { replace: true });
+  };
+
   const resetCreateForm = () => {
     setForm(emptyForm);
+    clearCreateParam();
     setShowCreate(false);
   };
 
   const fetchContacts = () => {
     setIsLoading(true);
     contactApi.list({ search })
-      .then((res) => setContacts(res.items))
-      .catch(() => setContacts([]))
+      .then((res) => {
+        setContacts(res.items);
+        setTotalItems(res.total || 0);
+      })
+      .catch(() => {
+        setContacts([]);
+        setTotalItems(0);
+      })
       .finally(() => setIsLoading(false));
   };
 
   useEffect(() => { fetchContacts(); }, [search]);
+
+  useEffect(() => {
+    if (shouldOpenCreate) {
+      setShowCreate(true);
+    }
+  }, [shouldOpenCreate]);
 
   const handleCreate = async () => {
     if (!form.fullName || !form.phone) return;
@@ -53,6 +78,7 @@ export default function ContactsPage() {
       toast({ title: 'Байланыш ийгиликтүү кошулду' });
       setShowCreate(false);
       setForm(emptyForm);
+      clearCreateParam();
       fetchContacts();
     } catch (error) {
       const friendly = getFriendlyError(error, { fallbackTitle: 'Байланышты сактоо ишке ашкан жок' });
@@ -95,10 +121,11 @@ export default function ContactsPage() {
               e.stopPropagation();
               navigate(`/enrollments?crmContactId=${c.id}${c.lmsStudentId ? `&studentId=${encodeURIComponent(c.lmsStudentId)}` : ''}`);
             }}
+            aria-label={`${c.fullName} үчүн LMS каттоону ачуу`}
           >
             <GraduationCap className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(c); }}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(c); }} aria-label={`${ky.common.delete} ${c.fullName}`}>
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
@@ -116,14 +143,14 @@ export default function ContactsPage() {
               {new Date(contact.createdAt).toLocaleDateString('ky-KG')}
             </p>
           </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(contact); }}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(contact); }} aria-label={`${ky.common.delete} ${contact.fullName}`}>
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
         <div className="space-y-2 text-sm text-muted-foreground">
           <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5" /><span>{contact.phone}</span></div>
           {contact.email && <div className="flex items-center gap-2"><Mail className="h-3.5 w-3.5" /><span className="truncate">{contact.email}</span></div>}
-          <div className="flex items-center gap-2"><IdCard className="h-3.5 w-3.5" /><span>{contact.lmsStudentId || 'LMS ID жок'}</span></div>
+          <div className="flex items-center gap-2"><IdCard className="h-3.5 w-3.5" /><span>{contact.lmsStudentId || ky.contacts.noLmsId}</span></div>
         </div>
         <Button
           variant="outline"
@@ -132,6 +159,7 @@ export default function ContactsPage() {
             e.stopPropagation();
             navigate(`/enrollments?crmContactId=${contact.id}${contact.lmsStudentId ? `&studentId=${encodeURIComponent(contact.lmsStudentId)}` : ''}`);
           }}
+          aria-label={`${contact.fullName} үчүн LMS каттоону ачуу`}
         >
           <GraduationCap className="mr-2 h-4 w-4" />
           LMS
@@ -140,25 +168,35 @@ export default function ContactsPage() {
       </CardContent>
     </Card>
   );
+  const activeFilters = search.trim()
+    ? [{
+      key: 'search',
+      label: `Издөө: ${search.trim()}`,
+      onRemove: () => setSearch(''),
+    }]
+    : [];
 
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title={ky.contacts.title}
-        actions={<Button onClick={() => setShowCreate(true)}><Plus className="mr-2 h-4 w-4" />{ky.contacts.newContact}</Button>}
+        actions={<Button onClick={() => {
+          clearCreateParam();
+          setShowCreate(true);
+        }}><Plus className="mr-2 h-4 w-4" />{ky.contacts.newContact}</Button>}
       />
-      <DataTable columns={columns} data={contacts} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Байланыш издөө..." onRowClick={(c) => navigate(`/contacts/${c.id}`)} renderMobileCard={renderMobileCard} />
+      <DataTable columns={columns} data={contacts} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Байланыш издөө..." activeFilters={activeFilters} totalItems={totalItems} totalItemsLabel="байланыш" stickyHeader onRowClick={(c) => navigate(`/contacts/${c.id}`)} renderMobileCard={renderMobileCard} />
 
       <Dialog open={showCreate} onOpenChange={(open) => {
         setShowCreate(open);
-        if (!open) setForm(emptyForm);
+        if (!open) resetCreateForm();
       }}>
         <DialogContent>
           <DialogHeader><DialogTitle>{ky.contacts.newContact}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>{ky.common.name} *</Label>
-              <Input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} placeholder="Толук аты" />
+              <Input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} placeholder={ky.common.fullNamePlaceholder} />
             </div>
             <div className="space-y-2">
               <Label>{ky.common.phone} *</Label>
@@ -166,11 +204,11 @@ export default function ContactsPage() {
             </div>
             <div className="space-y-2">
               <Label>{ky.common.email}</Label>
-              <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} type="email" placeholder="email@example.com" />
+              <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} type="email" placeholder={ky.common.emailPlaceholder} />
             </div>
             <div className="space-y-2">
               <Label>{ky.common.notes}</Label>
-              <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Эскертүүлөр..." />
+              <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder={ky.common.notesPlaceholder} />
             </div>
           </div>
           <DialogFooter>

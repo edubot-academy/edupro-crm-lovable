@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/PageShell';
 import { DataTable, type Column } from '@/components/DataTable';
 import { StatusBadge, getTaskStatusVariant } from '@/components/StatusBadge';
@@ -14,7 +15,7 @@ import { ky } from '@/lib/i18n';
 import type { Contact, Deal, Task, TaskWorkflowStatus } from '@/types';
 import { getTaskWorkflowStatus } from '@/lib/crm-status';
 import { contactApi, dealsApi, tasksApi } from '@/api/modules';
-import { Plus, Filter, CheckCircle, Trash2, Loader2 } from 'lucide-react';
+import { Plus, CheckCircle, Trash2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
 
@@ -22,9 +23,11 @@ const emptyForm = { title: '', description: '', dueAt: '', contactId: '', dealId
 
 export default function TasksPage() {
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [totalItems, setTotalItems] = useState(0);
   const [statusFilter, setStatusFilter] = useState('all');
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -35,17 +38,33 @@ export default function TasksPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [optionsLoading, setOptionsLoading] = useState(false);
+  const shouldOpenCreate = searchParams.get('create') === '1';
+
+  const clearCreateParam = () => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete('create');
+      return next;
+    }, { replace: true });
+  };
 
   const resetCreateForm = () => {
     setForm(emptyForm);
+    clearCreateParam();
     setShowCreate(false);
   };
 
   const fetchTasks = () => {
     setIsLoading(true);
     tasksApi.list({ search, workflowStatus: statusFilter === 'all' ? undefined : statusFilter })
-      .then((res) => setTasks(res.items))
-      .catch(() => setTasks([]))
+      .then((res) => {
+        setTasks(res.items);
+        setTotalItems(res.total || 0);
+      })
+      .catch(() => {
+        setTasks([]);
+        setTotalItems(0);
+      })
       .finally(() => setIsLoading(false));
   };
 
@@ -68,6 +87,12 @@ export default function TasksPage() {
       })
       .finally(() => setOptionsLoading(false));
   }, [showCreate]);
+
+  useEffect(() => {
+    if (shouldOpenCreate) {
+      setShowCreate(true);
+    }
+  }, [shouldOpenCreate]);
 
   useEffect(() => {
     if (!form.dealId) return;
@@ -95,6 +120,7 @@ export default function TasksPage() {
       toast({ title: 'Тапшырма ийгиликтүү кошулду' });
       setShowCreate(false);
       setForm(emptyForm);
+      clearCreateParam();
       fetchTasks();
     } catch (error) {
       const friendly = getFriendlyError(error, { fallbackTitle: 'Тапшырманы сактоо ишке ашкан жок' });
@@ -135,6 +161,48 @@ export default function TasksPage() {
   };
 
   const filtered = tasks.filter((t) => statusFilter === 'all' || getTaskWorkflowStatus(t) === statusFilter);
+  const mobileBoardColumns = Object.entries(ky.taskWorkflowStatus)
+    .filter(([value]) => statusFilter === 'all' || value === statusFilter)
+    .map(([value, label]) => ({ id: value, title: label }));
+  const activeFilters = [
+    ...(search.trim()
+      ? [{
+        key: 'search',
+        label: `Издөө: ${search.trim()}`,
+        onRemove: () => setSearch(''),
+      }]
+      : []),
+    ...(statusFilter !== 'all'
+      ? [{
+        key: 'status',
+        label: `Статус: ${ky.taskWorkflowStatus[statusFilter as TaskWorkflowStatus]}`,
+        onRemove: () => setStatusFilter('all'),
+      }]
+      : []),
+  ];
+  const headerActions = (
+    <div className="flex flex-wrap items-end gap-2">
+      <div className="space-y-1">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Статус</p>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="h-9 w-[180px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Бардык статус</SelectItem>
+            {Object.entries(ky.taskWorkflowStatus).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="hidden items-center gap-2 text-xs text-muted-foreground xl:flex">
+        <span className="rounded-full bg-secondary px-2.5 py-1">{totalItems} тапшырма</span>
+        <span className="rounded-full bg-secondary px-2.5 py-1">
+          {tasks.filter((task) => getTaskWorkflowStatus(task) === 'pending').length} күтүлүүдө
+        </span>
+        <span className="rounded-full bg-secondary px-2.5 py-1">
+          {tasks.filter((task) => getTaskWorkflowStatus(task) === 'overdue').length} мөөнөтү өттү
+        </span>
+      </div>
+    </div>
+  );
 
   const columns: Column<Task>[] = [
     { key: 'title', header: 'Тапшырма', render: (t) => (
@@ -187,7 +255,15 @@ export default function TasksPage() {
         </div>
         <div className="flex items-center justify-between">
           {getTaskWorkflowStatus(task) !== 'completed' && getTaskWorkflowStatus(task) !== 'cancelled' ? (
-            <Button variant="outline" size="sm" onClick={(e) => e.stopPropagation()}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleMarkDone(task);
+              }}
+              disabled={isUpdatingTaskId === task.id}
+            >
               <CheckCircle className="mr-2 h-4 w-4" />
               Белгилөө
             </Button>
@@ -201,19 +277,28 @@ export default function TasksPage() {
   );
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <PageHeader title={ky.tasks.title} actions={<Button onClick={() => setShowCreate(true)}><Plus className="mr-2 h-4 w-4" />{ky.tasks.newTask}</Button>} />
-      <div className="flex items-center gap-3">
-        <Filter className="h-4 w-4 text-muted-foreground" />
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{ky.common.all}</SelectItem>
-            {Object.entries(ky.taskWorkflowStatus).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
-      <DataTable columns={columns} data={filtered} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Тапшырма издөө..." renderMobileCard={renderMobileCard} />
+    <div className="space-y-4 animate-fade-in">
+      <PageHeader title={ky.tasks.title} description="Аткарылчу иштерди көзөмөлдөп, кечигип калгандарды тез жабыңыз." actions={<Button onClick={() => {
+        clearCreateParam();
+        setShowCreate(true);
+      }}><Plus className="mr-2 h-4 w-4" />{ky.tasks.newTask}</Button>} />
+      <DataTable
+        columns={columns}
+        data={filtered}
+        isLoading={isLoading}
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Тапшырма издөө..."
+        headerActions={headerActions}
+        activeFilters={activeFilters}
+        totalItems={totalItems}
+        totalItemsLabel="тапшырма"
+        stickyHeader
+        renderMobileCard={renderMobileCard}
+        mobileBoardColumns={mobileBoardColumns}
+        getMobileBoardColumnId={(task) => getTaskWorkflowStatus(task)}
+        mobileBoardEmptyMessage="Бул тилкеде тапшырма жок"
+      />
 
       {/* Create Dialog */}
       <Dialog open={showCreate} onOpenChange={(open) => {

@@ -35,6 +35,7 @@ export function KanbanBoard<T extends { id: number | string }>({
           {columns.map((col) => (
             <button
               key={col.id}
+              type="button"
               onClick={() => onColumnChange?.(col.id)}
               className={cn(
                 'flex shrink-0 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
@@ -70,7 +71,16 @@ export function KanbanBoard<T extends { id: number | string }>({
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   onClick={() => onCardClick?.(item)}
-                  className="cursor-pointer"
+                  onKeyDown={(e) => {
+                    if (!onCardClick) return;
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onCardClick(item);
+                    }
+                  }}
+                  role={onCardClick ? 'button' : undefined}
+                  tabIndex={onCardClick ? 0 : undefined}
+                  className="cursor-pointer rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
                   {renderCard(item)}
                 </motion.div>
@@ -108,7 +118,16 @@ export function KanbanBoard<T extends { id: number | string }>({
                           initial={{ opacity: 0, y: 5 }}
                           animate={{ opacity: 1, y: 0 }}
                           onClick={() => onCardClick?.(item)}
-                          className="cursor-pointer"
+                          onKeyDown={(e) => {
+                            if (!onCardClick) return;
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              onCardClick(item);
+                            }
+                          }}
+                          role={onCardClick ? 'button' : undefined}
+                          tabIndex={onCardClick ? 0 : undefined}
+                          className="cursor-pointer rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         >
                           {renderCard(item)}
                         </motion.div>

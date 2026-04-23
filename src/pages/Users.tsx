@@ -164,11 +164,11 @@ export default function UsersPage() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>{ky.common.name} *</Label>
-              <Input value={form.fullName} onChange={(e) => setForm((prev) => ({ ...prev, fullName: e.target.value }))} placeholder="Толук аты" />
+              <Input value={form.fullName} onChange={(e) => setForm((prev) => ({ ...prev, fullName: e.target.value }))} placeholder={ky.common.fullNamePlaceholder} />
             </div>
             <div className="space-y-2">
               <Label>{ky.common.email} *</Label>
-              <Input type="email" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} placeholder="email@example.com" />
+              <Input type="email" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} placeholder={ky.common.emailPlaceholder} />
             </div>
             <div className="space-y-2">
               <Label>{ky.users.role}</Label>

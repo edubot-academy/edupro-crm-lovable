@@ -32,7 +32,7 @@ const mainNav = [
 
 const operationsNav = [
   { title: ky.nav.payments, url: '/payments', icon: CreditCard },
-  { title: 'LMS Каттоо', url: '/enrollments', icon: GraduationCap },
+  { title: ky.nav.enrollments, url: '/enrollments', icon: GraduationCap },
   { title: ky.nav.tasks, url: '/tasks', icon: CheckSquare },
   { title: ky.nav.timeline, url: '/timeline', icon: MessageSquare },
   { title: ky.nav.retention, url: '/retention', icon: AlertTriangle },
@@ -116,7 +116,7 @@ export function AppSidebar() {
       <SidebarContent className="px-2 py-2">
         <NavSection label="Негизги" items={mainNav} collapsed={collapsed} onNavigate={handleNavigate} />
         <NavSection label="Операциялар" items={operationsNav} collapsed={collapsed} onNavigate={handleNavigate} />
-        {isSuperAdmin && <NavSection label="Legacy Data" items={legacyNav} collapsed={collapsed} onNavigate={handleNavigate} />}
+        {isSuperAdmin && <NavSection label={ky.nav.legacyData} items={legacyNav} collapsed={collapsed} onNavigate={handleNavigate} />}
         <NavSection label="Система" items={visibleSystemNav} collapsed={collapsed} onNavigate={handleNavigate} />
       </SidebarContent>
 
@@ -132,7 +132,7 @@ export function AppSidebar() {
             </div>
           )}
           {!collapsed && (
-            <button onClick={logout} className="shrink-0 text-sidebar-foreground/50 hover:text-sidebar-accent-foreground transition-colors" title={ky.nav.logout}>
+            <button onClick={logout} className="shrink-0 text-sidebar-foreground/50 hover:text-sidebar-accent-foreground transition-colors" title={ky.nav.logout} aria-label={ky.nav.logout}>
               <LogOut className="h-4 w-4" />
             </button>
           )}

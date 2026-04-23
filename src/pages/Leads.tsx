@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { PageHeader } from '@/components/PageShell';
 import { DataTable, type Column } from '@/components/DataTable';
 import { StatusBadge, getLeadStatusVariant } from '@/components/StatusBadge';
@@ -7,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -15,25 +17,34 @@ import { leadsApi, usersApi } from '@/api/modules';
 import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
 import { useAuth } from '@/contexts/AuthContext';
 import type { AssignableUser, Lead, LeadQualificationStatus, LeadSource } from '@/types';
-import { getLeadQualificationStatus } from '@/lib/crm-status';
-import { Plus, Filter, Trash2, Loader2, Save, Phone, Mail, User, GraduationCap, Calendar } from 'lucide-react';
+import { getLeadQualificationStatus, mapQualificationToLeadStatus } from '@/lib/crm-status';
+import { Plus, Trash2, Loader2, Phone, Mail, User, GraduationCap, Save, X, RotateCcw, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
 
 export default function LeadsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
+  const getSearchParam = (key: string, fallback = '') => searchParams.get(key) ?? fallback;
+  const getPageParam = () => {
+    const value = Number(searchParams.get('page'));
+    return Number.isFinite(value) && value > 0 ? Math.floor(value) : 1;
+  };
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [dateFilter, setDateFilter] = useState<string>('all');
-  const [customFromDate, setCustomFromDate] = useState<string>('');
-  const [customToDate, setCustomToDate] = useState<string>('');
-  const [showCustomDateRange, setShowCustomDateRange] = useState(false);
-  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState(() => getSearchParam('q'));
+  const [statusFilter, setStatusFilter] = useState<string>(() => getSearchParam('status', 'all'));
+  const [dateFilter, setDateFilter] = useState<string>(() => getSearchParam('date', 'all'));
+  const [customFromDate, setCustomFromDate] = useState<string>(() => getSearchParam('from'));
+  const [customToDate, setCustomToDate] = useState<string>(() => getSearchParam('to'));
+  const [page, setPage] = useState(() => getPageParam());
   const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [updatingLeadId, setUpdatingLeadId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Lead | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -56,6 +67,7 @@ export default function LeadsPage() {
   const [duplicateCheck, setDuplicateCheck] = useState<{ hasDuplicate: boolean; duplicateFields?: string[]; existingLead?: Lead } | null>(null);
   const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
   const duplicateCheckRequestRef = useRef(0);
+  const didMountFilterStateRef = useRef(false);
   const canAssignToSales = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'superadmin';
   const { data: coursesData, isLoading: coursesLoading } = useLmsCourses({ isActive: 'true' });
   const courses = coursesData?.items ?? [];
@@ -65,9 +77,19 @@ export default function LeadsPage() {
     needsGroup ? { courseId: newLead.interestedCourseId } : undefined
   );
   const groups = groupsData?.items ?? [];
+  const shouldOpenCreate = searchParams.get('create') === '1';
+
+  const clearCreateParam = () => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete('create');
+      return next;
+    }, { replace: true });
+  };
 
   const fetchLeads = useCallback(() => {
     setIsLoading(true);
+    setError(null);
     leadsApi.list({
       search,
       qualificationStatus: statusFilter === 'all' ? undefined : statusFilter,
@@ -79,11 +101,14 @@ export default function LeadsPage() {
     })
       .then((res) => {
         setLeads(res.items);
+        setTotalItems(res.total || 0);
         setTotalPages(Math.max(res.totalPages || 1, 1));
       })
       .catch(() => {
         setLeads([]);
+        setTotalItems(0);
         setTotalPages(1);
+        setError('Лиддерди жүктөө мүмкүн болгон жок. Тармакты же фильтрлерди текшериңиз.');
       })
       .finally(() => setIsLoading(false));
   }, [page, search, statusFilter, dateFilter, customFromDate, customToDate]);
@@ -93,8 +118,55 @@ export default function LeadsPage() {
   }, [fetchLeads]);
 
   useEffect(() => {
+    if (!didMountFilterStateRef.current) {
+      didMountFilterStateRef.current = true;
+      return;
+    }
     setPage(1);
   }, [search, statusFilter, dateFilter, customFromDate, customToDate]);
+
+  useEffect(() => {
+    const nextSearch = searchParams.get('q') ?? '';
+    const nextStatus = searchParams.get('status') ?? 'all';
+    const nextDate = searchParams.get('date') ?? 'all';
+    const nextFrom = searchParams.get('from') ?? '';
+    const nextTo = searchParams.get('to') ?? '';
+    const nextPage = getPageParam();
+
+    if (nextSearch !== search) setSearch(nextSearch);
+    if (nextStatus !== statusFilter) setStatusFilter(nextStatus);
+    if (nextDate !== dateFilter) setDateFilter(nextDate);
+    if (nextFrom !== customFromDate) setCustomFromDate(nextFrom);
+    if (nextTo !== customToDate) setCustomToDate(nextTo);
+    if (nextPage !== page) setPage(nextPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  useEffect(() => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+
+      if (search) next.set('q', search);
+      else next.delete('q');
+
+      if (statusFilter !== 'all') next.set('status', statusFilter);
+      else next.delete('status');
+
+      if (dateFilter !== 'all') next.set('date', dateFilter);
+      else next.delete('date');
+
+      if (dateFilter === 'custom' && customFromDate) next.set('from', customFromDate);
+      else next.delete('from');
+
+      if (dateFilter === 'custom' && customToDate) next.set('to', customToDate);
+      else next.delete('to');
+
+      if (page > 1) next.set('page', String(page));
+      else next.delete('page');
+
+      return next.toString() === current.toString() ? current : next;
+    }, { replace: true });
+  }, [search, statusFilter, dateFilter, customFromDate, customToDate, page, setSearchParams]);
 
   useEffect(() => {
     if (!createOpen) return;
@@ -161,6 +233,12 @@ export default function LeadsPage() {
     ));
   }, [createOpen, user]);
 
+  useEffect(() => {
+    if (shouldOpenCreate) {
+      setCreateOpen(true);
+    }
+  }, [shouldOpenCreate]);
+
   const resetCreateForm = () => {
     duplicateCheckRequestRef.current += 1;
     setIsCheckingDuplicates(false);
@@ -169,6 +247,7 @@ export default function LeadsPage() {
       ...emptyLeadForm,
       assignedManagerId: user ? String(user.id) : '',
     });
+    clearCreateParam();
     setCreateOpen(false);
   };
 
@@ -239,6 +318,7 @@ export default function LeadsPage() {
         assignedManagerId: user ? String(user.id) : '',
       });
       setDuplicateCheck(null);
+      clearCreateParam();
       fetchLeads();
     } catch (error) {
       if (typeof error === 'object' && error !== null && 'status' in error && (error as { status?: number }).status === 409) {
@@ -258,43 +338,138 @@ export default function LeadsPage() {
     }
   };
 
-  const normalizedSearch = search.trim().toLowerCase();
-  const filtered = leads.filter((l) => {
-    const fullName = (l.fullName || '').toLowerCase();
-    const phone = l.phone || '';
-    const email = (l.email || '').toLowerCase();
-    const matchSearch = !normalizedSearch
-      || fullName.includes(normalizedSearch)
-      || phone.includes(search)
-      || email.includes(normalizedSearch);
-    const matchStatus = statusFilter === 'all' || getLeadQualificationStatus(l) === statusFilter;
-    return matchSearch && matchStatus;
-  });
-  const mobileStatuses = Object.entries(ky.leadQualificationStatus).filter(([value]) => (
-    statusFilter === 'all' || value === statusFilter
-  ));
-  const groupedLeads = Object.fromEntries(
-    mobileStatuses.map(([status]) => [status, filtered.filter((lead) => getLeadQualificationStatus(lead) === status)])
-  );
-  const visiblePageNumbers = Array.from(
-    { length: totalPages },
-    (_, index) => index + 1,
-  ).filter((pageNumber) => {
-    if (totalPages <= 7) return true;
-    return (
-      pageNumber === 1
-      || pageNumber === totalPages
-      || Math.abs(pageNumber - page) <= 1
-    );
-  });
+  const handleQualificationChange = async (lead: Lead, qualificationStatus: LeadQualificationStatus) => {
+    setUpdatingLeadId(lead.id);
+    try {
+      const updatedLead = await leadsApi.update(lead.id, {
+        qualificationStatus,
+        status: mapQualificationToLeadStatus(qualificationStatus),
+      });
+      setLeads((current) => current.map((item) => (item.id === lead.id ? updatedLead : item)));
+      toast({ title: 'Лиддин абалы жаңыртылды' });
+    } catch (error) {
+      const friendly = getFriendlyError(error, { fallbackTitle: 'Лиддин абалын жаңыртуу мүмкүн болгон жок' });
+      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
+    } finally {
+      setUpdatingLeadId(null);
+    }
+  };
+
+  const getLeadQuickActions = (lead: Lead): Array<{ value: LeadQualificationStatus; label: string }> => {
+    const status = getLeadQualificationStatus(lead);
+
+    switch (status) {
+      case 'new':
+        return [
+          { value: 'contacted', label: 'Байланыштым' },
+          { value: 'no_response', label: 'Жооп жок' },
+        ];
+      case 'contacted':
+        return [
+          { value: 'qualified', label: 'Кызыкты' },
+          { value: 'disqualified', label: 'Жабуу' },
+        ];
+      case 'qualified':
+        return [
+          { value: 'contacted', label: 'Кайра иштөө' },
+          { value: 'disqualified', label: 'Жоготту' },
+        ];
+      case 'no_response':
+        return [
+          { value: 'contacted', label: 'Жооп берди' },
+          { value: 'disqualified', label: 'Жабуу' },
+        ];
+      case 'disqualified':
+        return [
+          { value: 'contacted', label: 'Кайра ачуу' },
+        ];
+      default:
+        return [];
+    }
+  };
+
+  const mobileBoardColumns = Object.entries(ky.leadQualificationStatus)
+    .filter(([value]) => statusFilter === 'all' || value === statusFilter)
+    .map(([value, label]) => ({ id: value, title: label }));
+  const activeFilters = [
+    ...(search.trim()
+      ? [{
+        key: 'search',
+        label: `Издөө: ${search.trim()}`,
+        onRemove: () => setSearch(''),
+      }]
+      : []),
+    ...(statusFilter !== 'all'
+      ? [{
+        key: 'status',
+        label: `Статус: ${ky.leadQualificationStatus[statusFilter as LeadQualificationStatus]}`,
+        onRemove: () => setStatusFilter('all'),
+      }]
+      : []),
+    ...(dateFilter !== 'all'
+      ? [{
+        key: 'date',
+        label: dateFilter === 'custom'
+          ? (customFromDate || customToDate)
+            ? `Күн: ${customFromDate || '...'} – ${customToDate || '...'}`
+            : 'Күн: өзүңүз тандаңыз'
+          : `Күн: ${ky.dateRange[dateFilter as keyof typeof ky.dateRange]}`,
+        onRemove: () => {
+          setDateFilter('all');
+          setCustomFromDate('');
+          setCustomToDate('');
+        },
+      }]
+      : []),
+  ];
 
   const columns: Column<Lead>[] = [
-    { key: 'fullName', header: ky.common.name, render: (l) => <span className="font-medium">{l.fullName || '—'}</span> },
+    {
+      key: 'fullName',
+      header: ky.common.name,
+      render: (l) => (
+        <div className="space-y-1">
+          <span className="block font-medium">{l.fullName || '—'}</span>
+          <span className="text-xs text-muted-foreground">{l.source ? ky.leadSource[l.source] : '—'}</span>
+        </div>
+      ),
+    },
     { key: 'phone', header: ky.common.phone },
-    { key: 'source', header: ky.leads.source, render: (l) => <span className="text-sm">{l.source ? ky.leadSource[l.source] : '—'}</span> },
-    { key: 'interestedCourseId', header: ky.leads.interestedCourse, render: (l) => <span className="text-sm">{l.interestedCourseId || '—'}</span> },
-    { key: 'assignedManager', header: ky.leads.assignedManager, render: (l) => <span className="text-sm">{l.assignedManager?.fullName || '—'}</span> },
-    { key: 'status', header: ky.common.status, render: (l) => { const status = getLeadQualificationStatus(l); return <StatusBadge variant={getLeadStatusVariant(status)} dot>{ky.leadQualificationStatus[status]}</StatusBadge>; } },
+    {
+      key: 'interestedCourseId', header: ky.leads.interestedCourse, render: (l) => {
+        const course = courses.find((c) => c.id === l.interestedCourseId);
+        return <span className="text-sm">{course?.name || '—'}</span>;
+      }
+    },
+    {
+      key: 'assignedManager',
+      header: ky.leads.assignedManager,
+      render: (l) => <span className="block max-w-[140px] truncate text-sm">{l.assignedManager?.fullName || '—'}</span>,
+    },
+    {
+      key: 'status',
+      header: ky.common.status,
+      render: (l) => (
+        <Select
+          value={getLeadQualificationStatus(l)}
+          onValueChange={(value) => handleQualificationChange(l, value as LeadQualificationStatus)}
+          disabled={updatingLeadId === l.id}
+        >
+          <SelectTrigger
+            className="h-8 w-[168px]"
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`${l.fullName} абалын өзгөртүү`}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(ky.leadQualificationStatus).map(([value, label]) => (
+              <SelectItem key={value} value={value}>{label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ),
+    },
     { key: 'createdAt', header: ky.common.date, render: (l) => <span className="text-sm text-muted-foreground">{new Date(l.createdAt).toLocaleDateString('ky-KG')}</span>, className: 'hidden md:table-cell' },
     {
       key: 'actions', header: '', render: (l) => (
@@ -314,10 +489,11 @@ export default function LeadsPage() {
               }
               navigate(`/enrollments?${params.toString()}`);
             }}
+            aria-label={`${l.fullName} үчүн LMS каттоону ачуу`}
           >
             <GraduationCap className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(l); }}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(l); }} aria-label={`${ky.common.delete} ${l.fullName}`}>
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
@@ -325,273 +501,305 @@ export default function LeadsPage() {
     },
   ];
 
+  const renderMobileCard = (lead: Lead) => {
+    const status = getLeadQualificationStatus(lead);
+    const quickActions = getLeadQuickActions(lead);
+
+    return (
+      <div
+        className="w-full rounded-xl border bg-background p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-foreground">{lead.fullName || '—'}</p>
+            <div className="mt-0.5 flex items-center gap-2">
+              <StatusBadge variant={getLeadStatusVariant(status)} dot className="text-[11px]">
+                {ky.leadQualificationStatus[status]}
+              </StatusBadge>
+              {lead.source && (
+                <span className="text-[11px] text-muted-foreground">{ky.leadSource[lead.source]}</span>
+              )}
+            </div>
+          </div>
+          {lead.interestedCourseId && (
+            <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+              {courses.find((c) => c.id === lead.interestedCourseId)?.name || lead.interestedCourseId}
+            </span>
+          )}
+        </div>
+
+        <div className="mt-2 flex items-center gap-3 text-sm">
+          <a
+            href={`tel:${lead.phone}`}
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center gap-1.5 text-primary hover:underline"
+          >
+            <Phone className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{lead.phone}</span>
+          </a>
+          {lead.email && (
+            <a
+              href={`mailto:${lead.email}`}
+              onClick={(e) => e.stopPropagation()}
+              className="hidden items-center gap-1.5 text-muted-foreground hover:text-foreground sm:flex"
+            >
+              <Mail className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{lead.email}</span>
+            </a>
+          )}
+        </div>
+        <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <User className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">{lead.assignedManager?.fullName || ky.common.notAssigned}</span>
+          {lead.tags && lead.tags.length > 0 && (
+            <span className="ml-auto flex gap-1">
+              {lead.tags.slice(0, 2).map((tag) => (
+                <span key={tag} className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px]">{tag}</span>
+              ))}
+            </span>
+          )}
+        </div>
+
+        <div className="mt-2 flex items-center gap-1.5 border-t pt-2">
+          {quickActions.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 flex-1">
+              {quickActions.map((action) => (
+                <Button
+                  key={action.value}
+                  variant="secondary"
+                  size="sm"
+                  disabled={updatingLeadId === lead.id}
+                  className="h-7 text-xs"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleQualificationChange(lead, action.value);
+                  }}
+                >
+                  {updatingLeadId === lead.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+                  {action.label}
+                </Button>
+              ))}
+            </div>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/enrollments?crmLeadId=${lead.id}${lead.interestedCourseId ? '&courseId=' + lead.interestedCourseId : ''}${lead.interestedGroupId ? '&groupId=' + lead.interestedGroupId : ''}`);
+            }}
+            aria-label={`${lead.fullName} үчүн LMS каттоо`}
+          >
+            <GraduationCap className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+            onClick={(e) => {
+              e.stopPropagation();
+              setDeleteTarget(lead);
+            }}
+            aria-label={`${ky.common.delete} ${lead.fullName}`}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
+  const headerActions = (
+    <div className="hidden xl:flex flex-wrap items-center gap-2">
+      <div className="space-y-1">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Статус</p>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="h-9 w-[180px]">
+            <SelectValue placeholder={ky.common.status} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Бардык статус</SelectItem>
+            {Object.entries(ky.leadQualificationStatus).map(([value, label]) => (
+              <SelectItem key={value} value={value}>{label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Күн аралыгы</p>
+        <Select value={dateFilter} onValueChange={setDateFilter}>
+          <SelectTrigger className="h-9 w-[180px]">
+            <SelectValue placeholder={ky.common.filter} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Бардык күндөр</SelectItem>
+            <SelectItem value="today">{ky.dateRange.today}</SelectItem>
+            <SelectItem value="week">{ky.dateRange.week}</SelectItem>
+            <SelectItem value="month">{ky.dateRange.month}</SelectItem>
+            <SelectItem value="custom">{ky.dateRange.custom}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <span className="rounded-full bg-secondary px-2.5 py-1">{totalItems} лид</span>
+        <span className="rounded-full bg-secondary px-2.5 py-1">
+          {leads.filter((lead) => !lead.assignedManager?.fullName).length} дайындалбаган
+        </span>
+        <span className="rounded-full bg-secondary px-2.5 py-1">
+          {leads.filter((lead) => getLeadQualificationStatus(lead) === 'qualified').length} квалификацияланган
+        </span>
+      </div>
+    </div>
+  );
+
+  const clearAllFilters = () => {
+    setSearch('');
+    setStatusFilter('all');
+    setDateFilter('all');
+    setCustomFromDate('');
+    setCustomToDate('');
+    setPage(1);
+  };
+
+  const hasActiveFilters = search.trim() !== '' || statusFilter !== 'all' || dateFilter !== 'all';
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       <PageHeader
         title={ky.leads.title}
+        description={isMobile ? undefined : "Лиддерди ыкчам квалификациялап, кийинки кадамга жылдырыңыз."}
         actions={
-          <Button onClick={() => setCreateOpen(true)}>
+          <Button onClick={() => {
+            clearCreateParam();
+            setCreateOpen(true);
+          }}>
             <Plus className="mr-2 h-4 w-4" />
             {ky.leads.newLead}
           </Button>
         }
       />
 
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder={ky.common.status} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{ky.common.all}</SelectItem>
-              {Object.entries(ky.leadQualificationStatus).map(([value, label]) => (
-                <SelectItem key={value} value={value}>{label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-          <Select value={dateFilter} onValueChange={(value) => {
-            setDateFilter(value);
-            setShowCustomDateRange(value === 'custom');
-          }}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder={ky.common.filter} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{ky.dateRange.all}</SelectItem>
-              <SelectItem value="today">{ky.dateRange.today}</SelectItem>
-              <SelectItem value="week">{ky.dateRange.week}</SelectItem>
-              <SelectItem value="month">{ky.dateRange.month}</SelectItem>
-              <SelectItem value="custom">{ky.dateRange.custom}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      {/* Mobile filter section */}
+      {isMobile && (
+        <div className="rounded-xl bg-muted/30 p-3 space-y-3">
+          {/* Search bar */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Лид издөө..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 h-9"
+            />
+          </div>
 
-      {showCustomDateRange && (
-        <div className="flex items-center gap-3 flex-wrap rounded-lg border bg-muted/30 p-3">
+          {/* Filter controls row */}
           <div className="flex items-center gap-2">
-            <Label className="text-sm">{ky.dateRange.fromDate}:</Label>
-            <Input
-              type="date"
-              value={customFromDate}
-              onChange={(e) => setCustomFromDate(e.target.value)}
-              className="w-40"
-            />
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-9 flex-1">
+                <SelectValue placeholder="Статус" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Бардык статус</SelectItem>
+                {Object.entries(ky.leadQualificationStatus).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={dateFilter} onValueChange={setDateFilter}>
+              <SelectTrigger className="h-9 flex-1">
+                <SelectValue placeholder="Күн" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Бардык күндөр</SelectItem>
+                <SelectItem value="today">Бүгүн</SelectItem>
+                <SelectItem value="week">Бул жума</SelectItem>
+                <SelectItem value="month">Бул ай</SelectItem>
+                <SelectItem value="custom">Өзүңүз тандаңыз</SelectItem>
+              </SelectContent>
+            </Select>
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={clearAllFilters}
+                className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                aria-label="Баарын тазалоо"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            <Label className="text-sm">{ky.dateRange.toDate}:</Label>
-            <Input
-              type="date"
-              value={customToDate}
-              onChange={(e) => setCustomToDate(e.target.value)}
-              className="w-40"
-            />
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setCustomFromDate('');
-              setCustomToDate('');
-            }}
-          >
-            {ky.common.cancel}
-          </Button>
+
+          {/* Custom date fields (conditional) */}
+          {dateFilter === 'custom' && (
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <Label className="text-xs text-muted-foreground mb-1 block">Башталган күн</Label>
+                <Input
+                  type="date"
+                  value={customFromDate}
+                  onChange={(e) => setCustomFromDate(e.target.value)}
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="flex-1">
+                <Label className="text-xs text-muted-foreground mb-1 block">Аяктаган күн</Label>
+                <Input
+                  type="date"
+                  value={customToDate}
+                  onChange={(e) => setCustomToDate(e.target.value)}
+                  className="h-8 text-sm"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Active filter chips */}
+          {activeFilters.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {activeFilters.map((filter) => (
+                <Badge key={filter.key} variant="secondary" className="gap-1 h-7 px-2.5">
+                  {filter.label}
+                  <button
+                    type="button"
+                    onClick={filter.onRemove}
+                    className="ml-1 rounded-sm hover:bg-secondary-foreground/20"
+                    aria-label={`${filter.label} чыпкасын алып салуу`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      <div className="md:hidden space-y-4">
-        <div className="space-y-3">
-          <div className="relative">
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Лид издөө..."
-            />
-          </div>
-        </div>
-
-        {isLoading ? (
-          <div className="flex h-40 items-center justify-center rounded-2xl border bg-card">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="rounded-2xl border border-dashed bg-card px-4 py-10 text-center text-sm text-muted-foreground">
-            {ky.common.noData}
-          </div>
-        ) : (
-          <div className="-mx-4 overflow-x-auto px-4 pb-2 snap-x snap-mandatory">
-            <div className="flex gap-4">
-              {mobileStatuses.map(([status, label]) => {
-                const items = groupedLeads[status] ?? [];
-                return (
-                  <div key={status} className="flex h-[calc(100vh-16rem)] w-[calc(100vw-2rem)] shrink-0 snap-center flex-col rounded-3xl border bg-muted/30 p-3">
-                    <div className="mb-3 flex shrink-0 items-center justify-between">
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold text-foreground">{label}</p>
-                        <StatusBadge variant={getLeadStatusVariant(status)} dot>
-                          {items.length}
-                        </StatusBadge>
-                      </div>
-                    </div>
-
-                    <div className="flex-1 space-y-3 overflow-y-auto pr-1">
-                      {items.length === 0 ? (
-                        <div className="rounded-2xl border border-dashed bg-background/70 px-3 py-6 text-center text-xs text-muted-foreground">
-                          Бул этапта лид жок
-                        </div>
-                      ) : (
-                        items.map((lead) => (
-                          <div
-                            key={lead.id}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => navigate(`/leads/${lead.id}`)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                navigate(`/leads/${lead.id}`);
-                              }
-                            }}
-                            className="w-full rounded-2xl border bg-background p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0 space-y-1">
-                                <p className="truncate font-semibold text-foreground">{lead.fullName || '—'}</p>
-                                <p className="text-xs text-muted-foreground">{lead.source ? ky.leadSource[lead.source] : '—'}</p>
-                              </div>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 shrink-0 text-destructive hover:text-destructive"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setDeleteTarget(lead);
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-
-                            <div className="mt-3 space-y-2 text-sm">
-                              <div className="flex items-center gap-2 text-muted-foreground">
-                                <Phone className="h-4 w-4 shrink-0" />
-                                <span className="truncate">{lead.phone}</span>
-                              </div>
-                              {lead.email && (
-                                <div className="flex items-center gap-2 text-muted-foreground">
-                                  <Mail className="h-4 w-4 shrink-0" />
-                                  <span className="truncate">{lead.email}</span>
-                                </div>
-                              )}
-                              <div className="flex items-center gap-2 text-muted-foreground">
-                                <User className="h-4 w-4 shrink-0" />
-                                <span className="truncate">{lead.assignedManager?.fullName || 'Дайындалган эмес'}</span>
-                              </div>
-                            </div>
-
-                            <div className="mt-3 flex items-center justify-between gap-2">
-                              {(lead.interestedCourseId || (lead.tags?.length ?? 0) > 0) && (
-                                <div className="flex flex-wrap gap-2">
-                                  {lead.interestedCourseId && (
-                                    <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                                      {lead.interestedCourseId}
-                                    </span>
-                                  )}
-                                  {lead.tags?.slice(0, 2).map((tag) => (
-                                    <span key={tag} className="rounded-full bg-secondary px-2.5 py-1 text-xs text-secondary-foreground">
-                                      {tag}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const params = new URLSearchParams({ crmLeadId: String(lead.id) });
-                                  if (lead.interestedCourseId) {
-                                    params.set('courseId', lead.interestedCourseId);
-                                  }
-                                  if (lead.interestedGroupId) {
-                                    params.set('groupId', lead.interestedGroupId);
-                                  }
-                                  navigate(`/enrollments?${params.toString()}`);
-                                }}
-                              >
-                                <GraduationCap className="mr-2 h-4 w-4" />
-                                LMS
-                              </Button>
-                            </div>
-
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between rounded-2xl border bg-card px-4 py-3">
-            <p className="text-sm text-muted-foreground">
-              Бет {page} / {totalPages}
-            </p>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setPage((current) => Math.max(current - 1, 1))} disabled={page <= 1}>
-                Артка
-              </Button>
-              <div className="flex items-center gap-1">
-                {visiblePageNumbers.map((pageNumber, index) => {
-                  const previousPage = visiblePageNumbers[index - 1];
-                  const needsGap = previousPage && pageNumber - previousPage > 1;
-
-                  return (
-                    <div key={pageNumber} className="flex items-center gap-1">
-                      {needsGap && <span className="px-1 text-xs text-muted-foreground">...</span>}
-                      <Button
-                        variant={pageNumber === page ? 'default' : 'outline'}
-                        size="sm"
-                        className="min-w-9"
-                        onClick={() => setPage(pageNumber)}
-                      >
-                        {pageNumber}
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-              <Button variant="outline" size="sm" onClick={() => setPage((current) => Math.min(current + 1, totalPages))} disabled={page >= totalPages}>
-                Алга
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="hidden md:block">
-        <DataTable
-          columns={columns}
-          data={filtered}
-          isLoading={isLoading}
-          searchValue={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="Лид издөө..."
-          page={page}
-          totalPages={totalPages}
-          onPageChange={setPage}
-          onRowClick={(lead) => navigate(`/leads/${lead.id}`)}
-        />
-      </div>
+      <DataTable
+        columns={columns}
+        data={leads}
+        isLoading={isLoading}
+        errorMessage={error || undefined}
+        onRetry={fetchLeads}
+        searchValue={!isMobile ? search : undefined}
+        onSearchChange={!isMobile ? setSearch : undefined}
+        searchPlaceholder="Лид издөө..."
+        headerActions={!isMobile ? headerActions : undefined}
+        page={page}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        totalItemsLabel="лид"
+        activeFilters={!isMobile ? activeFilters : undefined}
+        stickyHeader
+        onPageChange={setPage}
+        onRowClick={(lead) => navigate(`/leads/${lead.id}`)}
+        renderMobileCard={renderMobileCard}
+        mobileBoardColumns={mobileBoardColumns}
+        getMobileBoardColumnId={(lead) => getLeadQualificationStatus(lead)}
+        mobileBoardEmptyMessage="Бул тилкеде лид жок"
+      />
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
@@ -772,6 +980,6 @@ export default function LeadsPage() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </div >
   );
 }

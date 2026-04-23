@@ -116,8 +116,9 @@ export function StudentSummaryPanel({ initialStudentId }: { initialStudentId?: s
             value={studentIdInput}
             onChange={(e) => setStudentIdInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            aria-label="LMS студент идентификатору"
           />
-          <Button onClick={handleSearch} variant="secondary" size="icon">
+          <Button onClick={handleSearch} variant="secondary" size="icon" aria-label="Студентти издөө">
             <Search className="h-4 w-4" />
           </Button>
         </div>

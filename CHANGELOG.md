@@ -6,6 +6,111 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Version bumps are classified by delivery scale; see `VERSIONING.md`.
 
+## [1.7.0] - 2026-04-24
+
+### Added
+- **Login page redesign** with split-screen layout
+  - Left side displays EduPro CRM branding with gradient background
+  - Right side contains the login form
+  - Added support contact information (email, phone) on login screen
+  - Added help button for user assistance
+  - Responsive design hides branding on mobile screens
+- **Dashboard priority cards** showing actionable items
+  - New leads requiring attention
+  - Pending payments awaiting confirmation
+  - Open retention cases needing follow-up
+  - Recently won deals for celebration
+  - Each card includes count, description, and navigation action
+- **Dashboard stats badges** displaying key metrics
+  - Total lead count
+  - Overall conversion rate
+  - Top performing manager
+  - Top performing course
+- **Deals page pipeline stage quick actions**
+  - Inline Select dropdown for changing deal pipeline stages
+  - Context-aware quick action suggestions based on current stage
+  - Loading state during stage updates
+  - Toast notifications on successful stage changes
+- **Deals page mobile board columns** with swipeable pipeline stages
+  - Horizontal scrolling columns for each pipeline stage
+  - Mobile card rendering for deal information
+  - Stage count badges on column headers
+- **AppLayout breadcrumbs** showing navigation path
+  - Dynamic breadcrumb generation based on current route
+  - Localized labels for all navigation items
+  - ID-based routes show contextual labels (e.g., "Лид маалыматы")
+  - BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator components
+- **AppLayout quick create functionality**
+  - Context-aware create button that routes to appropriate create form
+  - Supports leads, contacts, deals, and tasks
+  - Default fallback to leads create form
+- **DataTable mobile board support**
+  - New `mobileBoardColumns` prop for defining board columns
+  - New `getMobileBoardColumnId` prop for grouping items into columns
+  - New `mobileBoardEmptyMessage` prop for empty column states
+  - Snap scrolling for mobile board columns
+  - Flattened column headers with muted background
+  - Tighter card spacing for better content density
+- **DataTable row selection** with checkbox support
+  - New `enableRowSelection` prop for enabling selection
+  - New `selectedIds` prop for controlled selection state
+  - New `onSelectionChange` prop for selection callbacks
+  - Select all checkbox in table header
+  - Individual row checkboxes with proper state management
+- **DataTable active filters** display
+  - New `activeFilters` prop for filter chip rendering
+  - Removable Badge components with X buttons
+  - Aria labels for accessibility
+- **DataTable sticky header** support
+  - New `stickyHeader` prop for fixed table headers on scroll
+  - Sticky header stays visible during vertical scrolling
+- **DataTable error and retry** handling
+  - New `errorMessage` prop for custom error messages
+  - New `onRetry` prop for retry action callbacks
+  - StatePanel component for consistent error/loading/empty states
+- **PageShell StatePanel component** for consistent state display
+  - Unified loading, error, and empty state rendering
+  - Optional icon display
+  - Compact mode for smaller footprints
+  - Action button with custom labels
+  - Consistent styling across all pages
+- **DateRangeFilter component** for reusable date filtering
+  - Preset options: all, today, week, month, custom
+  - Conditional custom date range inputs
+  - Optional clear custom callback
+  - Localized labels via i18n
+- **Kyrgyz translations** expanded
+  - Added `enrollments` navigation label
+  - Added `legacyData` navigation label
+  - Added common placeholders (fullNamePlaceholder, emailPlaceholder, notesPlaceholder)
+  - Added contact-related keys (infoTitle, editTitle, lmsId, noLmsId, externalId, lmsInfoTitle, newLmsLink, lmsEnrollment)
+
+### Changed
+- **Login page** completely redesigned with modern split-screen layout
+- **Dashboard page** enhanced with priority cards and stats badges
+- **Deals page** now supports pipeline stage updates directly from the list
+- **AppLayout** now displays breadcrumbs for navigation context
+- **DataTable** significantly enhanced with mobile board support, row selection, active filters, and sticky headers
+- **PageShell** refactored with new StatePanel component for consistent state rendering
+- **Mobile Leads page** redesigned with grouped filter section
+  - Search bar moved above filters for better mobile priority
+  - Status and date dropdowns in horizontal row to save vertical space
+  - Custom date fields only appear when "Өзүңүз тандаңыз" is selected
+  - Active filters display as removable Badge chips
+  - Clear all filters button as icon-only action
+  - Page header description hidden on mobile
+  - ~40% reduction in scroll-to-content distance
+- **Mobile lead cards** compacted with improved hierarchy
+  - Phone as tappable `tel:` link for direct dialing
+  - Email as `mailto:` link (hidden on small screens)
+  - Course tag in header row
+  - Tags inline with assigned manager
+  - Delete moved to end of action row
+  - Unified action row with quick actions, LMS, delete
+
+### Fixed
+- Active filter chip for custom date range now shows "Күн: өзүңүз тандаңыз" when dates are empty
+
 ## [1.6.0] - 2026-04-23
 
 ### Added

@@ -27,6 +27,7 @@ export default function TrialLessonsPage() {
   const [trials, setTrials] = useState<TrialLesson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [totalItems, setTotalItems] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<TrialLesson | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
@@ -44,8 +45,14 @@ export default function TrialLessonsPage() {
   const fetchTrials = () => {
     setIsLoading(true);
     trialLessonsApi.list({ search })
-      .then((res) => setTrials(res.items))
-      .catch(() => setTrials([]))
+      .then((res) => {
+        setTrials(res.items);
+        setTotalItems(res.total || 0);
+      })
+      .catch(() => {
+        setTrials([]);
+        setTotalItems(0);
+      })
       .finally(() => setIsLoading(false));
   };
 
@@ -132,11 +139,71 @@ export default function TrialLessonsPage() {
       ),
     },
   ];
+  const mobileBoardColumns = Object.entries(ky.trialResult).map(([value, label]) => ({ id: value, title: label }));
+  const activeFilters = search.trim()
+    ? [{
+      key: 'search',
+      label: `Издөө: ${search.trim()}`,
+      onRemove: () => setSearch(''),
+    }]
+    : [];
+
+  const renderMobileCard = (trial: TrialLesson) => (
+    <div className="rounded-2xl border bg-background p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate font-semibold">{trial.contact?.fullName || '—'}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {new Date(trial.scheduledAt).toLocaleString('ky-KG', { dateStyle: 'short', timeStyle: 'short' })}
+          </p>
+        </div>
+        <StatusBadge variant={trialResultVariant(trial.result)} dot>
+          {ky.trialResult[trial.result]}
+        </StatusBadge>
+      </div>
+
+      {trial.notes && (
+        <p className="mt-3 rounded-md bg-muted/60 p-2 text-xs text-muted-foreground">
+          {trial.notes}
+        </p>
+      )}
+
+      <div className="mt-3 flex justify-end">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-destructive hover:text-destructive"
+          onClick={(e) => {
+            e.stopPropagation();
+            setDeleteTarget(trial);
+          }}
+          aria-label={`${ky.common.delete} ${trial.contact?.fullName || ''}`}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader title={ky.trialLessons.title} actions={<Button onClick={() => setShowCreate(true)}><Plus className="mr-2 h-4 w-4" />{ky.trialLessons.newTrialLesson}</Button>} />
-      <DataTable columns={columns} data={trials} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Сыноо сабак издөө..." />
+      <DataTable
+        columns={columns}
+        data={trials}
+        isLoading={isLoading}
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Сыноо сабак издөө..."
+        activeFilters={activeFilters}
+        totalItems={totalItems}
+        totalItemsLabel="сыноо сабак"
+        stickyHeader
+        renderMobileCard={renderMobileCard}
+        mobileBoardColumns={mobileBoardColumns}
+        getMobileBoardColumnId={(trial) => trial.result}
+        mobileBoardEmptyMessage="Бул тилкеде сыноо сабак жок"
+      />
 
       {/* Create Dialog */}
       <Dialog open={showCreate} onOpenChange={(open) => {

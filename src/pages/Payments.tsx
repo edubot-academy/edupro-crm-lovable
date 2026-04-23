@@ -28,6 +28,7 @@ export default function PaymentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [totalItems, setTotalItems] = useState(0);
   const [statusFilter, setStatusFilter] = useState<'all' | Payment['status']>('all');
   const [confirmTarget, setConfirmTarget] = useState<Payment | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
@@ -85,12 +86,19 @@ export default function PaymentsPage() {
     setLoadError(null);
     paymentsApi.list({ search: search || undefined, paymentStatus: statusFilter === 'all' ? undefined : statusFilter })
       .then((res) => {
-        const items = Array.isArray(res) ? res : res.items;
-        setPayments(items ?? []);
+        if (Array.isArray(res)) {
+          setPayments(res ?? []);
+          setTotalItems(res?.length || 0);
+          return;
+        }
+
+        setPayments(res.items ?? []);
+        setTotalItems(res.total || 0);
       })
       .catch((error: unknown) => {
         const friendly = getFriendlyError(error, { fallbackTitle: 'Төлөмдөрдү жүктөө ишке ашкан жок' });
         setPayments([]);
+        setTotalItems(0);
         setLoadError(friendly.description || friendly.title);
       })
       .finally(() => setIsLoading(false));
@@ -212,42 +220,124 @@ export default function PaymentsPage() {
       <div className="flex items-center gap-2">
         <StatusBadge variant={getPaymentStatusVariant(getPaymentWorkflowStatus(p))} dot>{ky.paymentStatus[getPaymentWorkflowStatus(p)]}</StatusBadge>
         {canConfirmPayments && getPaymentWorkflowStatus(p) === 'submitted' && (
-          <Button variant="ghost" size="sm" className="h-7 text-xs text-success hover:text-success" title={ky.payments.confirmPayment} onClick={() => setConfirmTarget(p)}>
+          <Button variant="ghost" size="sm" className="h-7 text-xs text-success hover:text-success" title={ky.payments.confirmPayment} aria-label={`${getPaymentStudentName(p)} үчүн ${ky.payments.confirmPayment.toLowerCase()}`} onClick={() => setConfirmTarget(p)}>
             <CheckCircle className="h-3.5 w-3.5" />
           </Button>
         )}
       </div>
     )},
   ];
+  const mobileBoardColumns = Object.entries(ky.paymentStatus)
+    .filter(([value]) => statusFilter === 'all' || value === statusFilter)
+    .map(([value, label]) => ({ id: value, title: label }));
+  const activeFilters = [
+    ...(search.trim()
+      ? [{
+        key: 'search',
+        label: `Издөө: ${search.trim()}`,
+        onRemove: () => setSearch(''),
+      }]
+      : []),
+    ...(statusFilter !== 'all'
+      ? [{
+        key: 'status',
+        label: `Статус: ${ky.paymentStatus[statusFilter]}`,
+        onRemove: () => setStatusFilter('all'),
+      }]
+      : []),
+  ];
+  const headerActions = (
+    <div className="flex flex-wrap items-end gap-2">
+      <div className="space-y-1">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Статус</p>
+        <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | Payment['status'])}>
+          <SelectTrigger className="h-9 w-[180px]">
+            <SelectValue placeholder="Статус тандаңыз" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Бардык статус</SelectItem>
+            {Object.entries(ky.paymentStatus).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="hidden items-center gap-2 text-xs text-muted-foreground xl:flex">
+        <span className="rounded-full bg-secondary px-2.5 py-1">{totalItems} төлөм</span>
+        <span className="rounded-full bg-secondary px-2.5 py-1">
+          {payments.filter((payment) => getPaymentWorkflowStatus(payment) === 'submitted').length} күтүлүүдө
+        </span>
+        <span className="rounded-full bg-secondary px-2.5 py-1">
+          {payments.filter((payment) => getPaymentWorkflowStatus(payment) === 'confirmed').length} ырасталды
+        </span>
+      </div>
+    </div>
+  );
+
+  const renderMobileCard = (payment: Payment) => {
+    const workflowStatus = getPaymentWorkflowStatus(payment);
+
+    return (
+      <div className="rounded-2xl border bg-background p-4 shadow-sm">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate font-semibold">{getPaymentStudentName(payment)}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{getPaymentDealLabel(payment)}</p>
+          </div>
+          <StatusBadge variant={getPaymentStatusVariant(workflowStatus)} dot>
+            {ky.paymentStatus[workflowStatus]}
+          </StatusBadge>
+        </div>
+
+        <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+          <p className="font-medium text-foreground">{payment.amount.toLocaleString()} сом</p>
+          <p>{ky.paymentKind[payment.kind || 'regular']} • {ky.paymentMethod[payment.method]}</p>
+          <p>{payment.paidAt ? new Date(payment.paidAt).toLocaleDateString('ky-KG') : 'Дата жок'}</p>
+        </div>
+
+        {canConfirmPayments && workflowStatus === 'submitted' && (
+          <div className="mt-3 flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setConfirmTarget(payment);
+              }}
+            >
+              <CheckCircle className="mr-2 h-4 w-4" />
+              {ky.payments.confirmPayment}
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <PageHeader title={ky.payments.title} actions={<Button onClick={() => setShowCreate(true)}><Plus className="mr-2 h-4 w-4" />{ky.payments.submitPayment}</Button>} />
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="w-full sm:max-w-xs">
-          <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | Payment['status'])}>
-            <SelectTrigger>
-              <SelectValue placeholder="Статус тандаңыз" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Баары</SelectItem>
-              {Object.entries(ky.paymentStatus).map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+    <div className="space-y-4 animate-fade-in">
+      <PageHeader title={ky.payments.title} description="Төлөмдөрдү көзөмөлдөп, ырастоону күткөндөрдү тез иштетиңиз." actions={<Button onClick={() => setShowCreate(true)}><Plus className="mr-2 h-4 w-4" />{ky.payments.submitPayment}</Button>} />
       <DataTable
         columns={columns}
         data={payments}
         isLoading={isLoading}
+        errorMessage={loadError || undefined}
+        onRetry={fetchPayments}
         searchValue={search}
         onSearchChange={setSearch}
         searchPlaceholder="Төлөм издөө..."
-        emptyMessage={loadError || ky.common.noData}
+        headerActions={headerActions}
+        emptyMessage={ky.common.noData}
+        activeFilters={activeFilters}
+        totalItems={totalItems}
+        totalItemsLabel="төлөм"
+        stickyHeader
+        renderMobileCard={renderMobileCard}
+        mobileBoardColumns={mobileBoardColumns}
+        getMobileBoardColumnId={(payment) => getPaymentWorkflowStatus(payment)}
+        mobileBoardEmptyMessage="Бул тилкеде төлөм жок"
       />
 
       {/* Create Dialog */}
