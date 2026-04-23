@@ -47,27 +47,6 @@ export default function PaymentsPage() {
   const selectedDealSummary = selectedDealPayments[0]?.dealPaymentSummary ?? null;
   const canConfirmPayments = user?.role !== 'sales';
 
-  const dealRequiresLmsEmail = (deal?: Deal | Payment['deal']) =>
-    !!deal?.lmsCourseId && !!deal?.courseType;
-
-  const dealMissingLmsGroup = (deal?: Deal | Payment['deal']) =>
-    !!deal?.lmsCourseId &&
-    !!deal?.courseType &&
-    deal.courseType !== 'video' &&
-    !deal?.lmsGroupId;
-
-  const selectedDealMissingEnrollmentEmail =
-    dealRequiresLmsEmail(selectedDeal) && !selectedDeal?.contact?.email?.trim();
-
-  const confirmTargetMissingEnrollmentEmail =
-    dealRequiresLmsEmail(confirmTarget?.deal) &&
-    !confirmTarget?.lmsEnrollmentId &&
-    !confirmTarget?.deal?.contact?.email?.trim();
-
-  const confirmTargetMissingEnrollmentGroup =
-    dealMissingLmsGroup(confirmTarget?.deal) &&
-    !confirmTarget?.lmsEnrollmentId;
-
   const clearPrefillParams = () => {
     setSearchParams((current) => {
       const next = new URLSearchParams(current);
@@ -131,14 +110,6 @@ export default function PaymentsPage() {
 
   const handleCreate = async () => {
     if (!form.dealId || !form.amount) return;
-    if (canViewLmsTechnicalFields() && selectedDealMissingEnrollmentEmail) {
-      toast({
-        title: 'LMS каттоо үчүн email керек',
-        description: 'Бул келишим LMS каттоону түзөт. Адегенде байланыштын email дарегин толтуруңуз.',
-        variant: 'destructive',
-      });
-      return;
-    }
     setIsCreating(true);
     try {
       const payload = {
@@ -167,22 +138,6 @@ export default function PaymentsPage() {
 
   const handleConfirm = async () => {
     if (!confirmTarget) return;
-    if (canViewLmsTechnicalFields() && confirmTargetMissingEnrollmentEmail) {
-      toast({
-        title: 'LMS каттоо үчүн email керек',
-        description: 'Бул төлөмдү ырастоодон мурун байланыштын email дарегин толтуруңуз.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    if (canViewLmsTechnicalFields() && confirmTargetMissingEnrollmentGroup) {
-      toast({
-        title: 'LMS тобу келишимде көрсөтүлгөн эмес',
-        description: 'Бул төлөм оффлайн же онлайн түз эфир курсу үчүн. Алгач deal ичиндеги LMS тобун толтуруңуз.',
-        variant: 'destructive',
-      });
-      return;
-    }
     setIsConfirming(true);
     try {
       await paymentsApi.update(confirmTarget.id, { paymentStatus: 'confirmed' });
@@ -202,13 +157,10 @@ export default function PaymentsPage() {
 
   const getPaymentDealLabel = (payment: Payment) => {
     const dealId = payment.deal?.id || payment.dealId;
-    const course = canViewLmsTechnicalFields() ? payment.deal?.courseNameSnapshot : undefined;
-    const group = canViewLmsTechnicalFields() ? payment.deal?.groupNameSnapshot : undefined;
 
-    if (!dealId && !course && !group) return '—';
+    if (!dealId) return '—';
 
-    const details = [course, group].filter(Boolean).join(' • ');
-    return details ? `#${dealId ?? '—'} • ${details}` : `#${dealId ?? '—'}`;
+    return `#${dealId}`;
   };
 
   const columns: Column<Payment>[] = [
@@ -392,23 +344,6 @@ export default function PaymentsPage() {
                   ) : null}
                 </div>
               )}
-              {canViewLmsTechnicalFields() && selectedDealMissingEnrollmentEmail && (
-                <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive space-y-2">
-                  <p>
-                    Бул келишим LMS каттоону түзөт. Улантуу үчүн байланыштын email дарегин толтуруңуз.
-                  </p>
-                  {selectedDeal?.contact?.id && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate(`/contacts/${selectedDeal.contact?.id}`)}
-                    >
-                      Байланышты ачуу
-                    </Button>
-                  )}
-                </div>
-              )}
             </div>
             <div className="space-y-2">
               <Label>{ky.payments.kind}</Label>
@@ -435,7 +370,7 @@ export default function PaymentsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={resetCreateForm}>{ky.common.cancel}</Button>
-            <Button onClick={handleCreate} disabled={isCreating || !form.dealId || !form.amount || (canViewLmsTechnicalFields() && selectedDealMissingEnrollmentEmail)}>
+            <Button onClick={handleCreate} disabled={isCreating || !form.dealId || !form.amount}>
               {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {form.kind === 'deposit' ? ky.payments.depositPayment : ky.common.create}
             </Button>
@@ -449,29 +384,15 @@ export default function PaymentsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Төлөмдү ырастоо</AlertDialogTitle>
             <AlertDialogDescription>
-              {canViewLmsTechnicalFields() && confirmTargetMissingEnrollmentEmail
-                ? 'Бул төлөм LMS каттоону активдештирет. Адегенде байланыштын email дарегин толтуруңуз.'
-                : canViewLmsTechnicalFields() && confirmTargetMissingEnrollmentGroup
-                  ? 'Бул төлөм LMS каттоону активдештирет. Оффлайн жана онлайн түз эфир курстары үчүн deal ичинде LMS тобу милдеттүү.'
-                  : `${confirmTarget ? getPaymentStudentName(confirmTarget) : 'Кардар'} — ${confirmTarget?.amount?.toLocaleString?.() ?? '0'} сом төлөмүн ырастайсызбы?`}
+              {`${confirmTarget ? getPaymentStudentName(confirmTarget) : 'Кардар'} — ${confirmTarget?.amount?.toLocaleString?.() ?? '0'} сом төлөмүн ырастайсызбы?`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isConfirming}>{ky.common.cancel}</AlertDialogCancel>
-            {canViewLmsTechnicalFields() && confirmTargetMissingEnrollmentEmail && confirmTarget?.deal?.contact?.id ? (
-              <AlertDialogAction onClick={() => navigate(`/contacts/${confirmTarget.deal?.contact?.id}`)} disabled={isConfirming}>
-                Байланышты ачуу
-              </AlertDialogAction>
-            ) : canViewLmsTechnicalFields() && confirmTargetMissingEnrollmentGroup && confirmTarget?.deal?.id ? (
-              <AlertDialogAction onClick={() => navigate(`/deals/${confirmTarget.deal?.id}`)} disabled={isConfirming}>
-                Келишимди ачуу
-              </AlertDialogAction>
-            ) : (
-              <AlertDialogAction onClick={handleConfirm} disabled={isConfirming}>
-                {isConfirming && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Ырастоо
-              </AlertDialogAction>
-            )}
+            <AlertDialogAction onClick={handleConfirm} disabled={isConfirming}>
+              {isConfirming && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Ырастоо
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

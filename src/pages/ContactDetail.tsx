@@ -1,23 +1,25 @@
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/PageShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ky } from '@/lib/i18n';
-import { ArrowLeft, Phone, Mail, User, Link2, Loader2, BookOpen, Activity, Workflow, Calendar } from 'lucide-react';
 import { contactApi } from '@/api/modules';
 import type { Contact } from '@/types';
+import { User, Phone, Mail, Link2, BookOpen, Workflow, GraduationCap, Pencil, Trash2, Copy, Loader2, ArrowLeft, Calendar, Activity } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRolePermissions } from '@/hooks/use-role-permissions';
+import { ContactStudentMapping } from '@/components/lms/ContactStudentMapping';
 import { useCreateStudentOnboardingLink, useLmsIntegrationHistory, useLmsStudentSummary } from '@/hooks/use-lms';
 import { ScheduleTimelineEventDialog } from '@/components/ScheduleTimelineEventDialog';
 import { ScheduledTimelineEventsCard } from '@/components/ScheduledTimelineEventsCard';
-import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
-import { useRolePermissions } from '@/hooks/use-role-permissions';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 
 export default function ContactDetailPage() {
   const { id } = useParams();
@@ -55,15 +57,17 @@ export default function ContactDetailPage() {
     data: studentSummary,
     isLoading: lmsLoading,
     isError: lmsError,
-  } = useLmsStudentSummary(contact?.lmsStudentId || undefined);
+  } = useLmsStudentSummary(canViewStudentSummary() ? (contact?.lmsStudentId || undefined) : undefined);
   const {
     data: historyData,
     isLoading: historyLoading,
-  } = useLmsIntegrationHistory({
-    crmContactId: contact?.id,
-    lmsStudentId: contact?.lmsStudentId,
-    limit: 5,
-  });
+  } = useLmsIntegrationHistory(
+    canViewLmsTechnicalFields() ? {
+      crmContactId: contact?.id,
+      lmsStudentId: contact?.lmsStudentId,
+      limit: 5,
+    } : undefined,
+  );
   const createOnboardingLinkMutation = useCreateStudentOnboardingLink();
 
   useEffect(() => {
@@ -188,15 +192,17 @@ export default function ContactDetailPage() {
               <InfoRow icon={User} label={ky.common.name} value={contact.fullName} />
               <InfoRow icon={Phone} label={ky.common.phone} value={contact.phone} />
               <InfoRow icon={Mail} label={ky.common.email} value={contact.email} />
-              {canViewLmsTechnicalFields() && (
-                <>
-                  <InfoRow icon={Link2} label={ky.contacts.lmsId} value={contact.lmsStudentId || '—'} />
-                  <InfoRow icon={Link2} label={ky.contacts.externalId} value={contact.externalStudentId || '—'} />
-                </>
-              )}
             </div>
           </CardContent>
         </Card>
+
+        {canViewLmsTechnicalFields() && (
+          <ContactStudentMapping
+            lmsStudentId={contact.lmsStudentId}
+            externalStudentId={contact.externalStudentId}
+            contactId={contact.id}
+          />
+        )}
 
         <div className="space-y-4">
           <Card className="shadow-card border-border/50">
@@ -223,14 +229,6 @@ export default function ContactDetailPage() {
                       className="w-full sm:w-auto"
                     >
                       {createOnboardingLinkMutation.isPending ? 'Түзүлүүдө...' : ky.contacts.newLmsLink}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate(`/enrollments?studentId=${encodeURIComponent(contact.lmsStudentId || '')}`)}
-                      className="w-full sm:w-auto"
-                    >
-                      {ky.contacts.lmsEnrollment}
                     </Button>
                   </div>
                 )}

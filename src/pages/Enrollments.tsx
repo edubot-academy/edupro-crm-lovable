@@ -72,6 +72,7 @@ export default function EnrollmentsPage() {
   const initialStudentId = searchParams.get('studentId') || undefined;
   const initialHistoryFilters = {
     crmContactId: searchParams.get('crmContactId') || undefined,
+    crmDealId: searchParams.get('crmDealId') || undefined,
     lmsStudentId: searchParams.get('studentId') || undefined,
     lmsEnrollmentId: searchParams.get('enrollmentId') || undefined,
   };

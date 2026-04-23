@@ -53,17 +53,17 @@ export default function LeadsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [managers, setManagers] = useState<AssignableUser[]>([]);
-  const [managersLoading, setManagersLoading] = useState(false);
-  const emptyLeadForm = {
+  const emptyLeadForm: Omit<Lead, 'id' | 'createdAt' | 'updatedAt' | 'assignedManager' | 'company'> & { assignedManagerId: number; tags: string[] } = {
     fullName: '',
     phone: '',
     email: '',
-    source: '' as LeadSource | '',
+    source: undefined,
+    status: 'new',
     qualificationStatus: 'new' as LeadQualificationStatus,
-    interestedCourseId: '',
-    interestedGroupId: '',
-    assignedManagerId: '',
-    tags: '',
+    contactId: null,
+    productInterest: '',
+    assignedManagerId: 0,
+    tags: [],
     notes: '',
   };
   const [newLead, setNewLead] = useState(emptyLeadForm);
@@ -71,14 +71,6 @@ export default function LeadsPage() {
   const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
   const duplicateCheckRequestRef = useRef(0);
   const didMountFilterStateRef = useRef(false);
-  const { data: coursesData, isLoading: coursesLoading } = useLmsCourses({ isActive: 'true' });
-  const courses = coursesData?.items ?? [];
-  const selectedCourse = courses.find((course) => course.id === newLead.interestedCourseId);
-  const needsGroup = !!selectedCourse && selectedCourse.courseType !== 'video';
-  const { data: groupsData, isLoading: groupsLoading } = useLmsGroups(
-    needsGroup ? { courseId: newLead.interestedCourseId } : undefined
-  );
-  const groups = groupsData?.items ?? [];
   const shouldOpenCreate = searchParams.get('create') === '1';
 
   const clearCreateParam = () => {
@@ -174,10 +166,8 @@ export default function LeadsPage() {
     if (!createOpen) return;
     if (!canAssignToSales) {
       setManagers(user ? [{ id: user.id, fullName: user.fullName || user.email, email: user.email, role: user.role }] : []);
-      setManagersLoading(false);
       return;
     }
-    setManagersLoading(true);
     usersApi.assignables({ roles: 'sales' })
       .then((items) => {
         if (!user) {
@@ -191,8 +181,7 @@ export default function LeadsPage() {
           : [{ id: user.id, fullName: user.fullName || user.email, email: user.email, role: user.role }, ...items];
         setManagers(nextManagers);
       })
-      .catch(() => setManagers([]))
-      .finally(() => setManagersLoading(false));
+      .catch(() => setManagers([]));
   }, [createOpen, canAssignToSales, user]);
 
   const checkForDuplicates = useCallback(async (phone: string, email?: string) => {
@@ -231,7 +220,7 @@ export default function LeadsPage() {
     setNewLead((prev) => (
       prev.assignedManagerId
         ? prev
-        : { ...prev, assignedManagerId: String(user.id) }
+        : { ...prev, assignedManagerId: user.id }
     ));
   }, [createOpen, user]);
 
@@ -247,7 +236,7 @@ export default function LeadsPage() {
     setDuplicateCheck(null);
     setNewLead({
       ...emptyLeadForm,
-      assignedManagerId: user ? String(user.id) : '',
+      assignedManagerId: user ? user.id : 0,
     });
     clearCreateParam();
     setCreateOpen(false);
@@ -307,17 +296,16 @@ export default function LeadsPage() {
         email: newLead.email.trim() || undefined,
         source: newLead.source || undefined,
         qualificationStatus: newLead.qualificationStatus,
-        interestedCourseId: newLead.interestedCourseId || undefined,
-        interestedGroupId: newLead.interestedGroupId || undefined,
-        assignedManagerId: newLead.assignedManagerId ? Number(newLead.assignedManagerId) : user?.id,
-        tags: newLead.tags ? newLead.tags.split(',').map((tag) => tag.trim()).filter(Boolean) : undefined,
+        productInterest: newLead.productInterest || undefined,
+        assignedManagerId: newLead.assignedManagerId || user?.id,
+        tags: newLead.tags.length > 0 ? newLead.tags : undefined,
         notes: newLead.notes || undefined,
       });
       toast({ title: 'Лид ийгиликтүү түзүлдү' });
       setCreateOpen(false);
       setNewLead({
         ...emptyLeadForm,
-        assignedManagerId: user ? String(user.id) : '',
+        assignedManagerId: user ? user.id : 0,
       });
       setDuplicateCheck(null);
       clearCreateParam();
@@ -437,17 +425,7 @@ export default function LeadsPage() {
       ),
     },
     { key: 'phone', header: ky.common.phone },
-    ...(canViewLmsTechnicalFields() ? [{
-      key: 'interestedCourseId' as const, header: ky.leads.interestedCourse, render: (l: Lead) => {
-        const course = courses.find((c) => c.id === l.interestedCourseId);
-        return <span className="text-sm">{course?.name || '—'}</span>;
-      }
-    }] : []),
-    {
-      key: 'assignedManager',
-      header: ky.leads.assignedManager,
-      render: (l) => <span className="block max-w-[140px] truncate text-sm">{l.assignedManager?.fullName || '—'}</span>,
-    },
+    { key: 'assignedManager', header: ky.leads.assignedManager, render: (l) => <span className="block max-w-[140px] truncate text-sm">{l.assignedManager?.fullName || '—'}</span>, className: 'hidden md:table-cell' },
     {
       key: 'status',
       header: ky.common.status,
@@ -525,11 +503,6 @@ export default function LeadsPage() {
               )}
             </div>
           </div>
-          {canViewLmsTechnicalFields() && lead.interestedCourseId && (
-            <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
-              {courses.find((c) => c.id === lead.interestedCourseId)?.name || lead.interestedCourseId}
-            </span>
-          )}
         </div>
 
         <div className="mt-2 flex items-center gap-3 text-sm">
@@ -899,45 +872,21 @@ export default function LeadsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              {canViewLmsTechnicalFields() && (
-                <>
-                  <div className="space-y-2">
-                    <Label>Продукт (Курс)</Label>
-                    <Select value={newLead.interestedCourseId || '__none__'} onValueChange={(value) => setNewLead(p => ({ ...p, interestedCourseId: value === '__none__' ? '' : value, interestedGroupId: '' }))} disabled={coursesLoading}>
-                      <SelectTrigger>
-                        <SelectValue placeholder={coursesLoading ? 'Жүктөлүүдө...' : 'Продукт тандаңыз'} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">Тандалган эмес</SelectItem>
-                        {courses.map((course) => (
-                          <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Топ/Группа</Label>
-                    <Select value={newLead.interestedGroupId || '__none__'} onValueChange={(value) => setNewLead(p => ({ ...p, interestedGroupId: value === '__none__' ? '' : value }))} disabled={!needsGroup || groupsLoading}>
-                      <SelectTrigger>
-                        <SelectValue placeholder={!needsGroup ? 'Талап кылынбайт' : groupsLoading ? 'Жүктөлүүдө...' : 'Топ тандаңыз'} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">{!needsGroup ? 'Талап кылынбайт' : 'Тандалган эмес'}</SelectItem>
-                        {groups.map((group) => (
-                          <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </>
-              )}
+              <div className="space-y-2">
+                <Label>Продукт</Label>
+                <Input
+                  value={newLead.productInterest || ''}
+                  onChange={(e) => setNewLead(p => ({ ...p, productInterest: e.target.value }))}
+                  placeholder="Продукттин аты"
+                />
+              </div>
               <div className="space-y-2">
                 <Label>{ky.leads.assignedManager}</Label>
                 {canAssignToSales ? (
                   <>
-                    <Select value={newLead.assignedManagerId || '__none__'} onValueChange={(value) => setNewLead(p => ({ ...p, assignedManagerId: value === '__none__' ? '' : value }))} disabled={managersLoading}>
+                    <Select value={String(newLead.assignedManagerId || '__none__')} onValueChange={(value) => setNewLead(p => ({ ...p, assignedManagerId: value === '__none__' ? 0 : Number(value) }))}>
                       <SelectTrigger>
-                        <SelectValue placeholder={managersLoading ? 'Жүктөлүүдө...' : 'Жооптуу кызматкерди тандаңыз'} />
+                        <SelectValue placeholder="Жооптуу кызматкерди тандаңыз" />
                       </SelectTrigger>
                       <SelectContent>
                         {managers.map((manager) => (
@@ -953,7 +902,7 @@ export default function LeadsPage() {
                   </>
                 ) : (
                   <div className="flex h-10 items-center rounded-md border bg-muted/40 px-3 text-sm text-muted-foreground">
-                    {managers.find((manager) => String(manager.id) === newLead.assignedManagerId)?.fullName
+                    {managers.find((manager) => manager.id === newLead.assignedManagerId)?.fullName
                       || user?.fullName
                       || user?.email
                       || 'Owner дайындалган эмес'}
@@ -963,7 +912,7 @@ export default function LeadsPage() {
             </div>
             <div className="space-y-2">
               <Label>{ky.common.tags}</Label>
-              <Input value={newLead.tags} onChange={(e) => setNewLead(p => ({ ...p, tags: e.target.value }))} placeholder="IT, Frontend, Ысык лид" />
+              <Input value={newLead.tags.join(', ')} onChange={(e) => setNewLead(p => ({ ...p, tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean) }))} placeholder="IT, Frontend, Ысык лид" />
             </div>
             <div className="space-y-2">
               <Label>{ky.common.notes}</Label>
@@ -989,7 +938,7 @@ export default function LeadsPage() {
             </div>
           </form>
         </DialogContent>
-      </Dialog>
+      </Dialog >
     </div >
   );
 }

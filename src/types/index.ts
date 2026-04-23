@@ -115,7 +115,9 @@ export interface Lead {
   qualificationStatus?: LeadQualificationStatus;
   contactId?: number | null;
   productInterest?: string;
+  /** @deprecated Use productInterest instead. Will be removed in Phase 2 backend migration. */
   interestedCourseId?: string;
+  /** @deprecated Use productInterest instead. Will be removed in Phase 2 backend migration. */
   interestedGroupId?: string;
   notes?: string;
   tags?: string[];
@@ -136,7 +138,9 @@ export interface Contact {
   email: string;
   source?: ContactSource;
   sourceProvider?: string;
+  /** @deprecated Will be moved to LMS bridge layer in Phase 2. */
   externalStudentId?: string;
+  /** @deprecated Will be moved to LMS bridge layer in Phase 2. */
   lmsStudentId?: string;
   notes?: string;
   status?: string;
@@ -181,10 +185,15 @@ export interface Deal {
   currency: string;
   contactId?: number;
   leadId?: number | null;
+  /** @deprecated Will be moved to LMS bridge layer in Phase 2. */
   lmsCourseId?: string;
+  /** @deprecated Will be moved to LMS bridge layer in Phase 2. */
   lmsGroupId?: string;
+  /** @deprecated Will be moved to LMS bridge layer in Phase 2. */
   courseType?: import('@/types/lms').LmsCourseType;
+  /** @deprecated Will be moved to LMS bridge layer in Phase 2. */
   courseNameSnapshot?: string;
+  /** @deprecated Will be moved to LMS bridge layer in Phase 2. */
   groupNameSnapshot?: string;
   notes?: string;
   lead?: { id: number; fullName: string };
@@ -226,15 +235,21 @@ export interface Payment {
   dealId?: number;
   leadId?: number | null;
   contactId?: number | null;
+  /** @deprecated Will be moved to LMS bridge layer in Phase 2. */
   lmsEnrollmentId?: string;
   paidAt?: string;
   user?: { id: number; fullName: string };
   deal?: {
     id: number;
+    /** @deprecated Will be moved to LMS bridge layer in Phase 2. */
     lmsCourseId?: string;
+    /** @deprecated Will be moved to LMS bridge layer in Phase 2. */
     lmsGroupId?: string;
+    /** @deprecated Will be moved to LMS bridge layer in Phase 2. */
     courseType?: import('@/types/lms').LmsCourseType;
+    /** @deprecated Will be moved to LMS bridge layer in Phase 2. */
     courseNameSnapshot?: string;
+    /** @deprecated Will be moved to LMS bridge layer in Phase 2. */
     groupNameSnapshot?: string;
     contact?: { id: number; fullName: string; email?: string };
   };

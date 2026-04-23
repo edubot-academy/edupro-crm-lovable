@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
+import { LmsBridgeProvider } from "@/components/lms/LmsBridgeProvider";
 
 import LoginPage from "./pages/Login";
 import ForgotPasswordPage from "./pages/ForgotPassword";
@@ -49,39 +50,41 @@ const App = () => (
       <Sonner />
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider>
-          <Routes>
-            {/* Public auth routes */}
-            <Route path="/login" element={<AuthRedirect><LoginPage /></AuthRedirect>} />
-            <Route path="/forgot-password" element={<AuthRedirect><ForgotPasswordPage /></AuthRedirect>} />
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route path="/accept-invite" element={<AcceptInvitePage />} />
+          <LmsBridgeProvider enableLmsBridge={false}>
+            <Routes>
+              {/* Public auth routes */}
+              <Route path="/login" element={<AuthRedirect><LoginPage /></AuthRedirect>} />
+              <Route path="/forgot-password" element={<AuthRedirect><ForgotPasswordPage /></AuthRedirect>} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/accept-invite" element={<AcceptInvitePage />} />
 
-            {/* Protected routes */}
-            <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-              <Route path="/" element={<DashboardPage />} />
-              <Route path="/leads" element={<LeadsPage />} />
-              <Route path="/courses" element={<CoursesPage />} />
-              <Route path="/leads/:id" element={<LeadDetailPage />} />
-              <Route path="/contacts" element={<ContactsPage />} />
-              <Route path="/contacts/:id" element={<ContactDetailPage />} />
-              <Route path="/legacy-contacts" element={<ProtectedRoute allowedRoles={['superadmin']}><LegacyContactsPage /></ProtectedRoute>} />
-              <Route path="/legacy-contacts/:id" element={<ProtectedRoute allowedRoles={['superadmin']}><LegacyContactDetailPage /></ProtectedRoute>} />
-              <Route path="/deals" element={<DealsPage />} />
-              <Route path="/deals/:id" element={<DealDetailPage />} />
-              <Route path="/pipeline" element={<PipelinePage />} />
-              <Route path="/trial-lessons" element={<TrialLessonsPage />} />
-              <Route path="/payments" element={<PaymentsPage />} />
-              <Route path="/enrollments" element={<EnrollmentsPage />} />
-              <Route path="/tasks" element={<TasksPage />} />
-              <Route path="/timeline" element={<TimelinePage />} />
-              <Route path="/retention" element={<RetentionPage />} />
-              <Route path="/reports" element={<ProtectedRoute allowedRoles={['admin', 'superadmin']}><ReportsPage /></ProtectedRoute>} />
-              <Route path="/notifications" element={<NotificationsPage />} />
-              <Route path="/users" element={<ProtectedRoute allowedRoles={['admin', 'superadmin']}><UsersPage /></ProtectedRoute>} />
-              <Route path="/settings" element={<ProtectedRoute allowedRoles={['admin', 'superadmin']}><SettingsPage /></ProtectedRoute>} />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+              {/* Protected routes */}
+              <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+                <Route path="/" element={<DashboardPage />} />
+                <Route path="/leads" element={<LeadsPage />} />
+                <Route path="/courses" element={<CoursesPage />} />
+                <Route path="/leads/:id" element={<LeadDetailPage />} />
+                <Route path="/contacts" element={<ContactsPage />} />
+                <Route path="/contacts/:id" element={<ContactDetailPage />} />
+                <Route path="/legacy-contacts" element={<ProtectedRoute allowedRoles={['superadmin']}><LegacyContactsPage /></ProtectedRoute>} />
+                <Route path="/legacy-contacts/:id" element={<ProtectedRoute allowedRoles={['superadmin']}><LegacyContactDetailPage /></ProtectedRoute>} />
+                <Route path="/deals" element={<DealsPage />} />
+                <Route path="/deals/:id" element={<DealDetailPage />} />
+                <Route path="/pipeline" element={<PipelinePage />} />
+                <Route path="/trial-lessons" element={<TrialLessonsPage />} />
+                <Route path="/payments" element={<PaymentsPage />} />
+                <Route path="/enrollments" element={<EnrollmentsPage />} />
+                <Route path="/tasks" element={<TasksPage />} />
+                <Route path="/timeline" element={<TimelinePage />} />
+                <Route path="/retention" element={<RetentionPage />} />
+                <Route path="/reports" element={<ProtectedRoute allowedRoles={['admin', 'superadmin']}><ReportsPage /></ProtectedRoute>} />
+                <Route path="/notifications" element={<NotificationsPage />} />
+                <Route path="/users" element={<ProtectedRoute allowedRoles={['admin', 'superadmin']}><UsersPage /></ProtectedRoute>} />
+                <Route path="/settings" element={<ProtectedRoute allowedRoles={['admin', 'superadmin']}><SettingsPage /></ProtectedRoute>} />
+              </Route>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </LmsBridgeProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

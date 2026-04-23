@@ -12,12 +12,23 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 - CRM/LMS separation planning docs for frontend, backend, and platform decomposition
 - Role permission hook for centralized CRM, LMS, admin, and retention visibility checks
 - Workflow docs for sales, assistant, and manager daily operations
+- LMS bridge enablement mechanism using React Context with `LmsBridgeProvider` and `useLmsBridge` hook
 
 ### Changed
 - Role-based navigation now hides LMS and admin surfaces unless the current role is allowed to access them
 - Leads, contacts, deals, payments, and LMS support panels now use centralized permission checks instead of scattered role comparisons
 - Lead assignment permissions are now modeled separately from full user management so managers can still assign sales work
 - Deal and lead UI copy now uses more business-friendly product wording in several LMS-linked flows
+- Phase 2 CRM-LMS decoupling: removed LMS course/group loading hooks from Leads.tsx and LeadDetail.tsx
+- Phase 2 CRM-LMS decoupling: removed LMS selectors from lead create/edit forms
+- Phase 2 CRM-LMS decoupling: removed LMS fields (interestedCourseId, interestedGroupId) from lead API payloads
+- Phase 2 CRM-LMS decoupling: removed LMS fields (courseType, courseNameSnapshot, groupNameSnapshot, lmsCourseId, lmsGroupId) from Deals.tsx form state
+- Phase 2 CRM-LMS decoupling: removed LMS selectors from deal creation dialog
+- Phase 2 CRM-LMS decoupling: removed LMS enrollment logic functions from Payments.tsx
+- Phase 2 CRM-LMS decoupling: removed course/group snapshots from payment deal labels
+- Phase 2 CRM-LMS decoupling: removed LMS course/group loading hooks from Deals.tsx
+- Leads.tsx form state now uses correct types: assignedManagerId as number, tags as string[]
+- Tags input in Leads.tsx now handles comma-separated string input for string[] type
 
 ### Fixed
 - LMS-only fields, IDs, history panels, and enrollment actions are now hidden from non-admin roles across list and detail views
@@ -25,6 +36,11 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 - Legacy migration navigation is again restricted to superadmin only
 - Deal enrollment navigation now points to the reachable `/enrollments` route
 - Payment warnings and deal labels no longer expose LMS-only context to unauthorized roles
+- ContactDetail.tsx now uses canViewStudentSummary() instead of canViewLmsTechnicalFields() for student summary, allowing managers to see student summary data as intended
+- DealCourseMapping.tsx enrollment navigation now uses crmDealId query param instead of dealId, matching EnrollmentForm expectations
+- EnrollmentsPage now seeds initialHistoryFilters with crmDealId for deal context, enabling proper prefiltering from deal detail "Толук тарых" navigation
+- Removed references to setManagersLoading in Leads.tsx (removed with LMS hooks)
+- Removed references to courses variable in Leads.tsx (removed with LMS hooks)
 
 ## [1.7.0] - 2026-04-24
 

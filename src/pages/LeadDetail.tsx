@@ -13,7 +13,6 @@ import { ky } from '@/lib/i18n';
 import { ArrowLeft, Phone, Mail, Tag, User, BookOpen, MessageSquare, Loader2, Save, Calendar } from 'lucide-react';
 import { leadsApi, usersApi } from '@/api/modules';
 import { useToast } from '@/hooks/use-toast';
-import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRolePermissions } from '@/hooks/use-role-permissions';
 import type { AssignableUser, Lead, LeadQualificationStatus, LeadSource } from '@/types';
@@ -21,13 +20,14 @@ import { getLeadQualificationStatus } from '@/lib/crm-status';
 import { getFriendlyError } from '@/lib/error-messages';
 import { ScheduleTimelineEventDialog } from '@/components/ScheduleTimelineEventDialog';
 import { ScheduledTimelineEventsCard } from '@/components/ScheduledTimelineEventsCard';
+import { LeadCourseInterest } from '@/components/lms/LeadCourseInterest';
 
 export default function LeadDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
-  const { canAssignLeads } = useRolePermissions();
+  const { canAssignLeads, canViewLmsTechnicalFields } = useRolePermissions();
   const canAssignToSales = canAssignLeads();
   const [lead, setLead] = useState<Lead | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,19 +45,10 @@ export default function LeadDetailPage() {
     email: '',
     source: '' as LeadSource | '',
     qualificationStatus: 'new' as LeadQualificationStatus,
-    interestedCourseId: '',
-    interestedGroupId: '',
+    productInterest: '',
     assignedManagerId: '',
     notes: '',
   });
-  const { data: coursesData, isLoading: coursesLoading } = useLmsCourses({ isActive: 'true' });
-  const courses = coursesData?.items ?? [];
-  const selectedCourse = courses.find((course) => course.id === form.interestedCourseId);
-  const needsGroup = !!selectedCourse && selectedCourse.courseType !== 'video';
-  const { data: groupsData, isLoading: groupsLoading } = useLmsGroups(
-    needsGroup ? { courseId: form.interestedCourseId } : undefined
-  );
-  const groups = groupsData?.items ?? [];
 
   useEffect(() => {
     if (!id || id === 'new') return;
@@ -78,8 +69,7 @@ export default function LeadDetailPage() {
       email: lead.email,
       source: lead.source,
       qualificationStatus: getLeadQualificationStatus(lead),
-      interestedCourseId: lead.interestedCourseId || '',
-      interestedGroupId: lead.interestedGroupId || '',
+      productInterest: lead.productInterest || '',
       assignedManagerId: lead.assignedManager?.id ? String(lead.assignedManager.id) : '',
       notes: lead.notes || '',
     });
@@ -122,8 +112,7 @@ export default function LeadDetailPage() {
       email: lead.email,
       source: lead.source,
       qualificationStatus: getLeadQualificationStatus(lead),
-      interestedCourseId: lead.interestedCourseId || '',
-      interestedGroupId: lead.interestedGroupId || '',
+      productInterest: lead.productInterest || '',
       assignedManagerId: lead.assignedManager?.id ? String(lead.assignedManager.id) : '',
       notes: lead.notes || '',
     });
@@ -141,8 +130,7 @@ export default function LeadDetailPage() {
         email: form.email,
         source: form.source,
         qualificationStatus: form.qualificationStatus,
-        interestedCourseId: form.interestedCourseId || undefined,
-        interestedGroupId: form.interestedGroupId || undefined,
+        productInterest: form.productInterest || undefined,
         assignedManagerId: canAssignToSales
           ? (form.assignedManagerId ? Number(form.assignedManagerId) : null)
           : undefined,
@@ -233,8 +221,6 @@ export default function LeadDetailPage() {
               <InfoRow icon={Phone} label={ky.common.phone} value={lead.phone} />
               <InfoRow icon={Mail} label={ky.common.email} value={lead.email} />
               <InfoRow icon={MessageSquare} label={ky.leads.source} value={ky.leadSource[lead.source]} />
-              <InfoRow icon={BookOpen} label={ky.leads.interestedCourse} value={courses.find((c) => c.id === lead.interestedCourseId)?.name || '—'} />
-              <InfoRow icon={BookOpen} label="Кызыккан топ" value={groups.find((g) => g.id === lead.interestedGroupId)?.name || '—'} />
               <InfoRow icon={User} label={ky.leads.assignedManager} value={lead.assignedManager?.fullName || '—'} />
             </div>
             <div>
@@ -243,6 +229,13 @@ export default function LeadDetailPage() {
             </div>
           </CardContent>
         </Card>
+
+        {canViewLmsTechnicalFields() && (
+          <LeadCourseInterest
+            interestedCourseId={lead.interestedCourseId}
+            interestedGroupId={lead.interestedGroupId}
+          />
+        )}
 
         <div className="space-y-4">
           <Card className="shadow-card border-border/50">
@@ -327,51 +320,13 @@ export default function LeadDetailPage() {
                 </Select>
               </div>
               <div className="space-y-2 sm:col-span-2">
-                <Label>{ky.leads.interestedCourse}</Label>
-                <Select
-                  value={form.interestedCourseId || '__none__'}
-                  onValueChange={(value) => setForm((prev) => ({
-                    ...prev,
-                    interestedCourseId: value === '__none__' ? '' : value,
-                    interestedGroupId: '',
-                  }))}
-                  disabled={coursesLoading}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={coursesLoading ? 'Жүктөлүүдө...' : 'Курс тандаңыз'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Тандалган эмес</SelectItem>
-                    {courses.map((course) => (
-                      <SelectItem key={course.id} value={course.id}>
-                        {course.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Продукт</Label>
+                <Input
+                  value={form.productInterest || ''}
+                  onChange={(e) => setForm((prev) => ({ ...prev, productInterest: e.target.value }))}
+                  placeholder="Продукттин аты"
+                />
               </div>
-              {needsGroup && (
-                <div className="space-y-2 sm:col-span-2">
-                  <Label>Кызыккан топ</Label>
-                  <Select
-                    value={form.interestedGroupId || '__none__'}
-                    onValueChange={(value) => setForm((prev) => ({ ...prev, interestedGroupId: value === '__none__' ? '' : value }))}
-                    disabled={groupsLoading}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={groupsLoading ? 'Жүктөлүүдө...' : 'Топ тандаңыз'} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">Тандалган эмес</SelectItem>
-                      {groups.map((group) => (
-                        <SelectItem key={group.id} value={group.id}>
-                          {group.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
               <div className="space-y-2 sm:col-span-2">
                 <Label>{ky.leads.assignedManager}</Label>
                 {canAssignToSales ? (
