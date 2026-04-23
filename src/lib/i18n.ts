@@ -126,6 +126,16 @@ export const ky = {
     contacted: 'Байланышылды',
     qualified: 'Квалификацияланды',
     disqualified: 'Четтетилди',
+    no_response: 'Жооп жок',
+  },
+  dateRange: {
+    all: 'Баары',
+    today: 'Бүгүн',
+    week: 'Бул жума',
+    month: 'Бул ай',
+    custom: 'Өзүңүз тандаңыз',
+    fromDate: 'Башталган күн',
+    toDate: 'Аяктаган күн',
   },
   // Deals
   deals: {

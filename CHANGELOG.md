@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Version bumps are classified by delivery scale; see `VERSIONING.md`.
 
+## [1.6.0] - 2026-04-23
+
+### Added
+- New lead qualification status `no_response` (Жооп жок) for leads that have not been responded to
+- Date range filtering to Leads page with preset options (today, week, month) and custom date range picker
+- Date range filtering to Dashboard page with preset options (today, week, month) and custom date range picker
+- Refresh button to Dashboard page with loading spinner
+- Error handling to Dashboard page with toast notifications and error card UI
+- Data freshness indicator to Dashboard page showing when data was last updated
+- Conversion rate line chart overlay to manager performance chart on Dashboard
+- Kyrgyz translations for date range filters (Баары, Бүгүн, Бул жума, Бул ай, Өзүңүз тандаңыз, Башталган күн, Аяктаган күн)
+
+### Changed
+- Lead qualification status type now includes 'no_response' option
+- Status badge component now displays warning variant for 'no_response' status
+- CRM status mapping now handles 'no_response' status by mapping to legacy 'new' status
+- Dashboard now uses date range parameters (from/to) when fetching stats
+
+
 ## [1.5.0] - 2026-04-01
 
 ### Added

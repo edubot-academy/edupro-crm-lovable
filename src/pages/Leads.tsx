@@ -16,7 +16,7 @@ import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
 import { useAuth } from '@/contexts/AuthContext';
 import type { AssignableUser, Lead, LeadQualificationStatus, LeadSource } from '@/types';
 import { getLeadQualificationStatus } from '@/lib/crm-status';
-import { Plus, Filter, Trash2, Loader2, Save, Phone, Mail, User, GraduationCap } from 'lucide-react';
+import { Plus, Filter, Trash2, Loader2, Save, Phone, Mail, User, GraduationCap, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
 
@@ -28,6 +28,10 @@ export default function LeadsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [dateFilter, setDateFilter] = useState<string>('all');
+  const [customFromDate, setCustomFromDate] = useState<string>('');
+  const [customToDate, setCustomToDate] = useState<string>('');
+  const [showCustomDateRange, setShowCustomDateRange] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<Lead | null>(null);
@@ -67,6 +71,9 @@ export default function LeadsPage() {
     leadsApi.list({
       search,
       qualificationStatus: statusFilter === 'all' ? undefined : statusFilter,
+      dateRange: dateFilter === 'custom' || dateFilter === 'all' ? undefined : dateFilter,
+      fromDate: dateFilter === 'custom' && customFromDate ? customFromDate : undefined,
+      toDate: dateFilter === 'custom' && customToDate ? customToDate : undefined,
       page,
       limit: 10,
     })
@@ -79,7 +86,7 @@ export default function LeadsPage() {
         setTotalPages(1);
       })
       .finally(() => setIsLoading(false));
-  }, [page, search, statusFilter]);
+  }, [page, search, statusFilter, dateFilter, customFromDate, customToDate]);
 
   useEffect(() => {
     fetchLeads();
@@ -87,7 +94,7 @@ export default function LeadsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, statusFilter]);
+  }, [search, statusFilter, dateFilter, customFromDate, customToDate]);
 
   useEffect(() => {
     if (!createOpen) return;
@@ -345,7 +352,58 @@ export default function LeadsPage() {
             </SelectContent>
           </Select>
         </div>
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <Select value={dateFilter} onValueChange={(value) => {
+            setDateFilter(value);
+            setShowCustomDateRange(value === 'custom');
+          }}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder={ky.common.filter} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{ky.dateRange.all}</SelectItem>
+              <SelectItem value="today">{ky.dateRange.today}</SelectItem>
+              <SelectItem value="week">{ky.dateRange.week}</SelectItem>
+              <SelectItem value="month">{ky.dateRange.month}</SelectItem>
+              <SelectItem value="custom">{ky.dateRange.custom}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
+
+      {showCustomDateRange && (
+        <div className="flex items-center gap-3 flex-wrap rounded-lg border bg-muted/30 p-3">
+          <div className="flex items-center gap-2">
+            <Label className="text-sm">{ky.dateRange.fromDate}:</Label>
+            <Input
+              type="date"
+              value={customFromDate}
+              onChange={(e) => setCustomFromDate(e.target.value)}
+              className="w-40"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Label className="text-sm">{ky.dateRange.toDate}:</Label>
+            <Input
+              type="date"
+              value={customToDate}
+              onChange={(e) => setCustomToDate(e.target.value)}
+              className="w-40"
+            />
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setCustomFromDate('');
+              setCustomToDate('');
+            }}
+          >
+            {ky.common.cancel}
+          </Button>
+        </div>
+      )}
 
       <div className="md:hidden space-y-4">
         <div className="space-y-3">
@@ -471,7 +529,7 @@ export default function LeadsPage() {
                                 LMS
                               </Button>
                             </div>
-                            
+
                           </div>
                         ))
                       )}

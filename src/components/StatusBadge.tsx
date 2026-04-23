@@ -53,6 +53,7 @@ export function getLeadStatusVariant(status: string): StatusBadgeProps['variant'
     case 'contacted': return 'primary';
     case 'qualified': return 'success';
     case 'disqualified': return 'destructive';
+    case 'no_response': return 'warning';
     case 'interested': return 'primary';
     case 'trial_scheduled': return 'warning';
     case 'trial_completed': return 'warning';

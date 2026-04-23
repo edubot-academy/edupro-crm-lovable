@@ -86,6 +86,8 @@ export function mapQualificationToLeadStatus(status: LeadQualificationStatus): L
       return 'interested';
     case 'disqualified':
       return 'lost';
+    case 'no_response':
+      return 'new';
     case 'new':
     default:
       return 'new';

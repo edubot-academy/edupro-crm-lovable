@@ -103,7 +103,7 @@ export type LeadStatus =
   | 'won'
   | 'lost';
 
-export type LeadQualificationStatus = 'new' | 'contacted' | 'qualified' | 'disqualified';
+export type LeadQualificationStatus = 'new' | 'contacted' | 'qualified' | 'disqualified' | 'no_response';
 
 export interface Lead {
   id: number;
