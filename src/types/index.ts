@@ -114,6 +114,7 @@ export interface Lead {
   status: LeadStatus;
   qualificationStatus?: LeadQualificationStatus;
   contactId?: number | null;
+  productInterest?: string;
   interestedCourseId?: string;
   interestedGroupId?: string;
   notes?: string;

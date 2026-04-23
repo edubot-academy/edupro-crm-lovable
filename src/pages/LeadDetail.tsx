@@ -15,6 +15,7 @@ import { leadsApi, usersApi } from '@/api/modules';
 import { useToast } from '@/hooks/use-toast';
 import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRolePermissions } from '@/hooks/use-role-permissions';
 import type { AssignableUser, Lead, LeadQualificationStatus, LeadSource } from '@/types';
 import { getLeadQualificationStatus } from '@/lib/crm-status';
 import { getFriendlyError } from '@/lib/error-messages';
@@ -26,6 +27,8 @@ export default function LeadDetailPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { canAssignLeads } = useRolePermissions();
+  const canAssignToSales = canAssignLeads();
   const [lead, setLead] = useState<Lead | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +50,6 @@ export default function LeadDetailPage() {
     assignedManagerId: '',
     notes: '',
   });
-  const canAssignToSales = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'superadmin';
   const { data: coursesData, isLoading: coursesLoading } = useLmsCourses({ isActive: 'true' });
   const courses = coursesData?.items ?? [];
   const selectedCourse = courses.find((course) => course.id === form.interestedCourseId);

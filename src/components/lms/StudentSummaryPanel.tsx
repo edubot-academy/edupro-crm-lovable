@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Search, User, BookOpen, Activity, Link as LinkIcon } from 'lucide-react';
 import { useLmsStudentSummary, useCreateStudentOnboardingLink } from '@/hooks/use-lms';
 import { useToast } from '@/hooks/use-toast';
+import { useRolePermissions } from '@/hooks/use-role-permissions';
 import { ActivateEnrollmentDialog, PauseEnrollmentDialog } from './EnrollmentActions';
 
 function ProgressBar({ value, label, color }: { value?: number; label: string; color: string }) {
@@ -42,6 +43,12 @@ const statusLabel: Record<string, string> = {
 };
 
 export function StudentSummaryPanel({ initialStudentId }: { initialStudentId?: string }) {
+  const { canViewStudentSummary } = useRolePermissions();
+
+  if (!canViewStudentSummary()) {
+    return null;
+  }
+
   const [studentIdInput, setStudentIdInput] = useState(initialStudentId || '');
   const [searchId, setSearchId] = useState<string | undefined>(initialStudentId || undefined);
   const [onboardingLink, setOnboardingLink] = useState<string | null>(null);

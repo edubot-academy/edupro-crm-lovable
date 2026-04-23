@@ -12,6 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ky } from '@/lib/i18n';
 import { contactApi, dealsApi, tasksApi } from '@/api/modules';
 import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
+import { useRolePermissions } from '@/hooks/use-role-permissions';
 import type { Contact, Deal, DealPipelineStage } from '@/types';
 import { getDealPipelineStage, mapPipelineToDealStage } from '@/lib/crm-status';
 import type { LmsCourseType } from '@/types/lms';
@@ -41,6 +42,7 @@ export default function DealsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
+  const { canViewLmsTechnicalFields } = useRolePermissions();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -171,6 +173,7 @@ export default function DealsPage() {
     setIsCreating(true);
     try {
       const deal = await dealsApi.create({
+        leadId: Number(form.contactId),
         contactId: Number(form.contactId),
         amount: Number(form.amount),
         currency: form.currency,
@@ -275,8 +278,8 @@ export default function DealsPage() {
 
   const columns: Column<Deal>[] = [
     { key: 'contact', header: 'Студент', render: (d) => <span className="font-medium">{d.contact?.fullName || '—'}</span> },
-    { key: 'courseNameSnapshot', header: ky.deals.course, render: (d) => d.courseNameSnapshot || '—' },
-    { key: 'groupNameSnapshot', header: ky.deals.group, render: (d) => d.groupNameSnapshot || '—' },
+    { key: 'courseNameSnapshot', header: 'Продукт', render: (d) => d.courseNameSnapshot || '—' },
+    { key: 'groupNameSnapshot', header: 'Топ/Группа', render: (d) => d.groupNameSnapshot || '—' },
     { key: 'amount', header: ky.deals.amount, render: (d) => <span className="font-medium">{d.amount.toLocaleString()} {d.currency || 'сом'}</span> },
     { key: 'stage', header: ky.deals.stage, render: (d) => { const stage = getDealPipelineStage(d); return <StatusBadge variant={getLeadStatusVariant(stage)} dot>{ky.dealPipelineStage[stage]}</StatusBadge>; } },
     {
@@ -300,18 +303,20 @@ export default function DealsPage() {
               ))}
             </SelectContent>
           </Select>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/enrollments?crmDealId=${d.id}${d.contact?.lmsStudentId ? `&studentId=${encodeURIComponent(d.contact.lmsStudentId)}` : ''}`);
-            }}
-            aria-label={`${d.contact?.fullName || 'Келишим'} үчүн LMS каттоону ачуу`}
-          >
-            <GraduationCap className="h-4 w-4" />
-          </Button>
+          {canViewLmsTechnicalFields() && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/enrollments?crmDealId=${d.id}${d.contact?.lmsStudentId ? `&studentId=${encodeURIComponent(d.contact.lmsStudentId)}` : ''}`);
+              }}
+              aria-label={`${d.contact?.fullName || 'Келишим'} үчүн LMS каттоону ачуу`}
+            >
+              <GraduationCap className="h-4 w-4" />
+            </Button>
+          )}
           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(d); }} aria-label={`${ky.common.delete} ${d.contact?.fullName || 'келишим'}`}>
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -375,18 +380,20 @@ export default function DealsPage() {
             {ky.common.view}
           </Button>
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate(`/enrollments?crmDealId=${deal.id}${deal.contact?.lmsStudentId ? `&studentId=${encodeURIComponent(deal.contact.lmsStudentId)}` : ''}`);
-              }}
-              aria-label="LMS"
-            >
-              <GraduationCap className="h-4 w-4" />
-            </Button>
+            {canViewLmsTechnicalFields() && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/enrollments?crmDealId=${deal.id}${deal.contact?.lmsStudentId ? `&studentId=${encodeURIComponent(deal.contact.lmsStudentId)}` : ''}`);
+                }}
+                aria-label="LMS"
+              >
+                <GraduationCap className="h-4 w-4" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -532,14 +539,18 @@ export default function DealsPage() {
                   </div>
                 )}
               </div>
-              <div className="space-y-2">
-                <Label>LMS Курс ID</Label>
-                <Input value={form.lmsCourseId} readOnly placeholder="Авто" />
-              </div>
-              <div className="space-y-2">
-                <Label>LMS Топ ID</Label>
-                <Input value={form.lmsGroupId || '—'} readOnly placeholder="Авто" />
-              </div>
+              {canViewLmsTechnicalFields() && (
+                <>
+                  <div className="space-y-2">
+                    <Label>LMS Курс ID</Label>
+                    <Input value={form.lmsCourseId} readOnly placeholder="Авто" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>LMS Топ ID</Label>
+                    <Input value={form.lmsGroupId || '—'} readOnly placeholder="Авто" />
+                  </div>
+                </>
+              )}
               <div className="space-y-2">
                 <Label>{ky.deals.currency}</Label>
                 <Input value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} placeholder="KGS" />

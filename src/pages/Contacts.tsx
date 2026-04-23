@@ -15,6 +15,7 @@ import type { Contact } from '@/types';
 import { Plus, Trash2, Loader2, Mail, Phone, IdCard, GraduationCap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
+import { useRolePermissions } from '@/hooks/use-role-permissions';
 
 const emptyForm = { fullName: '', phone: '', email: '', notes: '' };
 
@@ -22,6 +23,7 @@ export default function ContactsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
+  const { canViewLmsTechnicalFields } = useRolePermissions();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -108,23 +110,25 @@ export default function ContactsPage() {
     { key: 'fullName', header: ky.common.name, render: (c) => <span className="font-medium">{c.fullName}</span> },
     { key: 'phone', header: ky.common.phone },
     { key: 'email', header: ky.common.email, className: 'hidden md:table-cell' },
-    { key: 'lmsStudentId', header: ky.contacts.lmsId, render: (c) => <span className="text-xs font-mono text-muted-foreground">{c.lmsStudentId || '—'}</span> },
+    ...(canViewLmsTechnicalFields() ? [{ key: 'lmsStudentId', header: ky.contacts.lmsId, render: (c) => <span className="text-xs font-mono text-muted-foreground">{c.lmsStudentId || '—'}</span> }] : []),
     { key: 'notes', header: ky.common.notes, render: (c) => <span className="text-sm text-muted-foreground truncate max-w-[200px] block">{c.notes || '—'}</span>, className: 'hidden lg:table-cell' },
     {
       key: 'actions', header: '', render: (c) => (
         <div className="flex items-center justify-end gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/enrollments?crmContactId=${c.id}${c.lmsStudentId ? `&studentId=${encodeURIComponent(c.lmsStudentId)}` : ''}`);
-            }}
-            aria-label={`${c.fullName} үчүн LMS каттоону ачуу`}
-          >
-            <GraduationCap className="h-4 w-4" />
-          </Button>
+          {canViewLmsTechnicalFields() && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/enrollments?crmContactId=${c.id}${c.lmsStudentId ? `&studentId=${encodeURIComponent(c.lmsStudentId)}` : ''}`);
+              }}
+              aria-label={`${c.fullName} үчүн LMS каттоону ачуу`}
+            >
+              <GraduationCap className="h-4 w-4" />
+            </Button>
+          )}
           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(c); }} aria-label={`${ky.common.delete} ${c.fullName}`}>
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -150,20 +154,22 @@ export default function ContactsPage() {
         <div className="space-y-2 text-sm text-muted-foreground">
           <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5" /><span>{contact.phone}</span></div>
           {contact.email && <div className="flex items-center gap-2"><Mail className="h-3.5 w-3.5" /><span className="truncate">{contact.email}</span></div>}
-          <div className="flex items-center gap-2"><IdCard className="h-3.5 w-3.5" /><span>{contact.lmsStudentId || ky.contacts.noLmsId}</span></div>
+          {canViewLmsTechnicalFields() && <div className="flex items-center gap-2"><IdCard className="h-3.5 w-3.5" /><span>{contact.lmsStudentId || ky.contacts.noLmsId}</span></div>}
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate(`/enrollments?crmContactId=${contact.id}${contact.lmsStudentId ? `&studentId=${encodeURIComponent(contact.lmsStudentId)}` : ''}`);
-          }}
-          aria-label={`${contact.fullName} үчүн LMS каттоону ачуу`}
-        >
-          <GraduationCap className="mr-2 h-4 w-4" />
-          LMS
-        </Button>
+        {canViewLmsTechnicalFields() && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/enrollments?crmContactId=${contact.id}${contact.lmsStudentId ? `&studentId=${encodeURIComponent(contact.lmsStudentId)}` : ''}`);
+            }}
+            aria-label={`${contact.fullName} үчүн LMS каттоону ачуу`}
+          >
+            <GraduationCap className="mr-2 h-4 w-4" />
+            LMS
+          </Button>
+        )}
         {contact.notes && <p className="rounded-md bg-muted/60 p-2 text-xs text-muted-foreground line-clamp-3">{contact.notes}</p>}
       </CardContent>
     </Card>

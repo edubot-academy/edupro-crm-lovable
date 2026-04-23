@@ -9,6 +9,7 @@ import { notificationsApi } from '@/api/modules';
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRolePermissions } from '@/hooks/use-role-permissions';
 import { useNavigate } from 'react-router-dom';
 import type { InAppNotification } from '@/types';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +19,8 @@ export default function NotificationsPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const isSystemAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+  const { canAccessAdminPanel } = useRolePermissions();
+  const isSystemAdmin = canAccessAdminPanel();
   const [activeTab, setActiveTab] = useState<'all' | 'approvals'>('all');
   const [isLinked, setIsLinked] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');

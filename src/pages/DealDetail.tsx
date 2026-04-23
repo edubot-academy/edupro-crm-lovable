@@ -15,11 +15,13 @@ import { formatLmsDate, getLmsGroupAvailability, getSeatsLeft } from '@/lib/lms-
 import { IntegrationHistoryPanel } from '@/components/lms/IntegrationHistoryPanel';
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
+import { useRolePermissions } from '@/hooks/use-role-permissions';
 
 export default function DealDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { canViewLmsTechnicalFields, canViewIntegrationHistory } = useRolePermissions();
   const [deal, setDeal] = useState<Deal | null>(null);
   const [contact, setContact] = useState<Contact | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -159,7 +161,7 @@ export default function DealDetailPage() {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title={`Келишим #${deal.id}`}
-        description={deal.courseNameSnapshot || 'LMS курс байланышы жок'}
+        description={canViewLmsTechnicalFields() ? (deal.courseNameSnapshot || 'LMS курс байланышы жок') : undefined}
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => navigate('/deals')}>
@@ -171,16 +173,18 @@ export default function DealDetailPage() {
             >
               Төлөм кошуу
             </Button>
-            <Button variant="outline" onClick={() => setEditOpen(true)}>
-              <Pencil className="mr-2 h-4 w-4" />
-              LMS маалыматты оңдоо
-            </Button>
-            {deal.lmsCourseId && (
+            {canViewLmsTechnicalFields() && (
+              <Button variant="outline" onClick={() => setEditOpen(true)}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Продукт маалыматты оңдоо
+              </Button>
+            )}
+            {canViewLmsTechnicalFields() && deal.lmsCourseId && (
               <Button
                 variant="outline"
-                onClick={() => navigate(`/enrollments?crmDealId=${deal.id}${contact?.lmsStudentId ? `&studentId=${encodeURIComponent(contact.lmsStudentId)}` : ''}`)}
+                onClick={() => navigate(`/enrollments?dealId=${deal.id}${contact?.lmsStudentId ? `&studentId=${encodeURIComponent(contact.lmsStudentId)}` : ''}`)}
               >
-                LMS каттоо
+                Каттоо
               </Button>
             )}
           </div>
@@ -188,49 +192,51 @@ export default function DealDetailPage() {
       />
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="shadow-card border-border/50 lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <BookOpen className="h-4 w-4" />
-              Сатылган LMS маалымат
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <DetailItem label="Курс" value={deal.courseNameSnapshot || deal.lmsCourseId || '—'} />
-              <DetailItem label="Топ" value={deal.groupNameSnapshot || deal.lmsGroupId || '—'} />
-              <DetailItem label="Курс түрү" value={formatCourseType(deal.courseType)} />
-              <DetailItem label="Студент" value={deal.contact?.fullName || contact?.fullName || '—'} icon={User} />
-            </div>
-
-            {liveGroup ? (
-              <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p className="font-medium">{liveGroup.name}</p>
-                    <p className="text-sm text-muted-foreground">{liveGroup.teacherName || 'Мугалим дайындала элек'}</p>
-                  </div>
-                  {availability && <Badge variant={availability.tone}>{availability.label}</Badge>}
-                </div>
-                <div className="grid gap-3 sm:grid-cols-3 text-sm">
-                  <MiniMetric icon={CalendarDays} label="Башталышы" value={formatLmsDate(liveGroup.startDate) || 'Такталган эмес'} />
-                  <MiniMetric icon={Clock3} label="График" value={liveGroup.schedule || 'Такталган эмес'} />
-                  <MiniMetric
-                    icon={Users}
-                    label="Орундар"
-                    value={
-                      liveGroup.capacity != null
-                        ? `${liveGroup.currentStudentCount ?? 0}/${liveGroup.capacity}${getSeatsLeft(liveGroup) != null ? ` • Бош: ${getSeatsLeft(liveGroup)}` : ''}`
-                        : 'Чектелген эмес'
-                    }
-                  />
-                </div>
+        {canViewLmsTechnicalFields() && (
+          <Card className="shadow-card border-border/50 lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <BookOpen className="h-4 w-4" />
+                Сатылган LMS маалымат
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <DetailItem label="Курс" value={deal.courseNameSnapshot || deal.lmsCourseId || '—'} />
+                <DetailItem label="Топ" value={deal.groupNameSnapshot || deal.lmsGroupId || '—'} />
+                <DetailItem label="Курс түрү" value={formatCourseType(deal.courseType)} />
+                <DetailItem label="Студент" value={deal.contact?.fullName || contact?.fullName || '—'} icon={User} />
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">Тандалган топ боюнча түз LMS маалыматы табылган жок.</p>
-            )}
-          </CardContent>
-        </Card>
+
+              {liveGroup ? (
+                <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="font-medium">{liveGroup.name}</p>
+                      <p className="text-sm text-muted-foreground">{liveGroup.teacherName || 'Мугалим дайындала элек'}</p>
+                    </div>
+                    {availability && <Badge variant={availability.tone}>{availability.label}</Badge>}
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-3 text-sm">
+                    <MiniMetric icon={CalendarDays} label="Башталышы" value={formatLmsDate(liveGroup.startDate) || 'Такталган эмес'} />
+                    <MiniMetric icon={Clock3} label="График" value={liveGroup.schedule || 'Такталган эмес'} />
+                    <MiniMetric
+                      icon={Users}
+                      label="Орундар"
+                      value={
+                        liveGroup.capacity != null
+                          ? `${liveGroup.currentStudentCount ?? 0}/${liveGroup.capacity}${getSeatsLeft(liveGroup) != null ? ` • Бош: ${getSeatsLeft(liveGroup)}` : ''}`
+                          : 'Чектелген эмес'
+                      }
+                    />
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Тандалган топ боюнча түз LMS маалыматы табылган жок.</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <div className="space-y-4">
           <Card className="shadow-card border-border/50">
@@ -267,7 +273,7 @@ export default function DealDetailPage() {
                       {formatPaymentMethod(payment.method)}
                       {payment.paidAt ? ` • ${new Date(payment.paidAt).toLocaleDateString('ky-KG')}` : ''}
                     </p>
-                    {payment.lmsEnrollmentId && (
+                    {canViewLmsTechnicalFields() && payment.lmsEnrollmentId && (
                       <p className="text-xs text-muted-foreground">LMS каттоо ID: {payment.lmsEnrollmentId}</p>
                     )}
                   </div>
@@ -276,30 +282,32 @@ export default function DealDetailPage() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-card border-border/50">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Workflow className="h-4 w-4" />
-                Интеграция тарыхы
-              </CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate(`/enrollments?crmDealId=${deal.id}${contact?.lmsStudentId ? `&studentId=${encodeURIComponent(contact.lmsStudentId)}` : ''}`)}
-              >
-                Толук тарых
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <IntegrationHistoryPanel
-                initialFilters={{
-                  crmDealId: deal.id,
-                  crmContactId: contact?.id,
-                  lmsStudentId: contact?.lmsStudentId,
-                }}
-              />
-            </CardContent>
-          </Card>
+          {canViewIntegrationHistory() && (
+            <Card className="shadow-card border-border/50">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Workflow className="h-4 w-4" />
+                  Интеграция тарыхы
+                </CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`/enrollments?crmDealId=${deal.id}${contact?.lmsStudentId ? `&studentId=${encodeURIComponent(contact.lmsStudentId)}` : ''}`)}
+                >
+                  Толук тарых
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <IntegrationHistoryPanel
+                  initialFilters={{
+                    crmDealId: deal.id,
+                    crmContactId: contact?.id,
+                    lmsStudentId: contact?.lmsStudentId,
+                  }}
+                />
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 

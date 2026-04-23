@@ -16,6 +16,7 @@ import { ky } from '@/lib/i18n';
 import { leadsApi, usersApi } from '@/api/modules';
 import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRolePermissions } from '@/hooks/use-role-permissions';
 import type { AssignableUser, Lead, LeadQualificationStatus, LeadSource } from '@/types';
 import { getLeadQualificationStatus, mapQualificationToLeadStatus } from '@/lib/crm-status';
 import { Plus, Trash2, Loader2, Phone, Mail, User, GraduationCap, Save, X, RotateCcw, Search } from 'lucide-react';
@@ -28,6 +29,8 @@ export default function LeadsPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const isMobile = useIsMobile();
+  const { canAssignLeads, canViewLmsTechnicalFields } = useRolePermissions();
+  const canAssignToSales = canAssignLeads();
   const getSearchParam = (key: string, fallback = '') => searchParams.get(key) ?? fallback;
   const getPageParam = () => {
     const value = Number(searchParams.get('page'));
@@ -68,7 +71,6 @@ export default function LeadsPage() {
   const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
   const duplicateCheckRequestRef = useRef(0);
   const didMountFilterStateRef = useRef(false);
-  const canAssignToSales = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'superadmin';
   const { data: coursesData, isLoading: coursesLoading } = useLmsCourses({ isActive: 'true' });
   const courses = coursesData?.items ?? [];
   const selectedCourse = courses.find((course) => course.id === newLead.interestedCourseId);
@@ -435,12 +437,12 @@ export default function LeadsPage() {
       ),
     },
     { key: 'phone', header: ky.common.phone },
-    {
-      key: 'interestedCourseId', header: ky.leads.interestedCourse, render: (l) => {
+    ...(canViewLmsTechnicalFields() ? [{
+      key: 'interestedCourseId' as const, header: ky.leads.interestedCourse, render: (l: Lead) => {
         const course = courses.find((c) => c.id === l.interestedCourseId);
         return <span className="text-sm">{course?.name || '—'}</span>;
       }
-    },
+    }] : []),
     {
       key: 'assignedManager',
       header: ky.leads.assignedManager,
@@ -474,25 +476,27 @@ export default function LeadsPage() {
     {
       key: 'actions', header: '', render: (l) => (
         <div className="flex items-center justify-end gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={(e) => {
-              e.stopPropagation();
-              const params = new URLSearchParams({ crmLeadId: String(l.id) });
-              if (l.interestedCourseId) {
-                params.set('courseId', l.interestedCourseId);
-              }
-              if (l.interestedGroupId) {
-                params.set('groupId', l.interestedGroupId);
-              }
-              navigate(`/enrollments?${params.toString()}`);
-            }}
-            aria-label={`${l.fullName} үчүн LMS каттоону ачуу`}
-          >
-            <GraduationCap className="h-4 w-4" />
-          </Button>
+          {canViewLmsTechnicalFields() && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={(e) => {
+                e.stopPropagation();
+                const params = new URLSearchParams({ crmLeadId: String(l.id) });
+                if (l.interestedCourseId) {
+                  params.set('courseId', l.interestedCourseId);
+                }
+                if (l.interestedGroupId) {
+                  params.set('groupId', l.interestedGroupId);
+                }
+                navigate(`/enrollments?${params.toString()}`);
+              }}
+              aria-label={`${l.fullName} үчүн LMS каттоону ачуу`}
+            >
+              <GraduationCap className="h-4 w-4" />
+            </Button>
+          )}
           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(l); }} aria-label={`${ky.common.delete} ${l.fullName}`}>
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -521,7 +525,7 @@ export default function LeadsPage() {
               )}
             </div>
           </div>
-          {lead.interestedCourseId && (
+          {canViewLmsTechnicalFields() && lead.interestedCourseId && (
             <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
               {courses.find((c) => c.id === lead.interestedCourseId)?.name || lead.interestedCourseId}
             </span>
@@ -581,18 +585,20 @@ export default function LeadsPage() {
               ))}
             </div>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/enrollments?crmLeadId=${lead.id}${lead.interestedCourseId ? '&courseId=' + lead.interestedCourseId : ''}${lead.interestedGroupId ? '&groupId=' + lead.interestedGroupId : ''}`);
-            }}
-            aria-label={`${lead.fullName} үчүн LMS каттоо`}
-          >
-            <GraduationCap className="h-3.5 w-3.5" />
-          </Button>
+          {canViewLmsTechnicalFields() && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/enrollments?crmLeadId=${lead.id}${lead.interestedCourseId ? '&courseId=' + lead.interestedCourseId : ''}${lead.interestedGroupId ? '&groupId=' + lead.interestedGroupId : ''}`);
+              }}
+              aria-label={`${lead.fullName} үчүн LMS каттоо`}
+            >
+              <GraduationCap className="h-3.5 w-3.5" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -893,34 +899,38 @@ export default function LeadsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>{ky.leads.interestedCourse}</Label>
-                <Select value={newLead.interestedCourseId || '__none__'} onValueChange={(value) => setNewLead(p => ({ ...p, interestedCourseId: value === '__none__' ? '' : value, interestedGroupId: '' }))} disabled={coursesLoading}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={coursesLoading ? 'Жүктөлүүдө...' : 'Курс тандаңыз'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Тандалган эмес</SelectItem>
-                    {courses.map((course) => (
-                      <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Кызыккан топ</Label>
-                <Select value={newLead.interestedGroupId || '__none__'} onValueChange={(value) => setNewLead(p => ({ ...p, interestedGroupId: value === '__none__' ? '' : value }))} disabled={!needsGroup || groupsLoading}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={!needsGroup ? 'Талап кылынбайт' : groupsLoading ? 'Жүктөлүүдө...' : 'Топ тандаңыз'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">{!needsGroup ? 'Талап кылынбайт' : 'Тандалган эмес'}</SelectItem>
-                    {groups.map((group) => (
-                      <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {canViewLmsTechnicalFields() && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Продукт (Курс)</Label>
+                    <Select value={newLead.interestedCourseId || '__none__'} onValueChange={(value) => setNewLead(p => ({ ...p, interestedCourseId: value === '__none__' ? '' : value, interestedGroupId: '' }))} disabled={coursesLoading}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={coursesLoading ? 'Жүктөлүүдө...' : 'Продукт тандаңыз'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Тандалган эмес</SelectItem>
+                        {courses.map((course) => (
+                          <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Топ/Группа</Label>
+                    <Select value={newLead.interestedGroupId || '__none__'} onValueChange={(value) => setNewLead(p => ({ ...p, interestedGroupId: value === '__none__' ? '' : value }))} disabled={!needsGroup || groupsLoading}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={!needsGroup ? 'Талап кылынбайт' : groupsLoading ? 'Жүктөлүүдө...' : 'Топ тандаңыз'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">{!needsGroup ? 'Талап кылынбайт' : 'Тандалган эмес'}</SelectItem>
+                        {groups.map((group) => (
+                          <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
               <div className="space-y-2">
                 <Label>{ky.leads.assignedManager}</Label>
                 {canAssignToSales ? (

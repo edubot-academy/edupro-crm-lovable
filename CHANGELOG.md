@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Version bumps are classified by delivery scale; see `VERSIONING.md`.
 
+## [1.7.1] - 2026-04-24
+
+### Added
+- CRM/LMS separation planning docs for frontend, backend, and platform decomposition
+- Role permission hook for centralized CRM, LMS, admin, and retention visibility checks
+- Workflow docs for sales, assistant, and manager daily operations
+
+### Changed
+- Role-based navigation now hides LMS and admin surfaces unless the current role is allowed to access them
+- Leads, contacts, deals, payments, and LMS support panels now use centralized permission checks instead of scattered role comparisons
+- Lead assignment permissions are now modeled separately from full user management so managers can still assign sales work
+- Deal and lead UI copy now uses more business-friendly product wording in several LMS-linked flows
+
+### Fixed
+- LMS-only fields, IDs, history panels, and enrollment actions are now hidden from non-admin roles across list and detail views
+- Manager lead assignment flow no longer regresses after permission centralization
+- Legacy migration navigation is again restricted to superadmin only
+- Deal enrollment navigation now points to the reachable `/enrollments` route
+- Payment warnings and deal labels no longer expose LMS-only context to unauthorized roles
+
 ## [1.7.0] - 2026-04-24
 
 ### Added

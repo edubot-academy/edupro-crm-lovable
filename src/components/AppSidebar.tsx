@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRolePermissions } from '@/hooks/use-role-permissions';
 import { ky } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import {
@@ -93,9 +94,31 @@ export function AppSidebar() {
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === 'collapsed';
   const { user, logout } = useAuth();
-  const isSystemAdmin = user?.role === 'admin' || user?.role === 'superadmin';
-  const isSuperAdmin = user?.role === 'superadmin';
-  const visibleSystemNav = systemNav.filter((item) => !['/users', '/reports', '/settings'].includes(item.url) || isSystemAdmin);
+  const { userRole, canAccessAdminPanel, canViewLmsTechnicalFields, canViewStudentSummary, canViewBridgeAdmin, canViewRetentionCases, canManageUsers, canManageSettings } = useRolePermissions();
+  const isSystemAdmin = canAccessAdminPanel();
+  const isSuperAdmin = userRole === 'superadmin';
+
+  // Filter mainNav based on LMS permissions
+  const visibleMainNav = mainNav.filter((item) => {
+    if (item.url === '/courses' && !canViewLmsTechnicalFields()) return false;
+    return true;
+  });
+
+  // Filter operationsNav based on permissions
+  const visibleOperationsNav = operationsNav.filter((item) => {
+    if (item.url === '/enrollments' && !canViewLmsTechnicalFields()) return false;
+    if (item.url === '/retention' && !canViewRetentionCases()) return false;
+    return true;
+  });
+
+  // Filter systemNav based on admin permissions
+  const visibleSystemNav = systemNav.filter((item) => {
+    if (item.url === '/users' && !canManageUsers()) return false;
+    if (item.url === '/reports' && !canAccessAdminPanel()) return false;
+    if (item.url === '/settings' && !canManageSettings()) return false;
+    return true;
+  });
+
   const handleNavigate = () => {
     if (isMobile) setOpenMobile(false);
   };
@@ -114,8 +137,8 @@ export function AppSidebar() {
       </div>
 
       <SidebarContent className="px-2 py-2">
-        <NavSection label="Негизги" items={mainNav} collapsed={collapsed} onNavigate={handleNavigate} />
-        <NavSection label="Операциялар" items={operationsNav} collapsed={collapsed} onNavigate={handleNavigate} />
+        <NavSection label="Негизги" items={visibleMainNav} collapsed={collapsed} onNavigate={handleNavigate} />
+        <NavSection label="Операциялар" items={visibleOperationsNav} collapsed={collapsed} onNavigate={handleNavigate} />
         {isSuperAdmin && <NavSection label={ky.nav.legacyData} items={legacyNav} collapsed={collapsed} onNavigate={handleNavigate} />}
         <NavSection label="Система" items={visibleSystemNav} collapsed={collapsed} onNavigate={handleNavigate} />
       </SidebarContent>

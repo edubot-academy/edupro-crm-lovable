@@ -8,9 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Send } from 'lucide-react';
-import { useLmsCourses, useLmsGroups, useLmsStudentSummary } from '@/hooks/use-lms';
+import { useLmsCourses, useLmsGroups, useLmsStudentSummary, useCreateStudentOnboardingLink } from '@/hooks/use-lms';
 import { useCreateManagedEnrollment } from '@/hooks/use-enrollments';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRolePermissions } from '@/hooks/use-role-permissions';
 import { useToast } from '@/hooks/use-toast';
 import { contactApi, dealsApi, leadsApi, lmsApi } from '@/api/modules';
 import type { Contact, Deal, Lead } from '@/types';
@@ -33,6 +34,7 @@ const courseTypeBadgeClass: Record<LmsCourseType, string> = {
 export function EnrollmentForm() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
+  const { canManageUsers } = useRolePermissions();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [leadsLoading, setLeadsLoading] = useState(false);
@@ -269,7 +271,7 @@ export function EnrollmentForm() {
   const lmsEmailLooksPlaceholder = (existingStudentSummary?.email || '').trim().toLowerCase().endsWith('@placeholder.local');
   const crmEmailLooksReal = !!studentEmail.trim() && !studentEmail.trim().toLowerCase().endsWith('@placeholder.local');
   const canRecreatePlaceholderAccount =
-    (user?.role === 'admin' || user?.role === 'superadmin') &&
+    canManageUsers() &&
     !!matchingExistingEnrollment &&
     lmsEmailLooksPlaceholder &&
     crmEmailLooksReal;
@@ -472,7 +474,7 @@ export function EnrollmentForm() {
                 <SelectTrigger className={groupError ? 'border-destructive' : ''}>
                   <SelectValue placeholder={
                     groupsLoading ? 'Жүктөлүүдө...' :
-                    groups.length === 0 ? 'Топтор жок' : 'Топ тандаңыз'
+                      groups.length === 0 ? 'Топтор жок' : 'Топ тандаңыз'
                   } />
                 </SelectTrigger>
                 <SelectContent>
@@ -528,7 +530,7 @@ export function EnrollmentForm() {
             <Label>CRM Лид *</Label>
             <Select value={leadId || '__none__'} onValueChange={handleLeadChange} disabled={leadsLoading}>
               <SelectTrigger>
-                <SelectValue placeholder={leadsLoading ? 'Жүктөлүүдө...' : 'Алгач CRM лидди тандаңыз'} />
+                <SelectValue placeholder={leadsLoading ? 'Жүктөлүүдө...' : 'Лидди тандаңыз'} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none__">Тандалган эмес</SelectItem>
@@ -540,15 +542,15 @@ export function EnrollmentForm() {
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Лид тандалганда студенттин аты, телефону жана email талаалары автоматтык толот.
+              Лидди тандасаңыз, студенттин маалыматтары автоматтык толот.
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label>Келишим ID (милдеттүү эмес)</Label>
+            <Label>Келишим (милдеттүү эмес)</Label>
             <Select value={dealId || '__none__'} onValueChange={handleDealChange} disabled={dealsLoading}>
               <SelectTrigger>
-                <SelectValue placeholder={dealsLoading ? 'Жүктөлүүдө...' : 'Келишим тандаңыз'} />
+                <SelectValue placeholder={dealsLoading ? 'Жүктөлүүдө...' : 'Келишимди тандаңыз'} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none__">Тандалган эмес</SelectItem>
@@ -594,7 +596,7 @@ export function EnrollmentForm() {
                 disabled={!leadId}
               />
             </div>
-          <div className="space-y-2">
+            <div className="space-y-2">
               <Label>Email *</Label>
               <Input
                 type="email"
