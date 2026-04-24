@@ -112,7 +112,6 @@ export default function DealsPage() {
     setIsCreating(true);
     try {
       const deal = await dealsApi.create({
-        leadId: Number(form.contactId),
         contactId: Number(form.contactId),
         amount: Number(form.amount),
         currency: form.currency,

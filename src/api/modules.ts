@@ -190,7 +190,7 @@ export const dealsApi = {
   list: (params?: Record<string, string | number | undefined>) =>
     apiClient.get<PaginatedResponse<Deal>>('/api/deals', params),
   get: (id: number) => apiClient.get<Deal>(`/api/deals/${id}`),
-  create: (data: Partial<Deal> & { leadId: number }) => apiClient.post<Deal>('/api/deals', data),
+  create: (data: Partial<Deal>) => apiClient.post<Deal>('/api/deals', data),
   update: (id: number, data: Partial<Deal>) => apiClient.patch<Deal>(`/api/deals/${id}`, data),
   delete: (id: number) => apiClient.delete<{ success: boolean }>(`/api/deals/${id}`),
 };

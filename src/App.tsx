@@ -36,6 +36,7 @@ import EnrollmentsPage from "./pages/Enrollments";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+const enableLmsBridge = import.meta.env.VITE_ENABLE_LMS_BRIDGE === "true";
 
 function AuthRedirect({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -50,7 +51,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider>
-          <LmsBridgeProvider enableLmsBridge={false}>
+          <LmsBridgeProvider enableLmsBridge={enableLmsBridge}>
             <Routes>
               {/* Public auth routes */}
               <Route path="/login" element={<AuthRedirect><LoginPage /></AuthRedirect>} />

@@ -28,6 +28,8 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 - Reports CSV export now conditionally includes LMS-only data (trial conversion, course rows) based on LMS bridge flag
 - Reports trial conversion KPI card is hidden when LMS bridge is disabled
 - LMS bridge is now truly optional - CRM UI keeps working with empty LMS stats when education endpoint fails, instead of failing the entire page
+- LMS bridge enablement is now controlled by `VITE_ENABLE_LMS_BRIDGE` instead of a hardcoded app-level flag
+- Deal creation no longer sends contact IDs as fake `leadId` values
 
 ### Changed
 - Role-based navigation now hides LMS and admin surfaces unless the current role is allowed to access them
