@@ -13,6 +13,43 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 - Role permission hook for centralized CRM, LMS, admin, and retention visibility checks
 - Workflow docs for sales, assistant, and manager daily operations
 - LMS bridge enablement mechanism using React Context with `LmsBridgeProvider` and `useLmsBridge` hook
+- Phase 4 feature flag system: `FeatureFlagProvider` with `useFeatureFlags` hook for module-level feature control
+- Phase 4 feature flag types: `FeatureFlag` type and `FeatureFlags` interface with _enabled suffix (crm_enabled, lms_bridge_enabled, trial_lessons_enabled, retention_enabled, telegram_notifications_enabled, advanced_reports_enabled)
+- Phase 4 environment variables: VITE_ENABLE_CRM, VITE_ENABLE_TRIAL_LESSONS, VITE_ENABLE_RETENTION, VITE_ENABLE_TELEGRAM, VITE_ENABLE_ADVANCED_REPORTS
+- Phase 4 tenant configuration system: `TenantConfigProvider` with `useTenantConfig` hook for tenant-specific settings
+- Phase 4 tenant configuration types: `TenantConfig`, `BrandingConfig`, `NotificationChannel`, `PipelineStageConfig`, `RoleConfig`, `TenantLeadSource` interfaces
+- Phase 4 Settings UI: tenant configuration section with currency, timezone, and language selectors
+- Phase 4 Settings UI: branding configuration section with company name and primary color picker
+- Phase 4 Settings UI: lead sources display section showing configured lead sources with names
+- Phase 4 Settings UI: payment methods display section showing configured payment methods
+- Phase 4 Settings UI: feature flags section with toggle switches for all feature flags
+- Phase 4 API client: `tenantConfigApi` for tenant configuration endpoints (config, roles, stages, lead sources, notification channels)
+- Phase 4 API client: `featureFlagApi` for feature flag endpoints (tenant flags, global flags)
+- Phase 4 backend integration: `FeatureFlagProvider` now loads flags from backend API on mount
+- Phase 4 backend integration: `TenantConfigProvider` now loads config from backend API on mount
+- Phase 4 backend integration: tenant config updates are persisted to backend API
+- Phase 4 backend: `FeatureFlagController` with GET/POST /tenant and GET/PUT /global endpoints
+- Phase 4 backend: `FeatureFlagService.getAllGlobalFlags()` method for retrieving all global flags
+- Phase 4 backend: Fixed `TenantConfig` entity column mappings (company_name, logo_url, primary_color)
+- Phase 4 backend: Fixed status filter contract in `TenantConfigController` (changed @Param to @Query)
+- Phase 4 documentation: Phase 4 contract document defining tenant context, flag precedence, API contracts
+- Phase 4 documentation: Phase 4 audit document identifying backend and frontend issues
+- Phase 4 documentation: Phase 4 completion gates document defining acceptance criteria
+- App.tsx: Integrated `FeatureFlagProvider` and `TenantConfigProvider` into the provider hierarchy
+- App.tsx: `LmsBridgeProvider` now receives `enableLmsBridge` from feature flags instead of hardcoded value
+- AppSidebar.tsx: Navigation items now filtered by feature flags (courses, enrollments, trial-lessons, retention, reports)
+- AppSidebar.tsx: Added `useFeatureFlags` hook to check feature enablement before rendering navigation items
+- Settings.tsx: Added feature flag toggle switches for all feature flags with backend persistence
+- Settings.tsx: Added tenant configuration UI for currency, timezone, language, company name, and primary color
+- Settings.tsx: Added lead sources and payment methods display sections from tenant config
+- Settings.tsx: Integrated `useFeatureFlags` and `useTenantConfig` hooks for managing settings
+- types/index.ts: Added `FeatureFlag` type and `FeatureFlags` interface for feature flag system
+- types/index.ts: Added `TenantConfig`, `BrandingConfig`, `NotificationChannel`, `PipelineStageConfig`, `RoleConfig`, `TenantLeadSource` interfaces
+- types/index.ts: Added LMS bridge field documentation comments to Lead, Contact, Deal, and Payment types
+- src/api/feature-flag.ts: New API client for feature flag management (getTenantFlags, setTenantFlag, getGlobalFlags, setGlobalFlag)
+- src/api/tenant-config.ts: New API client for tenant configuration (config, roles, stages, lead sources, notification channels)
+- src/components/core/FeatureFlagProvider.tsx: New provider for feature flag context with backend integration
+- src/components/core/TenantConfigProvider.tsx: New provider for tenant configuration context with backend integration
 
 ### Changed
 - Phase 2.3 CRM-LMS decoupling: bridge components (LeadCourseInterest, ContactStudentMapping, DealCourseMapping) now check LMS bridge flag in addition to permissions
@@ -20,6 +57,11 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 - Phase 2.3 CRM-LMS decoupling: LMS enrollment buttons in Leads and Deals tables now conditional on LMS bridge flag
 - Phase 2.3 CRM-LMS decoupling: removed LMS field IDs from enrollment navigation params (courseId, groupId, studentId)
 - Phase 2.4 CRM-LMS decoupling: removed @deprecated annotations from type definitions, replaced with clear documentation that these are LMS bridge fields
+- LMS bridge enablement is now controlled by `VITE_ENABLE_LMS_BRIDGE` instead of a hardcoded app-level flag
+- Deal creation no longer sends contact IDs as fake `leadId` values
+- Phase 4 modularization: navigation items now filtered by feature flags in addition to permissions
+- Phase 4 modularization: courses, enrollments, trial-lessons, retention, and reports pages now respect feature flags
+- Phase 4 modularization: Settings page now displays current feature flag status (read-only, controlled by environment variables)
 
 ### Fixed
 - Dashboard now uses split `getCrmStats` and `getEducationStats` endpoints instead of legacy combined `getStats`, properly decoupling CRM from LMS data
@@ -28,8 +70,6 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 - Reports CSV export now conditionally includes LMS-only data (trial conversion, course rows) based on LMS bridge flag
 - Reports trial conversion KPI card is hidden when LMS bridge is disabled
 - LMS bridge is now truly optional - CRM UI keeps working with empty LMS stats when education endpoint fails, instead of failing the entire page
-- LMS bridge enablement is now controlled by `VITE_ENABLE_LMS_BRIDGE` instead of a hardcoded app-level flag
-- Deal creation no longer sends contact IDs as fake `leadId` values
 
 ### Changed
 - Role-based navigation now hides LMS and admin surfaces unless the current role is allowed to access them

@@ -6,6 +6,7 @@ import {
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRolePermissions } from '@/hooks/use-role-permissions';
+import { useFeatureFlags } from '@/components/core/FeatureFlagProvider';
 import { ky } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import {
@@ -95,26 +96,32 @@ export function AppSidebar() {
   const collapsed = state === 'collapsed';
   const { user, logout } = useAuth();
   const { userRole, canAccessAdminPanel, canViewLmsTechnicalFields, canViewStudentSummary, canViewBridgeAdmin, canViewRetentionCases, canManageUsers, canManageSettings } = useRolePermissions();
+  const { isFeatureEnabled } = useFeatureFlags();
   const isSystemAdmin = canAccessAdminPanel();
   const isSuperAdmin = userRole === 'superadmin';
 
-  // Filter mainNav based on LMS permissions
+  // Filter mainNav based on LMS permissions and feature flags
   const visibleMainNav = mainNav.filter((item) => {
     if (item.url === '/courses' && !canViewLmsTechnicalFields()) return false;
+    if (item.url === '/courses' && !isFeatureEnabled('lms_bridge_enabled')) return false;
+    if (item.url === '/trial-lessons' && !isFeatureEnabled('trial_lessons_enabled')) return false;
     return true;
   });
 
-  // Filter operationsNav based on permissions
+  // Filter operationsNav based on permissions and feature flags
   const visibleOperationsNav = operationsNav.filter((item) => {
     if (item.url === '/enrollments' && !canViewLmsTechnicalFields()) return false;
+    if (item.url === '/enrollments' && !isFeatureEnabled('lms_bridge_enabled')) return false;
     if (item.url === '/retention' && !canViewRetentionCases()) return false;
+    if (item.url === '/retention' && !isFeatureEnabled('retention_enabled')) return false;
     return true;
   });
 
-  // Filter systemNav based on admin permissions
+  // Filter systemNav based on admin permissions and feature flags
   const visibleSystemNav = systemNav.filter((item) => {
     if (item.url === '/users' && !canManageUsers()) return false;
     if (item.url === '/reports' && !canAccessAdminPanel()) return false;
+    if (item.url === '/reports' && !isFeatureEnabled('advanced_reports_enabled')) return false;
     if (item.url === '/settings' && !canManageSettings()) return false;
     return true;
   });

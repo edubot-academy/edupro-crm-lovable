@@ -21,6 +21,76 @@ export interface SelectOption {
   label: string;
 }
 
+// ==================== FEATURE FLAGS ====================
+export type FeatureFlag = 'crm_enabled' | 'lms_bridge_enabled' | 'trial_lessons_enabled' | 'retention_enabled' | 'telegram_notifications_enabled' | 'advanced_reports_enabled';
+
+export interface FeatureFlags {
+  crm_enabled: boolean;
+  lms_bridge_enabled: boolean;
+  trial_lessons_enabled: boolean;
+  retention_enabled: boolean;
+  telegram_notifications_enabled: boolean;
+  advanced_reports_enabled: boolean;
+}
+
+// ==================== TENANT CONFIGURATION ====================
+export interface TenantConfig {
+  id?: number;
+  tenantId: string;
+  language: string;
+  currency: string;
+  timezone: string;
+  companyName?: string | null;
+  logoUrl?: string | null;
+  primaryColor?: string | null;
+  branding?: BrandingConfig;
+  leadSources: TenantLeadSource[];
+  paymentMethods: string[];
+  notificationChannels: NotificationChannel[];
+  pipelineStages: PipelineStageConfig[];
+  roles: RoleConfig[];
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface TenantLeadSource {
+  id?: number;
+  tenantId: string;
+  sourceKey: string;
+  sourceName: string;
+  isDefault?: boolean;
+}
+
+export interface BrandingConfig {
+  logoUrl?: string | null;
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
+  accentColor?: string | null;
+  companyName?: string | null;
+}
+
+export interface NotificationChannel {
+  id: string;
+  type: 'email' | 'telegram' | 'sms' | 'whatsapp';
+  enabled: boolean;
+  config?: Record<string, unknown>;
+}
+
+export interface PipelineStageConfig {
+  id: string;
+  key: string;
+  label: string;
+  order: number;
+  color?: string;
+}
+
+export interface RoleConfig {
+  id: string;
+  key: string;
+  label: string;
+  permissions: string[];
+}
+
 // ==================== AUTH ====================
 export type UserRole = 'sales' | 'assistant' | 'manager' | 'admin' | 'superadmin';
 
