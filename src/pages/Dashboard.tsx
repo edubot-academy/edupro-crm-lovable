@@ -6,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ky } from '@/lib/i18n';
 import { dashboardApi } from '@/api/modules';
-import type { DashboardStats } from '@/types';
+import type { DashboardStats, CrmDashboardStats, EducationDashboardStats } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { DateRangeFilter } from '@/components/DateRangeFilter';
+import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
 import {
   Users, UserPlus, TrendingUp, Target,
   CreditCard, Trophy, AlertTriangle, BookOpen, RefreshCw, Plus
@@ -17,23 +18,27 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 
 const COLORS = ['hsl(220,70%,50%)', 'hsl(167,65%,44%)', 'hsl(38,92%,50%)', 'hsl(0,72%,51%)', 'hsl(200,80%,50%)', 'hsl(280,60%,50%)'];
 
-const emptyStats: DashboardStats = {
+const emptyCrmStats: CrmDashboardStats = {
   totalLeads: 0,
   newLeads: 0,
   conversionRate: 0,
-  trialToSaleConversion: 0,
   paymentPendingCount: 0,
   wonDeals: 0,
   openRetentionCases: 0,
   leadsBySource: [],
   managerPerformance: [],
+};
+
+const emptyEducationStats: EducationDashboardStats = {
+  trialToSaleConversion: 0,
   popularCourses: [],
 };
 
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [stats, setStats] = useState<DashboardStats>(emptyStats);
+  const { isLmsBridgeEnabled } = useLmsBridge();
+  const [stats, setStats] = useState<DashboardStats>({ ...emptyCrmStats, ...emptyEducationStats });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState<string>('all');
@@ -66,14 +71,21 @@ export default function DashboardPage() {
       if (customToDate) params.to = customToDate;
     }
 
-    dashboardApi.getStats(params)
-      .then((data) => {
-        setStats(data);
-        setLastUpdated(new Date());
+    const crmPromise = dashboardApi.getCrmStats(params);
+    const educationPromise = isLmsBridgeEnabled
+      ? dashboardApi.getEducationStats(params).catch(() => emptyEducationStats)
+      : Promise.resolve(emptyEducationStats);
+
+    crmPromise
+      .then((crmData) => {
+        return educationPromise.then((educationData) => {
+          setStats({ ...crmData, ...educationData });
+          setLastUpdated(new Date());
+        });
       })
       .catch((err) => {
         setError('Маалыматтарды жүктөөдө ката кетти');
-        setStats(emptyStats);
+        setStats({ ...emptyCrmStats, ...emptyEducationStats });
         toast({
           variant: 'destructive',
           title: 'Ката',
@@ -81,7 +93,7 @@ export default function DashboardPage() {
         });
       })
       .finally(() => setIsLoading(false));
-  }, [dateFilter, customFromDate, customToDate, toast]);
+  }, [dateFilter, customFromDate, customToDate, toast, isLmsBridgeEnabled]);
 
   useEffect(() => {
     fetchStats();
@@ -208,7 +220,7 @@ export default function DashboardPage() {
         {topManager && (
           <span className="rounded-full bg-secondary px-3 py-1">Мыкты менеджер: {topManager.manager}</span>
         )}
-        {topCourse && (
+        {isLmsBridgeEnabled && topCourse && (
           <span className="rounded-full bg-secondary px-3 py-1">Алдыңкы курс: {topCourse.course}</span>
         )}
       </div>
@@ -263,7 +275,9 @@ export default function DashboardPage() {
         <StatCard title={ky.dashboard.totalLeads} value={stats.totalLeads} icon={Users} variant="primary" />
         <StatCard title={ky.dashboard.newLeads} value={stats.newLeads} icon={UserPlus} variant="info" />
         <StatCard title={ky.dashboard.conversionRate} value={`${stats.conversionRate}%`} icon={TrendingUp} variant="success" />
-        <StatCard title={ky.dashboard.trialConversion} value={`${stats.trialToSaleConversion}%`} icon={Target} variant="success" />
+        {isLmsBridgeEnabled && (
+          <StatCard title={ky.dashboard.trialConversion} value={`${stats.trialToSaleConversion}%`} icon={Target} variant="success" />
+        )}
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard title={ky.dashboard.paymentPending} value={stats.paymentPendingCount} icon={CreditCard} variant="warning" />
@@ -305,65 +319,67 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Popular courses */}
-        <Card className="shadow-card border-border/50">
-          <CardHeader>
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <BookOpen className="h-4 w-4" />
-              {ky.dashboard.popularCourses}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.popularCourses} layout="vertical">
-                  <XAxis type="number" />
-                  <YAxis type="category" dataKey="course" width={100} tick={{ fontSize: 12 }} />
-                  <Tooltip />
-                  <Bar dataKey="enrollments" fill="hsl(220,70%,50%)" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            {topCourse && (
-              <p className="mt-4 text-sm text-muted-foreground">
-                Азыркы лидер: <span className="font-medium text-foreground">{topCourse.course}</span> ({topCourse.enrollments})
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Manager performance */}
-        <Card className="shadow-card border-border/50 lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base font-semibold">{ky.dashboard.managerPerformance}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.managerPerformance}>
-                  <XAxis dataKey="manager" tick={{ fontSize: 12 }} />
-                  <YAxis yAxisId="left" />
-                  <YAxis yAxisId="right" orientation="right" />
-                  <Tooltip
-                    formatter={(value, name) => {
-                      if (name === 'conversion') return `${value}%`;
-                      return value;
-                    }}
-                  />
-                  <Bar yAxisId="left" dataKey="leads" fill="hsl(220,70%,50%)" radius={[4, 4, 0, 0]} name="Лидтер" />
-                  <Bar yAxisId="left" dataKey="deals" fill="hsl(167,65%,44%)" radius={[4, 4, 0, 0]} name="Келишимдер" />
-                  <Line yAxisId="right" type="monotone" dataKey="conversion" stroke="hsl(38,92%,50%)" strokeWidth={2} name="Конверсия %" dot={{ r: 4 }} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            {topManager && (
-              <p className="mt-4 text-sm text-muted-foreground">
-                Эң жогорку конверсия: <span className="font-medium text-foreground">{topManager.manager}</span> ({topManager.conversion}%)
-              </p>
-            )}
-          </CardContent>
-        </Card>
+        {/* Popular courses - only shown when LMS bridge is enabled */}
+        {isLmsBridgeEnabled && (
+          <Card className="shadow-card border-border/50">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <BookOpen className="h-4 w-4" />
+                {ky.dashboard.popularCourses}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={stats.popularCourses} layout="vertical">
+                    <XAxis type="number" />
+                    <YAxis type="category" dataKey="course" width={100} tick={{ fontSize: 12 }} />
+                    <Tooltip />
+                    <Bar dataKey="enrollments" fill="hsl(220,70%,50%)" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              {topCourse && (
+                <p className="mt-4 text-sm text-muted-foreground">
+                  Азыркы лидер: <span className="font-medium text-foreground">{topCourse.course}</span> ({topCourse.enrollments})
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
+
+      {/* Manager performance - full width when courses hidden */}
+      <Card className={`shadow-card border-border/50 ${!isLmsBridgeEnabled ? 'lg:col-span-2' : 'lg:col-span-2'}`}>
+        <CardHeader>
+          <CardTitle className="text-base font-semibold">{ky.dashboard.managerPerformance}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={stats.managerPerformance}>
+                <XAxis dataKey="manager" tick={{ fontSize: 12 }} />
+                <YAxis yAxisId="left" />
+                <YAxis yAxisId="right" orientation="right" />
+                <Tooltip
+                  formatter={(value, name) => {
+                    if (name === 'conversion') return `${value}%`;
+                    return value;
+                  }}
+                />
+                <Bar yAxisId="left" dataKey="leads" fill="hsl(220,70%,50%)" radius={[4, 4, 0, 0]} name="Лидтер" />
+                <Bar yAxisId="left" dataKey="deals" fill="hsl(167,65%,44%)" radius={[4, 4, 0, 0]} name="Келишимдер" />
+                <Line yAxisId="right" type="monotone" dataKey="conversion" stroke="hsl(38,92%,50%)" strokeWidth={2} name="Конверсия %" dot={{ r: 4 }} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          {topManager && (
+            <p className="mt-4 text-sm text-muted-foreground">
+              Эң жогорку конверсия: <span className="font-medium text-foreground">{topManager.manager}</span> ({topManager.conversion}%)
+            </p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

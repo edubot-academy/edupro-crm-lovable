@@ -11,8 +11,9 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { ky } from '@/lib/i18n';
 import { reportsApi } from '@/api/modules';
-import type { DashboardStats, DashboardStatsQueryParams } from '@/types';
+import type { DashboardStats, DashboardStatsQueryParams, CrmDashboardStats, EducationDashboardStats } from '@/types';
 import { DateRangeFilter } from '@/components/DateRangeFilter';
+import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
 import {
   Users, UserPlus, TrendingUp, Target, CreditCard, Trophy,
   AlertTriangle, Download, RefreshCw, GraduationCap,
@@ -30,16 +31,19 @@ const COLORS = [
   'hsl(140, 60%, 45%)', 'hsl(30, 80%, 55%)',
 ];
 
-const emptyStats: DashboardStats = {
+const emptyCrmStats: CrmDashboardStats = {
   totalLeads: 0,
   newLeads: 0,
   conversionRate: 0,
-  trialToSaleConversion: 0,
   paymentPendingCount: 0,
   wonDeals: 0,
   openRetentionCases: 0,
   leadsBySource: [],
   managerPerformance: [],
+};
+
+const emptyEducationStats: EducationDashboardStats = {
+  trialToSaleConversion: 0,
   popularCourses: [],
 };
 
@@ -64,13 +68,15 @@ const emptyRevenueReports = {
 };
 
 // CSV export helper
-function exportCSV(stats: DashboardStats) {
+function exportCSV(stats: DashboardStats, isLmsEnabled: boolean) {
   const rows: string[] = [];
   rows.push('Метрика,Маани');
   rows.push(`Жалпы лидтер,${stats.totalLeads}`);
   rows.push(`Жаңы лидтер,${stats.newLeads}`);
   rows.push(`Конверсия %,${stats.conversionRate}`);
-  rows.push(`Сыноодон сатуу %,${stats.trialToSaleConversion}`);
+  if (isLmsEnabled) {
+    rows.push(`Сыноодон сатуу %,${stats.trialToSaleConversion}`);
+  }
   rows.push(`Төлөм күтүлүүдө,${stats.paymentPendingCount}`);
   rows.push(`Утулган келишимдер,${stats.wonDeals}`);
   rows.push(`Ачык тобокелдик,${stats.openRetentionCases}`);
@@ -80,9 +86,11 @@ function exportCSV(stats: DashboardStats) {
   rows.push('');
   rows.push('Менеджер,Лидтер,Келишимдер,Конверсия %');
   stats.managerPerformance.forEach((m) => rows.push(`${m.manager},${m.leads},${m.deals},${m.conversion}`));
-  rows.push('');
-  rows.push('Курс,Каттоолор');
-  stats.popularCourses.forEach((c) => rows.push(`${c.course},${c.enrollments}`));
+  if (isLmsEnabled) {
+    rows.push('');
+    rows.push('Курс,Каттоолор');
+    stats.popularCourses.forEach((c) => rows.push(`${c.course},${c.enrollments}`));
+  }
 
   const blob = new Blob(['\uFEFF' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -94,9 +102,10 @@ function exportCSV(stats: DashboardStats) {
 }
 
 export default function ReportsPage() {
+  const { isLmsBridgeEnabled } = useLmsBridge();
   const [searchParams, setSearchParams] = useSearchParams();
   const getSearchParam = (key: string, fallback = '') => searchParams.get(key) ?? fallback;
-  const [stats, setStats] = useState<DashboardStats>(emptyStats);
+  const [stats, setStats] = useState<DashboardStats>({ ...emptyCrmStats, ...emptyEducationStats });
   const [paymentReports, setPaymentReports] = useState(emptyPaymentReports);
   const [revenueReports, setRevenueReports] = useState(emptyRevenueReports);
   const [isLoading, setIsLoading] = useState(true);
@@ -106,7 +115,7 @@ export default function ReportsPage() {
   const [customToDate, setCustomToDate] = useState<string>(() => getSearchParam('to'));
   const [sourceFilter, setSourceFilter] = useState(() => getSearchParam('source', 'all'));
   const [managerFilter, setManagerFilter] = useState(() => getSearchParam('manager', 'all'));
-  const [courseFilter, setCourseFilter] = useState(() => getSearchParam('course', 'all'));
+  const [courseFilter, setCourseFilter] = useState(() => isLmsBridgeEnabled ? getSearchParam('course', 'all') : 'all');
 
   const fetchStats = useCallback(() => {
     setIsLoading(true);
@@ -133,7 +142,7 @@ export default function ReportsPage() {
     }
     if (sourceFilter !== 'all') params.source = sourceFilter;
     if (managerFilter !== 'all') params.managerId = managerFilter;
-    if (courseFilter !== 'all') params.courseId = courseFilter;
+    if (isLmsBridgeEnabled && courseFilter !== 'all') params.courseId = courseFilter;
 
     Promise.all([
       reportsApi.getStats(params),
@@ -146,13 +155,13 @@ export default function ReportsPage() {
         setRevenueReports(revenueData);
       })
       .catch(() => {
-        setStats(emptyStats);
+        setStats({ ...emptyCrmStats, ...emptyEducationStats });
         setPaymentReports(emptyPaymentReports);
         setRevenueReports(emptyRevenueReports);
         setError('Отчет маалыматтарын жүктөө мүмкүн болгон жок. Кийинчерээк кайра аракет кылыңыз.');
       })
       .finally(() => setIsLoading(false));
-  }, [dateFilter, customFromDate, customToDate, sourceFilter, managerFilter, courseFilter]);
+  }, [dateFilter, customFromDate, customToDate, sourceFilter, managerFilter, courseFilter, isLmsBridgeEnabled]);
 
   useEffect(() => { fetchStats(); }, [fetchStats]);
 
@@ -162,7 +171,7 @@ export default function ReportsPage() {
     const nextTo = searchParams.get('to') ?? '';
     const nextSource = searchParams.get('source') ?? 'all';
     const nextManager = searchParams.get('manager') ?? 'all';
-    const nextCourse = searchParams.get('course') ?? 'all';
+    const nextCourse = isLmsBridgeEnabled ? (searchParams.get('course') ?? 'all') : 'all';
 
     if (nextDate !== dateFilter) setDateFilter(nextDate);
     if (nextFrom !== customFromDate) setCustomFromDate(nextFrom);
@@ -170,7 +179,7 @@ export default function ReportsPage() {
     if (nextSource !== sourceFilter) setSourceFilter(nextSource);
     if (nextManager !== managerFilter) setManagerFilter(nextManager);
     if (nextCourse !== courseFilter) setCourseFilter(nextCourse);
-  }, [searchParams]);
+  }, [searchParams, isLmsBridgeEnabled]);
 
   useEffect(() => {
     setSearchParams((current) => {
@@ -191,12 +200,12 @@ export default function ReportsPage() {
       if (managerFilter !== 'all') next.set('manager', managerFilter);
       else next.delete('manager');
 
-      if (courseFilter !== 'all') next.set('course', courseFilter);
+      if (isLmsBridgeEnabled && courseFilter !== 'all') next.set('course', courseFilter);
       else next.delete('course');
 
       return next.toString() === current.toString() ? current : next;
     }, { replace: true });
-  }, [dateFilter, customFromDate, customToDate, sourceFilter, managerFilter, courseFilter, setSearchParams]);
+  }, [dateFilter, customFromDate, customToDate, sourceFilter, managerFilter, courseFilter, setSearchParams, isLmsBridgeEnabled]);
 
   // Filtered data for client-side filtering
   const filteredSources = sourceFilter === 'all'
@@ -253,7 +262,7 @@ export default function ReportsPage() {
             <Button variant="outline" size="sm" onClick={fetchStats}>
               <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Жаңыртуу
             </Button>
-            <Button variant="outline" size="sm" onClick={() => exportCSV(stats)}>
+            <Button variant="outline" size="sm" onClick={() => exportCSV(stats, isLmsBridgeEnabled)}>
               <Download className="mr-1.5 h-3.5 w-3.5" /> CSV Экспорт
             </Button>
           </div>
@@ -291,14 +300,16 @@ export default function ReportsPage() {
                 {stats.managerPerformance.map((m) => <SelectItem key={m.manager} value={m.manager}>{m.manager}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={courseFilter} onValueChange={setCourseFilter}>
-              <SelectTrigger className="h-9 w-full text-xs sm:w-[150px]"><SelectValue placeholder="Курс" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Бардык курстар</SelectItem>
-                {stats.popularCourses.map((c) => <SelectItem key={c.course} value={c.course}>{c.course}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            {(dateFilter !== 'all' || customFromDate || customToDate || sourceFilter !== 'all' || managerFilter !== 'all' || courseFilter !== 'all') && (
+            {isLmsBridgeEnabled && (
+              <Select value={courseFilter} onValueChange={setCourseFilter}>
+                <SelectTrigger className="h-9 w-full text-xs sm:w-[150px]"><SelectValue placeholder="Курс" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Бардык курстар</SelectItem>
+                  {stats.popularCourses.map((c) => <SelectItem key={c.course} value={c.course}>{c.course}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+            {(dateFilter !== 'all' || customFromDate || customToDate || sourceFilter !== 'all' || managerFilter !== 'all' || (isLmsBridgeEnabled && courseFilter !== 'all')) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -321,10 +332,12 @@ export default function ReportsPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="flex w-full min-w-max items-center justify-start gap-1 overflow-x-auto rounded-lg p-1 lg:inline-grid lg:w-auto lg:grid-cols-5">
+        <TabsList className={`flex w-full min-w-max items-center justify-start gap-1 overflow-x-auto rounded-lg p-1 lg:inline-grid lg:w-auto ${isLmsBridgeEnabled ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
           <TabsTrigger value="overview" className="text-xs gap-1.5"><BarChart3 className="h-3.5 w-3.5" />Жалпы</TabsTrigger>
           <TabsTrigger value="sales" className="text-xs gap-1.5"><TrendingUp className="h-3.5 w-3.5" />Сатуу</TabsTrigger>
-          <TabsTrigger value="courses" className="text-xs gap-1.5"><GraduationCap className="h-3.5 w-3.5" />Курстар</TabsTrigger>
+          {isLmsBridgeEnabled && (
+            <TabsTrigger value="courses" className="text-xs gap-1.5"><GraduationCap className="h-3.5 w-3.5" />Курстар</TabsTrigger>
+          )}
           <TabsTrigger value="payments" className="text-xs gap-1.5"><DollarSign className="h-3.5 w-3.5" />Төлөмдөр</TabsTrigger>
           <TabsTrigger value="retention" className="text-xs gap-1.5"><Activity className="h-3.5 w-3.5" />Тобокелдик</TabsTrigger>
         </TabsList>
@@ -339,7 +352,9 @@ export default function ReportsPage() {
             <StatCard title={ky.dashboard.wonDeals} value={stats.wonDeals} icon={Trophy} variant="success" />
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <StatCard title={ky.dashboard.trialConversion} value={`${stats.trialToSaleConversion}%`} icon={Target} variant="success" />
+            {isLmsBridgeEnabled && (
+              <StatCard title={ky.dashboard.trialConversion} value={`${stats.trialToSaleConversion}%`} icon={Target} variant="success" />
+            )}
             <StatCard title={ky.dashboard.paymentPending} value={stats.paymentPendingCount} icon={CreditCard} variant="warning" />
             <StatCard title={ky.dashboard.openRetention} value={stats.openRetentionCases} icon={AlertTriangle} variant="destructive" />
           </div>

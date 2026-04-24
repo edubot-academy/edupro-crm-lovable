@@ -2,6 +2,7 @@ import { apiClient } from './client';
 import type {
   LmsCourse, LmsGroup, Payment, TrialLesson, Task,
   TimelineEvent, RetentionCase, DashboardStats, DashboardStatsQueryParams,
+  CrmDashboardStats, EducationDashboardStats,
   FunnelReport, SystemUser, CreatedUserResponse, AssignableUser, Company, Lead, Contact, ContactNote, Deal, PaginatedResponse,
   TelegramLinkResponse, TelegramStatusResponse,
   InAppNotification, UnreadNotificationsResponse,
@@ -260,12 +261,16 @@ export const notificationsApi = {
 // ==================== DASHBOARD ====================
 export const dashboardApi = {
   getStats: (params?: DashboardStatsQueryParams) =>
-    apiClient.get<DashboardStats>('/api/dashboard/stats', params),
+    apiClient.get<DashboardStats>('/api/dashboard/stats', params as Record<string, string | number | undefined>),
+  getCrmStats: (params?: DashboardStatsQueryParams) =>
+    apiClient.get<CrmDashboardStats>('/api/dashboard/crm-stats', params as Record<string, string | number | undefined>),
+  getEducationStats: (params?: DashboardStatsQueryParams) =>
+    apiClient.get<EducationDashboardStats>('/api/dashboard/education-stats', params as Record<string, string | number | undefined>),
 };
 
 export const reportsApi = {
   getStats: (params?: DashboardStatsQueryParams) =>
-    apiClient.get<DashboardStats>('/api/reports/stats', params),
+    apiClient.get<DashboardStats>('/api/reports/stats', params as Record<string, string | number | undefined>),
   getFunnel: (params?: Record<string, string | number | undefined>) =>
     apiClient.get<FunnelReport>('/api/reports/funnel', params),
   getPaymentReports: (params?: Record<string, string | number | undefined>) =>

@@ -14,6 +14,14 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 - Workflow docs for sales, assistant, and manager daily operations
 - LMS bridge enablement mechanism using React Context with `LmsBridgeProvider` and `useLmsBridge` hook
 
+### Fixed
+- Dashboard now uses split `getCrmStats` and `getEducationStats` endpoints instead of legacy combined `getStats`, properly decoupling CRM from LMS data
+- Reports page now uses the original `reportsApi.getStats` endpoint instead of dashboard endpoints to preserve report-specific backend behavior
+- Reports course filter now ignores URL params when LMS bridge is disabled, preventing hidden filters from bookmarked URLs
+- Reports CSV export now conditionally includes LMS-only data (trial conversion, course rows) based on LMS bridge flag
+- Reports trial conversion KPI card is hidden when LMS bridge is disabled
+- LMS bridge is now truly optional - CRM UI keeps working with empty LMS stats when education endpoint fails, instead of failing the entire page
+
 ### Changed
 - Role-based navigation now hides LMS and admin surfaces unless the current role is allowed to access them
 - Leads, contacts, deals, payments, and LMS support panels now use centralized permission checks instead of scattered role comparisons

@@ -362,18 +362,27 @@ export interface UnreadNotificationsResponse {
 }
 
 // ==================== REPORTS ====================
-export interface DashboardStats {
+
+// CRM-only dashboard stats
+export interface CrmDashboardStats {
   totalLeads: number;
   newLeads: number;
   conversionRate: number;
-  trialToSaleConversion: number;
   paymentPendingCount: number;
   wonDeals: number;
   openRetentionCases: number;
   leadsBySource: { source: string; count: number }[];
   managerPerformance: { manager: string; leads: number; deals: number; conversion: number }[];
+}
+
+// Education/LMS-specific dashboard stats
+export interface EducationDashboardStats {
+  trialToSaleConversion: number;
   popularCourses: { course: string; enrollments: number }[];
 }
+
+// Combined dashboard stats (for backward compatibility)
+export interface DashboardStats extends CrmDashboardStats, EducationDashboardStats { }
 
 export interface DashboardStatsQueryParams {
   from?: string;
