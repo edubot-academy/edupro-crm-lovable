@@ -14,9 +14,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { ky } from '@/lib/i18n';
 import { leadsApi, usersApi } from '@/api/modules';
-import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRolePermissions } from '@/hooks/use-role-permissions';
+import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
 import type { AssignableUser, Lead, LeadQualificationStatus, LeadSource } from '@/types';
 import { getLeadQualificationStatus, mapQualificationToLeadStatus } from '@/lib/crm-status';
 import { Plus, Trash2, Loader2, Phone, Mail, User, GraduationCap, Save, X, RotateCcw, Search } from 'lucide-react';
@@ -30,6 +30,7 @@ export default function LeadsPage() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const { canAssignLeads, canViewLmsTechnicalFields } = useRolePermissions();
+  const { isLmsBridgeEnabled } = useLmsBridge();
   const canAssignToSales = canAssignLeads();
   const getSearchParam = (key: string, fallback = '') => searchParams.get(key) ?? fallback;
   const getPageParam = () => {
@@ -454,21 +455,14 @@ export default function LeadsPage() {
     {
       key: 'actions', header: '', render: (l) => (
         <div className="flex items-center justify-end gap-1">
-          {canViewLmsTechnicalFields() && (
+          {isLmsBridgeEnabled && canViewLmsTechnicalFields() && (
             <Button
               variant="ghost"
               size="icon"
               className="h-8 w-8"
               onClick={(e) => {
                 e.stopPropagation();
-                const params = new URLSearchParams({ crmLeadId: String(l.id) });
-                if (l.interestedCourseId) {
-                  params.set('courseId', l.interestedCourseId);
-                }
-                if (l.interestedGroupId) {
-                  params.set('groupId', l.interestedGroupId);
-                }
-                navigate(`/enrollments?${params.toString()}`);
+                navigate(`/enrollments?crmLeadId=${l.id}`);
               }}
               aria-label={`${l.fullName} үчүн LMS каттоону ачуу`}
             >
@@ -558,14 +552,14 @@ export default function LeadsPage() {
               ))}
             </div>
           )}
-          {canViewLmsTechnicalFields() && (
+          {isLmsBridgeEnabled && canViewLmsTechnicalFields() && (
             <Button
               variant="ghost"
               size="icon"
               className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/enrollments?crmLeadId=${lead.id}${lead.interestedCourseId ? '&courseId=' + lead.interestedCourseId : ''}${lead.interestedGroupId ? '&groupId=' + lead.interestedGroupId : ''}`);
+                navigate(`/enrollments?crmLeadId=${lead.id}`);
               }}
               aria-label={`${lead.fullName} үчүн LMS каттоо`}
             >

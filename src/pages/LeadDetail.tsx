@@ -15,6 +15,7 @@ import { leadsApi, usersApi } from '@/api/modules';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRolePermissions } from '@/hooks/use-role-permissions';
+import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
 import type { AssignableUser, Lead, LeadQualificationStatus, LeadSource } from '@/types';
 import { getLeadQualificationStatus } from '@/lib/crm-status';
 import { getFriendlyError } from '@/lib/error-messages';
@@ -28,6 +29,7 @@ export default function LeadDetailPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { canAssignLeads, canViewLmsTechnicalFields } = useRolePermissions();
+  const { isLmsBridgeEnabled } = useLmsBridge();
   const canAssignToSales = canAssignLeads();
   const [lead, setLead] = useState<Lead | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -230,7 +232,7 @@ export default function LeadDetailPage() {
           </CardContent>
         </Card>
 
-        {canViewLmsTechnicalFields() && (
+        {isLmsBridgeEnabled && canViewLmsTechnicalFields() && (
           <LeadCourseInterest
             interestedCourseId={lead.interestedCourseId}
             interestedGroupId={lead.interestedGroupId}

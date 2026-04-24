@@ -14,6 +14,13 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 - Workflow docs for sales, assistant, and manager daily operations
 - LMS bridge enablement mechanism using React Context with `LmsBridgeProvider` and `useLmsBridge` hook
 
+### Changed
+- Phase 2.3 CRM-LMS decoupling: bridge components (LeadCourseInterest, ContactStudentMapping, DealCourseMapping) now check LMS bridge flag in addition to permissions
+- Phase 2.3 CRM-LMS decoupling: removed unused LMS course/group hooks from Leads.tsx
+- Phase 2.3 CRM-LMS decoupling: LMS enrollment buttons in Leads and Deals tables now conditional on LMS bridge flag
+- Phase 2.3 CRM-LMS decoupling: removed LMS field IDs from enrollment navigation params (courseId, groupId, studentId)
+- Phase 2.4 CRM-LMS decoupling: removed @deprecated annotations from type definitions, replaced with clear documentation that these are LMS bridge fields
+
 ### Fixed
 - Dashboard now uses split `getCrmStats` and `getEducationStats` endpoints instead of legacy combined `getStats`, properly decoupling CRM from LMS data
 - Reports page now uses the original `reportsApi.getStats` endpoint instead of dashboard endpoints to preserve report-specific backend behavior

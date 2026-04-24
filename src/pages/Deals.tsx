@@ -13,6 +13,7 @@ import { ky } from '@/lib/i18n';
 import { contactApi, dealsApi, tasksApi } from '@/api/modules';
 import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
 import { useRolePermissions } from '@/hooks/use-role-permissions';
+import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
 import type { Contact, Deal, DealPipelineStage } from '@/types';
 import { getDealPipelineStage, mapPipelineToDealStage } from '@/lib/crm-status';
 import type { LmsCourseType } from '@/types/lms';
@@ -38,6 +39,7 @@ export default function DealsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const { canViewLmsTechnicalFields } = useRolePermissions();
+  const { isLmsBridgeEnabled } = useLmsBridge();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -233,14 +235,14 @@ export default function DealsPage() {
               ))}
             </SelectContent>
           </Select>
-          {canViewLmsTechnicalFields() && (
+          {isLmsBridgeEnabled && canViewLmsTechnicalFields() && (
             <Button
               variant="ghost"
               size="icon"
               className="h-8 w-8"
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/enrollments?crmDealId=${d.id}${d.contact?.lmsStudentId ? `&studentId=${encodeURIComponent(d.contact.lmsStudentId)}` : ''}`);
+                navigate(`/enrollments?crmDealId=${d.id}`);
               }}
               aria-label={`${d.contact?.fullName || 'Келишим'} үчүн LMS каттоону ачуу`}
             >

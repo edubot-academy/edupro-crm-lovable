@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRolePermissions } from '@/hooks/use-role-permissions';
+import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
 import { ContactStudentMapping } from '@/components/lms/ContactStudentMapping';
 import { useCreateStudentOnboardingLink, useLmsIntegrationHistory, useLmsStudentSummary } from '@/hooks/use-lms';
 import { ScheduleTimelineEventDialog } from '@/components/ScheduleTimelineEventDialog';
@@ -26,6 +27,7 @@ export default function ContactDetailPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { canViewLmsTechnicalFields, canViewStudentSummary, canViewIntegrationHistory } = useRolePermissions();
+  const { isLmsBridgeEnabled } = useLmsBridge();
   const [contact, setContact] = useState<Contact | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -196,7 +198,7 @@ export default function ContactDetailPage() {
           </CardContent>
         </Card>
 
-        {canViewLmsTechnicalFields() && (
+        {isLmsBridgeEnabled && canViewLmsTechnicalFields() && (
           <ContactStudentMapping
             lmsStudentId={contact.lmsStudentId}
             externalStudentId={contact.externalStudentId}

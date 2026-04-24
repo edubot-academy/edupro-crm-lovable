@@ -17,12 +17,14 @@ import { DealCourseMapping } from '@/components/lms/DealCourseMapping';
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
 import { useRolePermissions } from '@/hooks/use-role-permissions';
+import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
 
 export default function DealDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { canViewLmsTechnicalFields, canViewIntegrationHistory } = useRolePermissions();
+  const { isLmsBridgeEnabled } = useLmsBridge();
   const [deal, setDeal] = useState<Deal | null>(null);
   const [contact, setContact] = useState<Contact | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -185,7 +187,7 @@ export default function DealDetailPage() {
       />
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {canViewLmsTechnicalFields() && (
+        {isLmsBridgeEnabled && canViewLmsTechnicalFields() && (
           <DealCourseMapping
             lmsCourseId={deal.lmsCourseId}
             lmsGroupId={deal.lmsGroupId}
