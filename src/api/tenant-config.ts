@@ -57,6 +57,17 @@ export interface TenantNotificationChannelResponse {
   enabled: boolean;
 }
 
+export interface TenantPaymentMethodResponse {
+  id: number;
+  tenantId: string;
+  methodKey: string;
+  methodName: string;
+  methodType: 'card' | 'qr' | 'bank' | 'manual' | 'other';
+  config: Record<string, any>;
+  enabled: boolean;
+  displayOrder: number;
+}
+
 const getCompanyId = () => localStorage.getItem('companyId') || undefined;
 
 export const tenantConfigApi = {
@@ -194,6 +205,31 @@ export const tenantConfigApi = {
 
   deleteNotificationChannel: async (channelType: string): Promise<void> => {
     return apiClient.delete<void>(`/tenant-config/notification-channels/${channelType}`, {
+      extraHeaders: getCompanyId() ? { 'x-company-id': getCompanyId()! } : undefined,
+    });
+  },
+
+  // Payment Methods
+  getPaymentMethods: async (): Promise<TenantPaymentMethodResponse[]> => {
+    return apiClient.get<TenantPaymentMethodResponse[]>('/tenant-config/payment-methods', undefined, {
+      extraHeaders: getCompanyId() ? { 'x-company-id': getCompanyId()! } : undefined,
+    });
+  },
+
+  createPaymentMethod: async (data: { methodKey: string; methodName: string; methodType: 'card' | 'qr' | 'bank' | 'manual' | 'other'; config?: Record<string, any>; enabled?: boolean; displayOrder?: number }): Promise<TenantPaymentMethodResponse> => {
+    return apiClient.post<TenantPaymentMethodResponse>('/tenant-config/payment-methods', data, {
+      extraHeaders: getCompanyId() ? { 'x-company-id': getCompanyId()! } : undefined,
+    });
+  },
+
+  updatePaymentMethod: async (methodKey: string, updates: Partial<TenantPaymentMethodResponse>): Promise<TenantPaymentMethodResponse> => {
+    return apiClient.put<TenantPaymentMethodResponse>(`/tenant-config/payment-methods/${methodKey}`, updates, {
+      extraHeaders: getCompanyId() ? { 'x-company-id': getCompanyId()! } : undefined,
+    });
+  },
+
+  deletePaymentMethod: async (methodKey: string): Promise<void> => {
+    return apiClient.delete<void>(`/tenant-config/payment-methods/${methodKey}`, {
       extraHeaders: getCompanyId() ? { 'x-company-id': getCompanyId()! } : undefined,
     });
   },

@@ -61,6 +61,18 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 - src/api/tenant-config.ts: New API client for tenant configuration (config, roles, stages, lead sources, notification channels)
 - src/components/core/FeatureFlagProvider.tsx: New provider for feature flag context with backend integration
 - src/components/core/TenantConfigProvider.tsx: New provider for tenant configuration context with backend integration
+- src/api/tenant-config.ts: New API client for tenant configuration with full CRUD for config, lead sources, roles, pipeline stages, statuses, notification channels, and payment methods, with x-company-id header support
+- src/lib/jwt.ts: New JWT utility with decodeJwt and isTokenExpired functions, tenantId in JwtPayload interface
+- src/lib/i18n.ts: Added educationLeadStatus and educationDealStatus for LMS bridge-specific statuses
+- src/pages/Settings.tsx: Added comprehensive tenant configuration UI with currency, timezone, language, company name, and primary color selectors, feature flag toggle switches with backend persistence, lead sources and payment methods display sections
+- src/pages/Leads.tsx: Added tenant-configured lead sources and lead statuses with fallback to hardcoded i18n data
+- src/pages/LeadDetail.tsx: Added tenant-configured lead sources and lead statuses with fallback to hardcoded i18n data
+- src/pages/Pipeline.tsx: Added tenant-configured pipeline stages with fallback to hardcoded stages, currency formatting using tenantConfig.currency
+- src/pages/Payments.tsx: Added currency formatting using tenantConfig.currency
+- PHASE_1_4_FINAL_COMPLETION_PLAN.md: Comprehensive completion plan for Phases 1-4 with blockers, exit criteria, and progress tracking
+- FINAL_RECONCILED_BLOCKER_VERDICT.md: Reconciled audit verdict comparing two completion audits with final must-fix list
+- PHASE_1_4_COMPLETION_BACKLOG.md: Task backlog for remaining Phase 1-4 completion work
+- CURRENT_STATE_IMPLEMENTATION_REPORT_CODEX.md: Current state implementation report documenting platformization progress
 
 ### Changed
 - Phase 2.3 CRM-LMS decoupling: bridge components (LeadCourseInterest, ContactStudentMapping, DealCourseMapping) now check LMS bridge flag in addition to permissions
@@ -89,6 +101,10 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 - Deals.tsx: Currency formatting now uses `tenantConfig.currency` instead of hardcoded "сом"
 - Pipeline.tsx: Currency formatting now uses `tenantConfig.currency` instead of hardcoded "сом"
 - Payments.tsx: Currency formatting now uses `tenantConfig.currency` instead of hardcoded "сом"
+
+### Removed
+- docs/PHASE_2_ARCHITECTURE.md: Superseded by PHASE_1_4_FINAL_COMPLETION_PLAN.md
+- docs/PHASE_2_MIGRATION.md: Superseded by PHASE_1_4_FINAL_COMPLETION_PLAN.md
 
 ### Fixed
 - Dashboard now uses split `getCrmStats` and `getEducationStats` endpoints instead of legacy combined `getStats`, properly decoupling CRM from LMS data

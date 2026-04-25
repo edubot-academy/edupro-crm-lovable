@@ -8,6 +8,7 @@ import { dealsApi, reportsApi } from '@/api/modules';
 import type { Deal, DealPipelineStage, FunnelReport } from '@/types';
 import { getDealPipelineStage } from '@/lib/crm-status';
 import { useTenantConfig } from '@/components/core/TenantConfigProvider';
+import { useFeatureFlags } from '@/components/core/FeatureFlagProvider';
 import { User, BookOpen, DollarSign } from 'lucide-react';
 
 const emptyFunnel: FunnelReport = {
@@ -24,6 +25,7 @@ const dropOffLabels: Record<string, string> = {
 
 export default function PipelinePage() {
   const { tenantConfig } = useTenantConfig();
+  const { isFeatureEnabled } = useFeatureFlags();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [funnel, setFunnel] = useState<FunnelReport>(emptyFunnel);
   const [isLoading, setIsLoading] = useState(true);
@@ -50,16 +52,20 @@ export default function PipelinePage() {
 
   useEffect(() => {
     setIsLoading(true);
+    const funnelPromise = isFeatureEnabled('advanced_reports_enabled')
+      ? reportsApi.getFunnel().catch(() => emptyFunnel)
+      : Promise.resolve(emptyFunnel);
+
     Promise.all([
       dealsApi.list().catch(() => ({ items: [] })),
-      reportsApi.getFunnel().catch(() => emptyFunnel),
+      funnelPromise,
     ])
       .then(([dealsResult, funnelResult]) => {
         setDeals(dealsResult.items);
         setFunnel(funnelResult);
       })
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [isFeatureEnabled]);
 
   const columns: KanbanColumn<Deal>[] = stages.map((stage) => ({
     id: stage.id,

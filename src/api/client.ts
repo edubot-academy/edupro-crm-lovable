@@ -15,9 +15,14 @@ interface RequestOptions extends RequestInit {
 
 // This will be set by AuthContext after mount
 let getAccessTokenFn: (() => Promise<string | null>) | null = null;
+let getTenantIdFn: (() => string | null) | null = null;
 
 export function setAccessTokenProvider(fn: () => Promise<string | null>) {
   getAccessTokenFn = fn;
+}
+
+export function setTenantIdProvider(fn: () => string | null) {
+  getTenantIdFn = fn;
 }
 
 class ApiClient {
@@ -68,6 +73,12 @@ class ApiClient {
       ...(extraHeaders || {}),
       ...((fetchOptions.headers as Record<string, string>) || {}),
     };
+
+    // Add X-Company-Id header if tenantId is available
+    const tenantId = getTenantIdFn ? getTenantIdFn() : null;
+    if (tenantId) {
+      headers["X-Company-Id"] = tenantId;
+    }
 
     const url = this.buildUrl(path, params);
     const response = await this.performFetch(url, fetchOptions, headers, getAttemptHeaders);

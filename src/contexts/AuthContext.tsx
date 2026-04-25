@@ -2,12 +2,13 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import type { User } from '@/types';
 import { authApi } from '@/api/auth';
 import { decodeJwt, isTokenExpired } from '@/lib/jwt';
-import { setAccessTokenProvider } from '@/api/client';
+import { setAccessTokenProvider, setTenantIdProvider } from '@/api/client';
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  tenantId: string | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   /** Get a valid access token (refreshes automatically if expired). */
@@ -32,8 +33,15 @@ function userFromToken(token: string): User | null {
   };
 }
 
+function tenantIdFromToken(token: string): string | null {
+  const payload = decodeJwt(token);
+  if (!payload) return null;
+  return payload.tenantId || null;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [tenantId, setTenantId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const refreshPromise = useRef<Promise<string | null> | null>(null);
 
@@ -50,10 +58,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         accessTokenMemory = tokens.accessToken;
         localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
         setUser(userFromToken(tokens.accessToken));
+        setTenantId(tenantIdFromToken(tokens.accessToken));
       })
       .catch(() => {
         localStorage.removeItem(REFRESH_TOKEN_KEY);
         accessTokenMemory = null;
+        setTenantId(null);
       })
       .finally(() => setIsLoading(false));
   }, []);
@@ -63,6 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     accessTokenMemory = tokens.accessToken;
     localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
     setUser(userFromToken(tokens.accessToken));
+    setTenantId(tenantIdFromToken(tokens.accessToken));
   }, []);
 
   const logout = useCallback(async () => {
@@ -76,6 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       accessTokenMemory = null;
       localStorage.removeItem(REFRESH_TOKEN_KEY);
       setUser(null);
+      setTenantId(null);
     }
   }, []);
 
@@ -94,6 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!refreshToken) {
       accessTokenMemory = null;
       setUser(null);
+      setTenantId(null);
       return null;
     }
 
@@ -102,12 +115,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         accessTokenMemory = tokens.accessToken;
         localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
         setUser(userFromToken(tokens.accessToken));
+        setTenantId(tenantIdFromToken(tokens.accessToken));
         return tokens.accessToken;
       })
       .catch(() => {
         accessTokenMemory = null;
         localStorage.removeItem(REFRESH_TOKEN_KEY);
         setUser(null);
+        setTenantId(null);
         return null;
       })
       .finally(() => {
@@ -120,10 +135,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Register the token provider with the API client
   useEffect(() => {
     setAccessTokenProvider(getAccessToken);
-  }, [getAccessToken]);
+    setTenantIdProvider(() => tenantId);
+  }, [getAccessToken, tenantId]);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, login, logout, getAccessToken }}>
+    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, tenantId, login, logout, getAccessToken }}>
       {children}
     </AuthContext.Provider>
   );

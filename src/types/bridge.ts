@@ -17,6 +17,28 @@
  * - Bridge types should stay limited to the explicit bridge payload
  */
 
+// ==================== EDUCATION-SPECIFIC ENUMS ====================
+
+/**
+ * Education-specific lead statuses
+ * These statuses are used only when LMS bridge is enabled and trial lessons feature is active
+ * They should not be used in CRM-only mode
+ */
+export type EducationLeadStatus =
+  | 'trial_scheduled'
+  | 'trial_completed'
+  | 'trial_passed'
+  | 'trial_failed';
+
+/**
+ * Education-specific deal stages
+ * These stages are used only when LMS bridge is enabled and trial lessons feature is active
+ * They should not be used in CRM-only mode
+ */
+export type EducationDealStage =
+  | 'trial_booked'
+  | 'trial_completed';
+
 // ==================== LEAD BRIDGE TYPES ====================
 
 /**

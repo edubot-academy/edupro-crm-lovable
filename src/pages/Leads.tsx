@@ -96,7 +96,6 @@ export default function LeadsPage() {
     source: undefined,
     status: 'new',
     contactId: null,
-    productInterest: '',
     assignedManagerId: 0,
     tags: [],
     notes: '',
@@ -330,7 +329,6 @@ export default function LeadsPage() {
         phone: newLead.phone.trim(),
         email: newLead.email.trim() || undefined,
         source: newLead.source || undefined,
-        productInterest: newLead.productInterest || undefined,
         assignedManagerId: newLead.assignedManagerId || user?.id,
         tags: newLead.tags.length > 0 ? newLead.tags : undefined,
         notes: newLead.notes || undefined,
@@ -895,14 +893,6 @@ export default function LeadsPage() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Продукт</Label>
-                <Input
-                  value={newLead.productInterest || ''}
-                  onChange={(e) => setNewLead(p => ({ ...p, productInterest: e.target.value }))}
-                  placeholder="Продукттин аты"
-                />
               </div>
               <div className="space-y-2">
                 <Label>{ky.leads.assignedManager}</Label>

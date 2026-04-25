@@ -130,6 +130,7 @@ export const ky = {
     lost: 'Ийгиликсиз',
   },
   // Education-specific lead statuses (used only when LMS bridge is enabled)
+  // These correspond to EducationLeadStatus in @/types/bridge
   educationLeadStatus: {
     trial_scheduled: 'Сыноо пландалды',
     trial_completed: 'Сыноо аяктады',
@@ -178,6 +179,7 @@ export const ky = {
     lost: 'Жоголду',
   },
   // Education-specific deal stages (used only when LMS bridge is enabled)
+  // These correspond to EducationDealStage in @/types/bridge
   educationDealStage: {
     trial_booked: 'Сыноо жазылды',
     trial_completed: 'Сыноо аяктады',

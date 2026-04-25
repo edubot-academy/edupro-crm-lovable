@@ -84,7 +84,6 @@ export default function LeadDetailPage() {
     email: '',
     source: '' as LeadSource | '',
     status: 'new',
-    productInterest: '',
     assignedManagerId: '',
     notes: '',
   });
@@ -108,7 +107,6 @@ export default function LeadDetailPage() {
       email: lead.email,
       source: lead.source,
       status: lead.status,
-      productInterest: lead.productInterest || '',
       assignedManagerId: lead.assignedManager?.id ? String(lead.assignedManager.id) : '',
       notes: lead.notes || '',
     });
@@ -161,7 +159,6 @@ export default function LeadDetailPage() {
       email: lead.email,
       source: lead.source,
       status: lead.status,
-      productInterest: lead.productInterest || '',
       assignedManagerId: lead.assignedManager?.id ? String(lead.assignedManager.id) : '',
       notes: lead.notes || '',
     });
@@ -179,7 +176,6 @@ export default function LeadDetailPage() {
         email: form.email,
         source: form.source,
         status: form.status,
-        productInterest: form.productInterest || undefined,
         assignedManagerId: canAssignToSales
           ? (form.assignedManagerId ? Number(form.assignedManagerId) : null)
           : undefined,
@@ -367,14 +363,6 @@ export default function LeadDetailPage() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-2 sm:col-span-2">
-                <Label>Продукт</Label>
-                <Input
-                  value={form.productInterest || ''}
-                  onChange={(e) => setForm((prev) => ({ ...prev, productInterest: e.target.value }))}
-                  placeholder="Продукттин аты"
-                />
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <Label>{ky.leads.assignedManager}</Label>

@@ -1,5 +1,5 @@
 import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
-import type { TenantConfig, TenantLeadSource } from '@/types';
+import type { TenantConfig, TenantLeadSource, TenantPaymentMethod } from '@/types';
 import { tenantConfigApi } from '@/api/tenant-config';
 import { setFormattingConfig } from '@/lib/formatting';
 import type { TenantStatusResponse } from '@/api/tenant-config';
@@ -24,7 +24,12 @@ const defaultTenantConfig: TenantConfig = {
     { tenantId: 'default', sourceKey: 'phone_call', sourceName: 'Phone Call', isDefault: false },
     { tenantId: 'default', sourceKey: 'referral', sourceName: 'Referral', isDefault: false },
   ],
-  paymentMethods: ['card', 'qr', 'bank', 'manual'],
+  paymentMethods: [
+    { tenantId: 'default', methodKey: 'card', methodName: 'Карта', methodType: 'card', enabled: true, displayOrder: 1 },
+    { tenantId: 'default', methodKey: 'qr', methodName: 'QR код', methodType: 'qr', enabled: true, displayOrder: 2 },
+    { tenantId: 'default', methodKey: 'bank', methodName: 'Банктик которуу', methodType: 'bank', enabled: true, displayOrder: 3 },
+    { tenantId: 'default', methodKey: 'manual', methodName: 'Кол менен', methodType: 'manual', enabled: true, displayOrder: 4 },
+  ],
   notificationChannels: [
     { id: '1', type: 'email', enabled: true },
     { id: '2', type: 'telegram', enabled: true },
@@ -70,7 +75,7 @@ export function TenantConfigProvider({
     const loadTenantConfig = async () => {
       setIsLoading(true);
       try {
-        const [config, leadSources, roles, pipelineStages, notificationChannels, leadStatuses, dealStatuses] = await Promise.all([
+        const [config, leadSources, roles, pipelineStages, notificationChannels, leadStatuses, dealStatuses, paymentMethods] = await Promise.all([
           tenantConfigApi.getConfig(),
           tenantConfigApi.getLeadSources(),
           tenantConfigApi.getRoles(),
@@ -78,6 +83,7 @@ export function TenantConfigProvider({
           tenantConfigApi.getNotificationChannels(),
           tenantConfigApi.getStatuses('lead'),
           tenantConfigApi.getStatuses('deal'),
+          tenantConfigApi.getPaymentMethods(),
         ]);
         const loadedConfig = {
           tenantId: config.tenantId,
@@ -99,7 +105,16 @@ export function TenantConfigProvider({
             sourceName: ls.sourceName,
             isDefault: ls.isDefault,
           })),
-          paymentMethods: ['card', 'qr', 'bank', 'manual'], // TODO: Load from backend when payment methods endpoint is available
+          paymentMethods: paymentMethods.map(pm => ({
+            id: pm.id,
+            tenantId: pm.tenantId,
+            methodKey: pm.methodKey,
+            methodName: pm.methodName,
+            methodType: pm.methodType,
+            config: pm.config,
+            enabled: pm.enabled,
+            displayOrder: pm.displayOrder,
+          })),
           notificationChannels: notificationChannels.map(nc => ({
             id: String(nc.id),
             type: nc.channelType as any,

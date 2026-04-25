@@ -23,7 +23,7 @@ import { useRolePermissions } from '@/hooks/use-role-permissions';
 import { useTenantConfig } from '@/components/core/TenantConfigProvider';
 import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
 
-const emptyForm = { dealId: '', amount: '', kind: 'regular' as Payment['kind'], method: 'card' as string };
+const emptyForm = { dealId: '', amount: '', kind: 'regular' as Payment['kind'], method: '' as string };
 
 export default function PaymentsPage() {
   const navigate = useNavigate();
@@ -173,11 +173,17 @@ export default function PaymentsPage() {
     payment.deal?.contact?.fullName || payment.contact?.fullName || payment.user?.fullName || '—';
 
   const getPaymentDealLabel = (payment: Payment) => {
-    const dealId = payment.deal?.id || payment.dealId;
+    const dealId = payment.deal?.id;
 
     if (!dealId) return '—';
 
     return `#${dealId}`;
+  };
+
+  const getPaymentMethodName = (methodKey: string) => {
+    const pm = tenantConfig.paymentMethods.find(p => p.methodKey === methodKey);
+    if (pm) return pm.methodName;
+    return ky.paymentMethod[methodKey] || methodKey;
   };
 
   const columns: Column<Payment>[] = [
@@ -185,7 +191,7 @@ export default function PaymentsPage() {
     { key: 'deal', header: 'Келишим', render: (p) => <span className="text-sm">{getPaymentDealLabel(p)}</span> },
     { key: 'kind', header: ky.payments.kind, render: (p) => ky.paymentKind[p.kind || 'regular'] },
     { key: 'amount', header: ky.payments.amount, render: (p) => <span className="font-semibold">{p.amount.toLocaleString()} {tenantConfig.currency}</span> },
-    { key: 'method', header: ky.payments.method, render: (p) => ky.paymentMethod[p.method] },
+    { key: 'method', header: ky.payments.method, render: (p) => getPaymentMethodName(p.method) },
     { key: 'paidAt', header: ky.payments.paidAt, render: (p) => p.paidAt ? formatDate(p.paidAt) : '—' },
     {
       key: 'status', header: ky.common.status, render: (p) => (
@@ -266,7 +272,7 @@ export default function PaymentsPage() {
 
         <div className="mt-3 space-y-2 text-sm text-muted-foreground">
           <p className="font-medium text-foreground">{payment.amount.toLocaleString()} {tenantConfig.currency}</p>
-          <p>{ky.paymentKind[payment.kind || 'regular']} • {ky.paymentMethod[payment.method]}</p>
+          <p>{ky.paymentKind[payment.kind || 'regular']} • {getPaymentMethodName(payment.method)}</p>
           <p>{payment.paidAt ? formatDate(payment.paidAt) : 'Дата жок'}</p>
         </div>
 
@@ -380,7 +386,11 @@ export default function PaymentsPage() {
               <Select value={form.method} onValueChange={(v) => setForm({ ...form, method: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {Object.entries(ky.paymentMethod).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                  {tenantConfig.paymentMethods.map((pm) => (
+                    <SelectItem key={pm.methodKey} value={pm.methodKey}>
+                      {pm.methodName || ky.paymentMethod[pm.methodKey] || pm.methodKey}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

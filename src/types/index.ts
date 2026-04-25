@@ -45,7 +45,7 @@ export interface TenantConfig {
   primaryColor?: string | null;
   branding?: BrandingConfig;
   leadSources: TenantLeadSource[];
-  paymentMethods: string[];
+  paymentMethods: TenantPaymentMethod[];
   notificationChannels: NotificationChannel[];
   pipelineStages: PipelineStageConfig[];
   leadStatuses: StatusConfig[];
@@ -53,6 +53,17 @@ export interface TenantConfig {
   roles: RoleConfig[];
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+export interface TenantPaymentMethod {
+  id?: number;
+  tenantId: string;
+  methodKey: string;
+  methodName: string;
+  methodType: 'card' | 'qr' | 'bank' | 'manual' | 'other';
+  config?: Record<string, unknown>;
+  enabled: boolean;
+  displayOrder: number;
 }
 
 export interface TenantLeadSource {
@@ -179,35 +190,6 @@ export type LeadSource = 'instagram' | 'telegram' | 'whatsapp' | 'website' | 'ph
  */
 export type LeadStatus = string;
 
-/**
- * Education-specific lead statuses
- * These statuses are used only when LMS bridge is enabled and trial lessons feature is active
- * They should not be used in CRM-only mode
- */
-export type EducationLeadStatus =
-  | 'trial_scheduled'
-  | 'trial_completed'
-  | 'trial_passed'
-  | 'trial_failed';
-
-/**
- * CRM Product/Service Model Decision
- *
- * APPROVED MODEL: Keep product interest generic in CRM core, let bridge handle LMS mapping
- *
- * Rationale:
- * - CRM core should remain domain-agnostic and work for any business type
- * - Generic `productInterest` string field allows flexibility for different product types
- * - LMS-specific course mapping is handled via bridge-enriched types (LeadWithCourseInterest)
- * - This approach keeps CRM core clean while allowing rich LMS integration when needed
- * - Avoids introducing a complex product/service abstraction that may not fit all use cases
- *
- * Implementation:
- * - Lead.productInterest is a generic string field in CRM core
- * - Bridge type LeadWithCourseInterest adds interestedCourseId and interestedGroupId for LMS
- * - UI components can display productInterest directly or use bridge data when LMS is enabled
- * - This model is consistent with the separation of concerns between CRM core and LMS bridge
- */
 export interface Lead {
   id: number;
   fullName: string;
@@ -216,7 +198,6 @@ export interface Lead {
   source: LeadSource;
   status: LeadStatus;
   contactId?: number | null;
-  productInterest?: string; // Generic product/service interest - domain-agnostic
   notes?: string;
   tags?: string[];
   assignedManager?: { id: number; fullName: string };
@@ -265,15 +246,6 @@ export type DealStage =
   | 'payment_pending'
   | 'won'
   | 'lost';
-
-/**
- * Education-specific deal stages
- * These stages are used only when LMS bridge is enabled and trial lessons feature is active
- * They should not be used in CRM-only mode
- */
-export type EducationDealStage =
-  | 'trial_booked'
-  | 'trial_completed';
 
 export type DealPipelineStage =
   | 'new'
@@ -401,10 +373,6 @@ export interface RetentionCase {
   leadId?: number;
   contactId?: number;
   dealId?: number;
-  lmsStudentId?: string;
-  lmsEnrollmentId?: string;
-  lmsCourseId?: string;
-  lmsGroupId?: string;
   issueType: IssueType;
   severity: RiskSeverity;
   status: RetentionCaseStatus;
@@ -511,7 +479,6 @@ export interface FunnelReport {
     source?: string;
     managerId?: number;
     courseId?: string;
-    courseType?: import('@/types/lms').LmsCourseType;
   };
   stages: FunnelStageReport[];
   dropOffs: FunnelDropOff[];

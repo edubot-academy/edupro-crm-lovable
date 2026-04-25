@@ -449,10 +449,10 @@ export default function SettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {tenantConfig.paymentMethods.map((method) => (
-            <div key={method} className="flex items-center justify-between py-2">
-              <span className="text-sm capitalize">{method}</span>
-              <Switch checked={true} disabled />
+          {tenantConfig.paymentMethods.map((pm) => (
+            <div key={pm.methodKey} className="flex items-center justify-between py-2">
+              <span className="text-sm">{pm.methodName || pm.methodKey}</span>
+              <Switch checked={pm.enabled} disabled />
             </div>
           ))}
         </CardContent>
