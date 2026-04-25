@@ -76,7 +76,7 @@ export function IntegrationHistoryPanel({ initialFilters }: { initialFilters?: R
     }
   };
 
-  const items = data?.items || [];
+  const items = data?.data || [];
 
   return (
     <Card>

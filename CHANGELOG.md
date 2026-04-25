@@ -126,6 +126,11 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 - EnrollmentsPage now seeds initialHistoryFilters with crmDealId for deal context, enabling proper prefiltering from deal detail "Толук тарых" navigation
 - Removed references to setManagersLoading in Leads.tsx (removed with LMS hooks)
 - Removed references to courses variable in Leads.tsx (removed with LMS hooks)
+- FeatureFlagProvider now uses conservative defaults (trial_lessons_enabled, telegram_notifications_enabled, advanced_reports_enabled default to false)
+- FeatureFlagProvider environment variable override logic now only applies when explicitly set (using conditional spread instead of direct assignment)
+- IntegrationHistoryPanel now correctly accesses `data?.data` instead of `data?.items` for integration history items
+- LmsIntegrationHistoryResponse interface changed `items` property to `data` to match actual API response structure
+- RetentionCase interface now includes LMS fields (lmsStudentId, lmsEnrollmentId, lmsCourseId, lmsGroupId) extracted from metrics by backend
 
 ## [1.7.0] - 2026-04-24
 

@@ -134,7 +134,7 @@ export interface LmsIntegrationHistoryItem {
 }
 
 export interface LmsIntegrationHistoryResponse {
-  items: LmsIntegrationHistoryItem[];
+  data: LmsIntegrationHistoryItem[];
   total: number;
   limit: number;
 }

@@ -12,10 +12,10 @@ interface FeatureFlagContextValue {
 const defaultFeatureFlags: FeatureFlags = {
   crm_enabled: true,
   lms_bridge_enabled: false,
-  trial_lessons_enabled: true,
+  trial_lessons_enabled: false,
   retention_enabled: true,
-  telegram_notifications_enabled: true,
-  advanced_reports_enabled: true,
+  telegram_notifications_enabled: false,
+  advanced_reports_enabled: false,
 };
 
 /**
@@ -97,13 +97,13 @@ export function FeatureFlagProvider({
   const [featureFlags, setFeatureFlags] = useState<FeatureFlags>({
     ...defaultFeatureFlags,
     ...initialFeatureFlags,
-    // Override with environment variables if set
-    crm_enabled: import.meta.env.VITE_ENABLE_CRM !== 'false',
-    lms_bridge_enabled: import.meta.env.VITE_ENABLE_LMS_BRIDGE === 'true',
-    trial_lessons_enabled: import.meta.env.VITE_ENABLE_TRIAL_LESSONS !== 'false',
-    retention_enabled: import.meta.env.VITE_ENABLE_RETENTION !== 'false',
-    telegram_notifications_enabled: import.meta.env.VITE_ENABLE_TELEGRAM !== 'false',
-    advanced_reports_enabled: import.meta.env.VITE_ENABLE_ADVANCED_REPORTS !== 'false',
+    // Only override with environment variables if explicitly set
+    ...(import.meta.env.VITE_ENABLE_CRM !== undefined && { crm_enabled: import.meta.env.VITE_ENABLE_CRM !== 'false' }),
+    ...(import.meta.env.VITE_ENABLE_LMS_BRIDGE !== undefined && { lms_bridge_enabled: import.meta.env.VITE_ENABLE_LMS_BRIDGE === 'true' }),
+    ...(import.meta.env.VITE_ENABLE_TRIAL_LESSONS !== undefined && { trial_lessons_enabled: import.meta.env.VITE_ENABLE_TRIAL_LESSONS === 'true' }),
+    ...(import.meta.env.VITE_ENABLE_RETENTION !== undefined && { retention_enabled: import.meta.env.VITE_ENABLE_RETENTION === 'true' }),
+    ...(import.meta.env.VITE_ENABLE_TELEGRAM !== undefined && { telegram_notifications_enabled: import.meta.env.VITE_ENABLE_TELEGRAM === 'true' }),
+    ...(import.meta.env.VITE_ENABLE_ADVANCED_REPORTS !== undefined && { advanced_reports_enabled: import.meta.env.VITE_ENABLE_ADVANCED_REPORTS === 'true' }),
   });
   const [isLoading, setIsLoading] = useState(true); // Start as loading to prevent UI flicker
 
@@ -114,7 +114,7 @@ export function FeatureFlagProvider({
       setFeatureFlags(flags);
     } catch (error) {
       console.error('Failed to load feature flags from backend, using defaults:', error);
-      // Keep using environment variable defaults
+      // Keep using conservative defaults (environment variables only if explicitly set)
     } finally {
       setIsLoading(false);
     }
