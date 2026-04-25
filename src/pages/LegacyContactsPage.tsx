@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ky } from '@/lib/i18n';
+import { formatDate } from '@/lib/formatting';
 import { legacyContactsApi, leadsApi } from '@/api/modules';
 import type { Contact } from '@/types';
 import { Loader2, Mail, Phone, Database, ArrowRightLeft, Filter } from 'lucide-react';
@@ -102,8 +103,8 @@ export default function LegacyContactsPage() {
   const handleImport = async (contact: Pick<LegacyContactRow, 'id'>) => {
     setImportingId(contact.id);
     try {
-      const lead = await leadsApi.importFromContact(contact.id);
-      toast({ title: `Эски байланыш лидге өткөрүлдү (#${lead.id})` });
+      // importFromContact endpoint was removed in P1-3 - this feature is no longer available
+      toast({ title: 'Бул функция жокко чыгарылды', description: 'Эски байланыштарды лидге өткөрүү мүмкүнчүлүгү алынды', variant: 'destructive' });
     } catch (error) {
       const friendly = getFriendlyError(error, { fallbackTitle: 'Эски байланышты лидге өткөрүү ишке ашкан жок' });
       toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
@@ -144,8 +145,8 @@ export default function LegacyContactsPage() {
     { key: 'courseName', header: 'Курс', render: (c) => <span className="text-sm">{c.courseName || '—'}</span>, className: 'hidden xl:table-cell' },
     { key: 'courseType', header: 'Курс түрү', render: (c) => <span className="text-sm">{courseTypeLabels[c.courseType || ''] || c.courseType || '—'}</span>, className: 'hidden xl:table-cell' },
     { key: 'contactAttempts', header: 'Аракет', render: (c) => <span className="text-sm">{c.contactAttempts ?? 0}</span>, className: 'hidden lg:table-cell' },
-    { key: 'lastAttemptAt', header: 'Акыркы аракет', render: (c) => <span className="text-sm text-muted-foreground">{c.lastAttemptAt ? new Date(c.lastAttemptAt).toLocaleDateString('ky-KG') : '—'}</span>, className: 'hidden xl:table-cell' },
-    { key: 'createdAt', header: 'Түзүлгөн күнү', render: (c) => <span className="text-sm text-muted-foreground">{c.createdAt ? new Date(c.createdAt).toLocaleDateString('ky-KG') : '—'}</span>, className: 'hidden lg:table-cell' },
+    { key: 'lastAttemptAt', header: 'Акыркы аракет', render: (c) => <span className="text-sm text-muted-foreground">{c.lastAttemptAt ? formatDate(c.lastAttemptAt) : '—'}</span>, className: 'hidden xl:table-cell' },
+    { key: 'createdAt', header: 'Түзүлгөн күнү', render: (c) => <span className="text-sm text-muted-foreground">{c.createdAt ? formatDate(c.createdAt) : '—'}</span>, className: 'hidden lg:table-cell' },
     {
       key: 'actions', header: '', render: (c) => (
         <Button variant="outline" size="sm" className="gap-2" disabled={importingId === c.id} onClick={(e) => { e.stopPropagation(); void handleImport(c); }}>

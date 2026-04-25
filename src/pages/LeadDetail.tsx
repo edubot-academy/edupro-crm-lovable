@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { PageError, PageHeader, PageLoading } from '@/components/PageShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,13 +11,14 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { StatusBadge, getLeadStatusVariant } from '@/components/StatusBadge';
 import { ky } from '@/lib/i18n';
 import { ArrowLeft, Phone, Mail, Tag, User, BookOpen, MessageSquare, Loader2, Save, Calendar } from 'lucide-react';
-import { leadsApi, usersApi } from '@/api/modules';
+import { leadsApi, usersApi, bridgeApi } from '@/api/modules';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRolePermissions } from '@/hooks/use-role-permissions';
 import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
-import type { AssignableUser, Lead, LeadQualificationStatus, LeadSource } from '@/types';
-import { getLeadQualificationStatus } from '@/lib/crm-status';
+import { useTenantConfig } from '@/components/core/TenantConfigProvider';
+import type { AssignableUser, Lead, LeadSource } from '@/types';
+import type { LeadWithCourseInterest } from '@/types/bridge';
 import { getFriendlyError } from '@/lib/error-messages';
 import { ScheduleTimelineEventDialog } from '@/components/ScheduleTimelineEventDialog';
 import { ScheduledTimelineEventsCard } from '@/components/ScheduledTimelineEventsCard';
@@ -28,6 +29,7 @@ export default function LeadDetailPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { tenantConfig } = useTenantConfig();
   const { canAssignLeads, canViewLmsTechnicalFields } = useRolePermissions();
   const { isLmsBridgeEnabled } = useLmsBridge();
   const canAssignToSales = canAssignLeads();
@@ -41,12 +43,47 @@ export default function LeadDetailPage() {
   const [isConverting, setIsConverting] = useState(false);
   const [managers, setManagers] = useState<AssignableUser[]>([]);
   const [managersLoading, setManagersLoading] = useState(false);
+  const [leadBridgeData, setLeadBridgeData] = useState<LeadWithCourseInterest | null>(null);
+
+  // Use tenant-configured lead sources if available, otherwise use hardcoded sources
+  const leadSourceOptions = useMemo(() => {
+    if (tenantConfig.leadSources && tenantConfig.leadSources.length > 0) {
+      return tenantConfig.leadSources.map(source => ({
+        value: source.sourceKey as LeadSource,
+        label: source.sourceName,
+      }));
+    }
+    // Fallback to hardcoded sources
+    return Object.entries(ky.leadSource).map(([value, label]) => ({
+      value: value as LeadSource,
+      label,
+    }));
+  }, [tenantConfig.leadSources]);
+
+  // Use tenant-configured lead statuses if available, otherwise use hardcoded statuses
+  const leadStatusOptions = useMemo(() => {
+    if (tenantConfig.leadStatuses && tenantConfig.leadStatuses.length > 0) {
+      return tenantConfig.leadStatuses.map(status => ({
+        value: status.key,
+        label: status.label,
+      }));
+    }
+    // Fallback to hardcoded statuses
+    return [
+      { value: 'new', label: 'New' },
+      { value: 'contacted', label: 'Contacted' },
+      { value: 'interested', label: 'Interested' },
+      { value: 'no_response', label: 'No Response' },
+      { value: 'lost', label: 'Lost' },
+    ];
+  }, [tenantConfig.leadStatuses]);
+
   const [form, setForm] = useState({
     fullName: '',
     phone: '',
     email: '',
     source: '' as LeadSource | '',
-    qualificationStatus: 'new' as LeadQualificationStatus,
+    status: 'new',
     productInterest: '',
     assignedManagerId: '',
     notes: '',
@@ -70,12 +107,22 @@ export default function LeadDetailPage() {
       phone: lead.phone,
       email: lead.email,
       source: lead.source,
-      qualificationStatus: getLeadQualificationStatus(lead),
+      status: lead.status,
       productInterest: lead.productInterest || '',
       assignedManagerId: lead.assignedManager?.id ? String(lead.assignedManager.id) : '',
       notes: lead.notes || '',
     });
   }, [lead]);
+
+  useEffect(() => {
+    if (!lead || !isLmsBridgeEnabled) {
+      setLeadBridgeData(null);
+      return;
+    }
+    bridgeApi.getLeadBridgeData(lead.id)
+      .then((data) => setLeadBridgeData(data))
+      .catch(() => setLeadBridgeData(null));
+  }, [lead, isLmsBridgeEnabled]);
 
   useEffect(() => {
     if (!isEditOpen) return;
@@ -113,7 +160,7 @@ export default function LeadDetailPage() {
       phone: lead.phone,
       email: lead.email,
       source: lead.source,
-      qualificationStatus: getLeadQualificationStatus(lead),
+      status: lead.status,
       productInterest: lead.productInterest || '',
       assignedManagerId: lead.assignedManager?.id ? String(lead.assignedManager.id) : '',
       notes: lead.notes || '',
@@ -131,7 +178,7 @@ export default function LeadDetailPage() {
         phone: form.phone,
         email: form.email,
         source: form.source,
-        qualificationStatus: form.qualificationStatus,
+        status: form.status,
         productInterest: form.productInterest || undefined,
         assignedManagerId: canAssignToSales
           ? (form.assignedManagerId ? Number(form.assignedManagerId) : null)
@@ -154,10 +201,10 @@ export default function LeadDetailPage() {
 
     setIsConverting(true);
     try {
-      const contact = await leadsApi.convertToContact(lead.id);
-      setLead((prev) => (prev ? { ...prev, contactId: contact.id } : prev));
+      const result = await leadsApi.convertToContact(lead.id);
+      setLead((prev) => (prev ? { ...prev, contactId: result.contact.id } : prev));
       toast({ title: 'Лид ийгиликтүү байланышка айландырылды' });
-      navigate(`/contacts/${contact.id}`);
+      navigate(`/contacts/${result.contact.id}`);
     } catch (error) {
       const friendly = getFriendlyError(error, { fallbackTitle: 'Лидди байланышка айландыруу ишке ашкан жок' });
       toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
@@ -227,15 +274,15 @@ export default function LeadDetailPage() {
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground mb-1">{ky.common.status}</p>
-              {(() => { const status = getLeadQualificationStatus(lead); return <StatusBadge variant={getLeadStatusVariant(status)} dot>{ky.leadQualificationStatus[status]}</StatusBadge>; })()}
+              <StatusBadge variant={getLeadStatusVariant(lead.status)} dot>{leadStatusOptions.find(opt => opt.value === lead.status)?.label || lead.status}</StatusBadge>
             </div>
           </CardContent>
         </Card>
 
         {isLmsBridgeEnabled && canViewLmsTechnicalFields() && (
           <LeadCourseInterest
-            interestedCourseId={lead.interestedCourseId}
-            interestedGroupId={lead.interestedGroupId}
+            interestedCourseId={leadBridgeData?.interestedCourseId}
+            interestedGroupId={leadBridgeData?.interestedGroupId}
           />
         )}
 
@@ -302,7 +349,7 @@ export default function LeadDetailPage() {
                     <SelectValue placeholder="Булак тандаңыз" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(ky.leadSource).map(([value, label]) => (
+                    {leadSourceOptions.map(({ value, label }) => (
                       <SelectItem key={value} value={value}>{label}</SelectItem>
                     ))}
                   </SelectContent>
@@ -310,12 +357,12 @@ export default function LeadDetailPage() {
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <Label>{ky.common.status}</Label>
-                <Select value={form.qualificationStatus} onValueChange={(value) => setForm((prev) => ({ ...prev, qualificationStatus: value as LeadQualificationStatus }))}>
+                <Select value={form.status} onValueChange={(value) => setForm((prev) => ({ ...prev, status: value }))}>
                   <SelectTrigger>
                     <SelectValue placeholder={ky.common.status} />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(ky.leadQualificationStatus).map(([value, label]) => (
+                    {leadStatusOptions.map(({ value, label }) => (
                       <SelectItem key={value} value={value}>{label}</SelectItem>
                     ))}
                   </SelectContent>

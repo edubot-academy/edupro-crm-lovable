@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ky } from '@/lib/i18n';
-import { contactApi } from '@/api/modules';
+import { contactApi, bridgeApi } from '@/api/modules';
 import type { Contact } from '@/types';
+import type { ContactWithStudentMapping } from '@/types/bridge';
 import { User, Phone, Mail, Link2, BookOpen, Workflow, GraduationCap, Pencil, Trash2, Copy, Loader2, ArrowLeft, Calendar, Activity } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -29,6 +30,7 @@ export default function ContactDetailPage() {
   const { canViewLmsTechnicalFields, canViewStudentSummary, canViewIntegrationHistory } = useRolePermissions();
   const { isLmsBridgeEnabled } = useLmsBridge();
   const [contact, setContact] = useState<Contact | null>(null);
+  const [bridgeData, setBridgeData] = useState<ContactWithStudentMapping | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
@@ -55,18 +57,28 @@ export default function ContactDetailPage() {
       .finally(() => setIsLoading(false));
   }, [id]);
 
+  useEffect(() => {
+    if (!contact || !isLmsBridgeEnabled) {
+      setBridgeData(null);
+      return;
+    }
+    bridgeApi.getContactBridgeData(contact.id)
+      .then((data) => setBridgeData(data))
+      .catch(() => setBridgeData(null));
+  }, [contact, isLmsBridgeEnabled]);
+
   const {
     data: studentSummary,
     isLoading: lmsLoading,
     isError: lmsError,
-  } = useLmsStudentSummary(canViewStudentSummary() ? (contact?.lmsStudentId || undefined) : undefined);
+  } = useLmsStudentSummary(canViewStudentSummary() ? (bridgeData?.lmsStudentId || undefined) : undefined);
   const {
     data: historyData,
     isLoading: historyLoading,
   } = useLmsIntegrationHistory(
     canViewLmsTechnicalFields() ? {
       crmContactId: contact?.id,
-      lmsStudentId: contact?.lmsStudentId,
+      lmsStudentId: bridgeData?.lmsStudentId,
       limit: 5,
     } : undefined,
   );
@@ -120,10 +132,10 @@ export default function ContactDetailPage() {
   };
 
   const handleCreateOnboardingLink = () => {
-    if (!contact?.lmsStudentId) return;
+    if (!bridgeData?.lmsStudentId) return;
 
     createOnboardingLinkMutation.mutate(
-      { studentId: contact.lmsStudentId },
+      { studentId: bridgeData.lmsStudentId },
       {
         onSuccess: async (response) => {
           const setupLink = response.onboarding?.setupLink || null;
@@ -200,8 +212,8 @@ export default function ContactDetailPage() {
 
         {isLmsBridgeEnabled && canViewLmsTechnicalFields() && (
           <ContactStudentMapping
-            lmsStudentId={contact.lmsStudentId}
-            externalStudentId={contact.externalStudentId}
+            lmsStudentId={bridgeData?.lmsStudentId}
+            externalStudentId={bridgeData?.externalStudentId}
             contactId={contact.id}
           />
         )}
@@ -221,7 +233,7 @@ export default function ContactDetailPage() {
                   <BookOpen className="h-4 w-4" />
                   {ky.contacts.lmsInfoTitle}
                 </CardTitle>
-                {contact.lmsStudentId && (
+                {bridgeData?.lmsStudentId && (
                   <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
                     <Button
                       variant="outline"
@@ -256,7 +268,7 @@ export default function ContactDetailPage() {
                   </div>
                 )}
 
-                {!contact.lmsStudentId ? (
+                {!bridgeData?.lmsStudentId ? (
                   <p className="text-sm text-muted-foreground">LMS студент байланышы жок.</p>
                 ) : lmsLoading ? (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -334,7 +346,7 @@ export default function ContactDetailPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => navigate(`/enrollments?crmContactId=${contact.id}${contact.lmsStudentId ? `&studentId=${encodeURIComponent(contact.lmsStudentId)}` : ''}`)}
+                  onClick={() => navigate(`/enrollments?crmContactId=${contact.id}${bridgeData?.lmsStudentId ? `&studentId=${encodeURIComponent(bridgeData.lmsStudentId)}` : ''}`)}
                 >
                   Толук тарых
                 </Button>

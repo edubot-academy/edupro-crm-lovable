@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { PageHeader } from '@/components/PageShell';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { formatDate } from '@/lib/formatting';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -17,8 +18,8 @@ import { leadsApi, usersApi } from '@/api/modules';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRolePermissions } from '@/hooks/use-role-permissions';
 import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
-import type { AssignableUser, Lead, LeadQualificationStatus, LeadSource } from '@/types';
-import { getLeadQualificationStatus, mapQualificationToLeadStatus } from '@/lib/crm-status';
+import { useTenantConfig } from '@/components/core/TenantConfigProvider';
+import type { AssignableUser, Lead, LeadSource } from '@/types';
 import { Plus, Trash2, Loader2, Phone, Mail, User, GraduationCap, Save, X, RotateCcw, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
@@ -26,9 +27,10 @@ import { getFriendlyError } from '@/lib/error-messages';
 export default function LeadsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { toast } = useToast();
-  const { user } = useAuth();
   const isMobile = useIsMobile();
+  const { tenantConfig } = useTenantConfig();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const { canAssignLeads, canViewLmsTechnicalFields } = useRolePermissions();
   const { isLmsBridgeEnabled } = useLmsBridge();
   const canAssignToSales = canAssignLeads();
@@ -41,6 +43,39 @@ export default function LeadsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState(() => getSearchParam('q'));
   const [statusFilter, setStatusFilter] = useState<string>(() => getSearchParam('status', 'all'));
+
+  // Use tenant-configured lead sources if available, otherwise use hardcoded sources
+  const leadSourceOptions = useMemo(() => {
+    if (tenantConfig.leadSources && tenantConfig.leadSources.length > 0) {
+      return tenantConfig.leadSources.map(source => ({
+        value: source.sourceKey as LeadSource,
+        label: source.sourceName,
+      }));
+    }
+    // Fallback to hardcoded sources
+    return Object.entries(ky.leadSource).map(([value, label]) => ({
+      value: value as LeadSource,
+      label,
+    }));
+  }, [tenantConfig.leadSources]);
+
+  // Use tenant-configured lead statuses if available, otherwise use hardcoded statuses
+  const leadStatusOptions = useMemo(() => {
+    if (tenantConfig.leadStatuses && tenantConfig.leadStatuses.length > 0) {
+      return tenantConfig.leadStatuses.map(status => ({
+        value: status.key,
+        label: status.label,
+      }));
+    }
+    // Fallback to hardcoded statuses
+    return [
+      { value: 'new', label: 'New' },
+      { value: 'contacted', label: 'Contacted' },
+      { value: 'interested', label: 'Interested' },
+      { value: 'no_response', label: 'No Response' },
+      { value: 'lost', label: 'Lost' },
+    ];
+  }, [tenantConfig.leadStatuses]);
   const [dateFilter, setDateFilter] = useState<string>(() => getSearchParam('date', 'all'));
   const [customFromDate, setCustomFromDate] = useState<string>(() => getSearchParam('from'));
   const [customToDate, setCustomToDate] = useState<string>(() => getSearchParam('to'));
@@ -60,7 +95,6 @@ export default function LeadsPage() {
     email: '',
     source: undefined,
     status: 'new',
-    qualificationStatus: 'new' as LeadQualificationStatus,
     contactId: null,
     productInterest: '',
     assignedManagerId: 0,
@@ -87,7 +121,7 @@ export default function LeadsPage() {
     setError(null);
     leadsApi.list({
       search,
-      qualificationStatus: statusFilter === 'all' ? undefined : statusFilter,
+      status: statusFilter === 'all' ? undefined : statusFilter,
       dateRange: dateFilter === 'custom' || dateFilter === 'all' ? undefined : dateFilter,
       fromDate: dateFilter === 'custom' && customFromDate ? customFromDate : undefined,
       toDate: dateFilter === 'custom' && customToDate ? customToDate : undefined,
@@ -296,7 +330,6 @@ export default function LeadsPage() {
         phone: newLead.phone.trim(),
         email: newLead.email.trim() || undefined,
         source: newLead.source || undefined,
-        qualificationStatus: newLead.qualificationStatus,
         productInterest: newLead.productInterest || undefined,
         assignedManagerId: newLead.assignedManagerId || user?.id,
         tags: newLead.tags.length > 0 ? newLead.tags : undefined,
@@ -329,25 +362,22 @@ export default function LeadsPage() {
     }
   };
 
-  const handleQualificationChange = async (lead: Lead, qualificationStatus: LeadQualificationStatus) => {
+  const handleStatusChange = async (lead: Lead, status: string) => {
     setUpdatingLeadId(lead.id);
     try {
-      const updatedLead = await leadsApi.update(lead.id, {
-        qualificationStatus,
-        status: mapQualificationToLeadStatus(qualificationStatus),
-      });
-      setLeads((current) => current.map((item) => (item.id === lead.id ? updatedLead : item)));
-      toast({ title: 'Лиддин абалы жаңыртылды' });
+      await leadsApi.update(lead.id, { status });
+      await fetchLeads();
+      toast({ title: 'Статус ийгиликтүү өзгөртүлдү' });
     } catch (error) {
-      const friendly = getFriendlyError(error, { fallbackTitle: 'Лиддин абалын жаңыртуу мүмкүн болгон жок' });
+      const friendly = getFriendlyError(error, { fallbackTitle: 'Статусту өзгөртүү ишке ашкан жок' });
       toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setUpdatingLeadId(null);
     }
   };
 
-  const getLeadQuickActions = (lead: Lead): Array<{ value: LeadQualificationStatus; label: string }> => {
-    const status = getLeadQualificationStatus(lead);
+  const getLeadQuickActions = (lead: Lead): Array<{ value: string; label: string }> => {
+    const status = lead.status;
 
     switch (status) {
       case 'new':
@@ -357,20 +387,20 @@ export default function LeadsPage() {
         ];
       case 'contacted':
         return [
-          { value: 'qualified', label: 'Кызыкты' },
-          { value: 'disqualified', label: 'Жабуу' },
+          { value: 'interested', label: 'Кызыкты' },
+          { value: 'lost', label: 'Жабуу' },
         ];
-      case 'qualified':
+      case 'interested':
         return [
           { value: 'contacted', label: 'Кайра иштөө' },
-          { value: 'disqualified', label: 'Жоготту' },
+          { value: 'lost', label: 'Жоготту' },
         ];
       case 'no_response':
         return [
           { value: 'contacted', label: 'Жооп берди' },
-          { value: 'disqualified', label: 'Жабуу' },
+          { value: 'lost', label: 'Жабуу' },
         ];
-      case 'disqualified':
+      case 'lost':
         return [
           { value: 'contacted', label: 'Кайра ачуу' },
         ];
@@ -379,9 +409,9 @@ export default function LeadsPage() {
     }
   };
 
-  const mobileBoardColumns = Object.entries(ky.leadQualificationStatus)
-    .filter(([value]) => statusFilter === 'all' || value === statusFilter)
-    .map(([value, label]) => ({ id: value, title: label }));
+  const mobileBoardColumns = leadStatusOptions
+    .filter(({ value }) => statusFilter === 'all' || value === statusFilter)
+    .map(({ value, label }) => ({ id: value, title: label }));
   const activeFilters = [
     ...(search.trim()
       ? [{
@@ -393,7 +423,7 @@ export default function LeadsPage() {
     ...(statusFilter !== 'all'
       ? [{
         key: 'status',
-        label: `Статус: ${ky.leadQualificationStatus[statusFilter as LeadQualificationStatus]}`,
+        label: `Статус: ${leadStatusOptions.find(opt => opt.value === statusFilter)?.label || statusFilter}`,
         onRemove: () => setStatusFilter('all'),
       }]
       : []),
@@ -432,8 +462,8 @@ export default function LeadsPage() {
       header: ky.common.status,
       render: (l) => (
         <Select
-          value={getLeadQualificationStatus(l)}
-          onValueChange={(value) => handleQualificationChange(l, value as LeadQualificationStatus)}
+          value={l.status}
+          onValueChange={(value) => handleStatusChange(l, value)}
           disabled={updatingLeadId === l.id}
         >
           <SelectTrigger
@@ -444,14 +474,14 @@ export default function LeadsPage() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {Object.entries(ky.leadQualificationStatus).map(([value, label]) => (
+            {leadStatusOptions.map(({ value, label }) => (
               <SelectItem key={value} value={value}>{label}</SelectItem>
             ))}
           </SelectContent>
         </Select>
       ),
     },
-    { key: 'createdAt', header: ky.common.date, render: (l) => <span className="text-sm text-muted-foreground">{new Date(l.createdAt).toLocaleDateString('ky-KG')}</span>, className: 'hidden md:table-cell' },
+    { key: 'createdAt', header: ky.common.date, render: (l) => <span className="text-sm text-muted-foreground">{formatDate(l.createdAt)}</span>, className: 'hidden md:table-cell' },
     {
       key: 'actions', header: '', render: (l) => (
         <div className="flex items-center justify-end gap-1">
@@ -478,7 +508,7 @@ export default function LeadsPage() {
   ];
 
   const renderMobileCard = (lead: Lead) => {
-    const status = getLeadQualificationStatus(lead);
+    const status = lead.status;
     const quickActions = getLeadQuickActions(lead);
 
     return (
@@ -490,7 +520,7 @@ export default function LeadsPage() {
             <p className="truncate text-sm font-semibold text-foreground">{lead.fullName || '—'}</p>
             <div className="mt-0.5 flex items-center gap-2">
               <StatusBadge variant={getLeadStatusVariant(status)} dot className="text-[11px]">
-                {ky.leadQualificationStatus[status]}
+                {leadStatusOptions.find(opt => opt.value === status)?.label || status}
               </StatusBadge>
               {lead.source && (
                 <span className="text-[11px] text-muted-foreground">{ky.leadSource[lead.source]}</span>
@@ -543,7 +573,7 @@ export default function LeadsPage() {
                   className="h-7 text-xs"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleQualificationChange(lead, action.value);
+                    handleStatusChange(lead, action.value);
                   }}
                 >
                   {updatingLeadId === lead.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
@@ -593,7 +623,7 @@ export default function LeadsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Бардык статус</SelectItem>
-            {Object.entries(ky.leadQualificationStatus).map(([value, label]) => (
+            {leadStatusOptions.map(({ value, label }) => (
               <SelectItem key={value} value={value}>{label}</SelectItem>
             ))}
           </SelectContent>
@@ -620,7 +650,7 @@ export default function LeadsPage() {
           {leads.filter((lead) => !lead.assignedManager?.fullName).length} дайындалбаган
         </span>
         <span className="rounded-full bg-secondary px-2.5 py-1">
-          {leads.filter((lead) => getLeadQualificationStatus(lead) === 'qualified').length} квалификацияланган
+          {leads.filter((lead) => lead.status === 'qualified').length} квалификацияланган
         </span>
       </div>
     </div>
@@ -675,7 +705,7 @@ export default function LeadsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Бардык статус</SelectItem>
-                {Object.entries(ky.leadQualificationStatus).map(([value, label]) => (
+                {leadStatusOptions.map(({ value, label }) => (
                   <SelectItem key={value} value={value}>{label}</SelectItem>
                 ))}
               </SelectContent>
@@ -770,7 +800,7 @@ export default function LeadsPage() {
         onRowClick={(lead) => navigate(`/leads/${lead.id}`)}
         renderMobileCard={renderMobileCard}
         mobileBoardColumns={mobileBoardColumns}
-        getMobileBoardColumnId={(lead) => getLeadQualificationStatus(lead)}
+        getMobileBoardColumnId={(lead) => lead.status}
         mobileBoardEmptyMessage="Бул тилкеде лид жок"
       />
 
@@ -844,10 +874,10 @@ export default function LeadsPage() {
                 <Label>{ky.leads.source}</Label>
                 <Select value={newLead.source} onValueChange={(v) => setNewLead(p => ({ ...p, source: v as LeadSource }))}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Булак тандаңыз" />
+                    <SelectValue placeholder={ky.leads.source} />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(ky.leadSource).map(([value, label]) => (
+                    {leadSourceOptions.map(({ value, label }) => (
                       <SelectItem key={value} value={value}>{label}</SelectItem>
                     ))}
                   </SelectContent>
@@ -855,12 +885,12 @@ export default function LeadsPage() {
               </div>
               <div className="space-y-2">
                 <Label>{ky.common.status}</Label>
-                <Select value={newLead.qualificationStatus} onValueChange={(v) => setNewLead(p => ({ ...p, qualificationStatus: v as LeadQualificationStatus }))}>
+                <Select value={newLead.status} onValueChange={(v) => setNewLead(p => ({ ...p, status: v }))}>
                   <SelectTrigger>
                     <SelectValue placeholder={ky.common.status} />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(ky.leadQualificationStatus).map(([value, label]) => (
+                    {leadStatusOptions.map(({ value, label }) => (
                       <SelectItem key={value} value={value}>{label}</SelectItem>
                     ))}
                   </SelectContent>

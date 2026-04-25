@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { PageHeader } from '@/components/PageShell';
 import { KanbanBoard, type KanbanColumn } from '@/components/KanbanBoard';
 import { Card, CardContent } from '@/components/ui/card';
@@ -7,17 +7,8 @@ import { ky } from '@/lib/i18n';
 import { dealsApi, reportsApi } from '@/api/modules';
 import type { Deal, DealPipelineStage, FunnelReport } from '@/types';
 import { getDealPipelineStage } from '@/lib/crm-status';
+import { useTenantConfig } from '@/components/core/TenantConfigProvider';
 import { User, BookOpen, DollarSign } from 'lucide-react';
-
-const stages: { id: DealPipelineStage; title: string }[] = [
-  { id: 'new', title: ky.dealPipelineStage.new },
-  { id: 'consultation', title: ky.dealPipelineStage.consultation },
-  { id: 'trial', title: ky.dealPipelineStage.trial },
-  { id: 'negotiation', title: ky.dealPipelineStage.negotiation },
-  { id: 'payment_pending', title: ky.dealPipelineStage.payment_pending },
-  { id: 'won', title: ky.dealPipelineStage.won },
-  { id: 'lost', title: ky.dealPipelineStage.lost },
-];
 
 const emptyFunnel: FunnelReport = {
   stages: [],
@@ -32,10 +23,30 @@ const dropOffLabels: Record<string, string> = {
 };
 
 export default function PipelinePage() {
+  const { tenantConfig } = useTenantConfig();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [funnel, setFunnel] = useState<FunnelReport>(emptyFunnel);
   const [isLoading, setIsLoading] = useState(true);
   const [activeColumn, setActiveColumn] = useState<string>('new');
+
+  // Use tenant-configured pipeline stages if available, otherwise use hardcoded stages
+  const stages = useMemo(() => {
+    if (tenantConfig.pipelineStages && tenantConfig.pipelineStages.length > 0) {
+      return tenantConfig.pipelineStages.map(stage => ({
+        id: stage.key as DealPipelineStage,
+        title: stage.label,
+      }));
+    }
+    // Fallback to hardcoded CRM-native stages (no education-specific trial stage)
+    return [
+      { id: 'new', title: ky.dealPipelineStage.new },
+      { id: 'consultation', title: ky.dealPipelineStage.consultation },
+      { id: 'negotiation', title: ky.dealPipelineStage.negotiation },
+      { id: 'payment_pending', title: ky.dealPipelineStage.payment_pending },
+      { id: 'won', title: ky.dealPipelineStage.won },
+      { id: 'lost', title: ky.dealPipelineStage.lost },
+    ];
+  }, [tenantConfig.pipelineStages]);
 
   useEffect(() => {
     setIsLoading(true);
@@ -53,7 +64,7 @@ export default function PipelinePage() {
   const columns: KanbanColumn<Deal>[] = stages.map((stage) => ({
     id: stage.id,
     title: stage.title,
-    items: deals.filter((d) => getDealPipelineStage(d) === stage.id),
+    items: deals.filter((d) => getDealPipelineStage(d, tenantConfig.pipelineStages) === stage.id),
   }));
 
   const renderCard = (deal: Deal) => (
@@ -63,17 +74,12 @@ export default function PipelinePage() {
           <User className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="text-sm font-medium truncate">{deal.lead?.fullName || deal.contact?.fullName || '—'}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <BookOpen className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">{deal.courseNameSnapshot || '—'}</span>
-          {deal.groupNameSnapshot && <span className="text-xs text-muted-foreground">• {deal.groupNameSnapshot}</span>}
-        </div>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1">
             <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-sm font-semibold">{deal.amount.toLocaleString()} {deal.currency || 'сом'}</span>
+            <span className="text-sm font-semibold">{deal.amount.toLocaleString()} {tenantConfig.currency}</span>
           </div>
-          {(() => { const stage = getDealPipelineStage(deal); return <StatusBadge variant={getLeadStatusVariant(stage)}>{ky.dealPipelineStage[stage]}</StatusBadge>; })()}
+          {(() => { const stage = getDealPipelineStage(deal); return <StatusBadge variant={getLeadStatusVariant(stage)}>{stages.find(s => s.id === stage)?.title || ky.dealPipelineStage[stage]}</StatusBadge>; })()}
         </div>
       </CardContent>
     </Card>

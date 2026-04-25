@@ -39,6 +39,16 @@ export interface TenantPipelineStageResponse {
   isDefault: boolean;
 }
 
+export interface TenantStatusResponse {
+  id: number;
+  tenantId: string;
+  entityType: string;
+  statusKey: string;
+  statusName: string;
+  statusOrder: number;
+  isDefault: boolean;
+}
+
 export interface TenantNotificationChannelResponse {
   id: number;
   tenantId: string;
@@ -134,6 +144,31 @@ export const tenantConfigApi = {
 
   deletePipelineStage: async (stageKey: string): Promise<void> => {
     return apiClient.delete<void>(`/tenant-config/stages/${stageKey}`, {
+      extraHeaders: getCompanyId() ? { 'x-company-id': getCompanyId()! } : undefined,
+    });
+  },
+
+  // Statuses
+  getStatuses: async (entityType: string): Promise<TenantStatusResponse[]> => {
+    return apiClient.get<TenantStatusResponse[]>(`/tenant-config/statuses?entityType=${entityType}`, undefined, {
+      extraHeaders: getCompanyId() ? { 'x-company-id': getCompanyId()! } : undefined,
+    });
+  },
+
+  createStatus: async (data: { entityType: string; statusKey: string; statusName: string; statusOrder: number; isDefault?: boolean }): Promise<TenantStatusResponse> => {
+    return apiClient.post<TenantStatusResponse>('/tenant-config/statuses', data, {
+      extraHeaders: getCompanyId() ? { 'x-company-id': getCompanyId()! } : undefined,
+    });
+  },
+
+  updateStatus: async (entityType: string, statusKey: string, updates: Partial<TenantStatusResponse>): Promise<TenantStatusResponse> => {
+    return apiClient.put<TenantStatusResponse>(`/tenant-config/statuses/${entityType}/${statusKey}`, updates, {
+      extraHeaders: getCompanyId() ? { 'x-company-id': getCompanyId()! } : undefined,
+    });
+  },
+
+  deleteStatus: async (entityType: string, statusKey: string): Promise<void> => {
+    return apiClient.delete<void>(`/tenant-config/statuses/${entityType}/${statusKey}`, {
       extraHeaders: getCompanyId() ? { 'x-company-id': getCompanyId()! } : undefined,
     });
   },

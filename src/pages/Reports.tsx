@@ -14,6 +14,7 @@ import { reportsApi } from '@/api/modules';
 import type { DashboardStats, DashboardStatsQueryParams, CrmDashboardStats, EducationDashboardStats } from '@/types';
 import { DateRangeFilter } from '@/components/DateRangeFilter';
 import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
+import { useTenantConfig } from '@/components/core/TenantConfigProvider';
 import {
   Users, UserPlus, TrendingUp, Target, CreditCard, Trophy,
   AlertTriangle, Download, RefreshCw, GraduationCap,
@@ -103,6 +104,7 @@ function exportCSV(stats: DashboardStats, isLmsEnabled: boolean) {
 
 export default function ReportsPage() {
   const { isLmsBridgeEnabled } = useLmsBridge();
+  const { tenantConfig } = useTenantConfig();
   const [searchParams, setSearchParams] = useSearchParams();
   const getSearchParam = (key: string, fallback = '') => searchParams.get(key) ?? fallback;
   const [stats, setStats] = useState<DashboardStats>({ ...emptyCrmStats, ...emptyEducationStats });
@@ -592,16 +594,16 @@ export default function ReportsPage() {
           {/* Payment Summary Cards */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard title="Жалпы төлөмдөр" value={paymentReports.totalCount} icon={CreditCard} variant="primary" />
-            <StatCard title="Жалпы сумма" value={`${paymentReports.totalAmount.toLocaleString()} сом`} icon={DollarSign} variant="success" />
+            <StatCard title="Жалпы сумма" value={`${paymentReports.totalAmount.toLocaleString()} ${tenantConfig.currency}`} icon={DollarSign} variant="success" />
             <StatCard title="Ырасталган" value={paymentReports.byStatus.confirmed.count} icon={Trophy} variant="success" />
             <StatCard title="Күтүлүүдө" value={paymentReports.byStatus.submitted.count} icon={AlertTriangle} variant="warning" />
           </div>
 
           {/* Revenue Stats */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <StatCard title="Жалпы киреше" value={`${revenueReports.totalRevenue.toLocaleString()} сом`} icon={DollarSign} variant="success" />
+            <StatCard title="Жалпы киреше" value={`${revenueReports.totalRevenue.toLocaleString()} ${tenantConfig.currency}`} icon={DollarSign} variant="success" />
             <StatCard title="Төлөмдөр саны" value={revenueReports.paymentCount} icon={CreditCard} variant="info" />
-            <StatCard title="Орточо төлөм" value={`${revenueReports.averagePayment.toLocaleString()} сом`} icon={TrendingUp} variant="info" />
+            <StatCard title="Орточо төлөм" value={`${revenueReports.averagePayment.toLocaleString()} ${tenantConfig.currency}`} icon={TrendingUp} variant="info" />
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
@@ -621,7 +623,7 @@ export default function ReportsPage() {
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(v) => v.slice(5)} />
                       <YAxis tick={{ fontSize: 10 }} />
-                      <Tooltip formatter={(v: number) => `${v.toLocaleString()} сом`} />
+                      <Tooltip formatter={(v: number) => `${v.toLocaleString()} ${tenantConfig.currency}`} />
                       <Line type="monotone" dataKey="amount" stroke="hsl(167, 65%, 44%)" strokeWidth={2} dot={false} name="Кише" />
                     </LineChart>
                   </ResponsiveContainer>
@@ -682,7 +684,7 @@ export default function ReportsPage() {
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="method" tick={{ fontSize: 10 }} />
                       <YAxis tick={{ fontSize: 10 }} />
-                      <Tooltip formatter={(v: number, name: string) => [name === 'amount' ? `${v.toLocaleString()} сом` : `${v} шт`, name === 'amount' ? 'Сумма' : 'Саны']} />
+                      <Tooltip formatter={(v: number, name: string) => [name === 'amount' ? `${v.toLocaleString()} ${tenantConfig.currency}` : `${v} шт`, name === 'amount' ? 'Сумма' : 'Саны']} />
                       <Legend />
                       <Bar dataKey="count" fill="hsl(220, 70%, 50%)" radius={[4, 4, 0, 0]} name="Саны" />
                       <Bar dataKey="amount" fill="hsl(167, 65%, 44%)" radius={[4, 4, 0, 0]} name="Сумма" />
@@ -704,7 +706,7 @@ export default function ReportsPage() {
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis type="number" tick={{ fontSize: 10 }} />
                       <YAxis type="category" dataKey="course" width={100} tick={{ fontSize: 10 }} />
-                      <Tooltip formatter={(v: number) => `${v.toLocaleString()} сом`} />
+                      <Tooltip formatter={(v: number) => `${v.toLocaleString()} ${tenantConfig.currency}`} />
                       <Bar dataKey="amount" fill="hsl(200, 80%, 50%)" radius={[0, 4, 4, 0]} name="Кише" />
                     </BarChart>
                   </ResponsiveContainer>
@@ -734,9 +736,9 @@ export default function ReportsPage() {
                       <tr key={m.manager} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
                         <td className="py-2.5 px-3 font-medium">{m.manager}</td>
                         <td className="py-2.5 px-3 text-right">{m.count}</td>
-                        <td className="py-2.5 px-3 text-right font-medium">{m.amount.toLocaleString()} сом</td>
+                        <td className="py-2.5 px-3 text-right font-medium">{m.amount.toLocaleString()} {tenantConfig.currency}</td>
                         <td className="py-2.5 px-3 text-right text-muted-foreground">
-                          {m.count > 0 ? (m.amount / m.count).toFixed(0) : 0} сом
+                          {m.count > 0 ? (m.amount / m.count).toFixed(0) : 0} {tenantConfig.currency}
                         </td>
                       </tr>
                     ))}

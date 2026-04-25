@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenantConfig } from '@/components/core/TenantConfigProvider';
 import type { UserRole } from '@/types';
 
 /**
@@ -36,7 +37,7 @@ interface PermissionConfig {
  */
 function getPermissionsForRole(role: UserRole): PermissionConfig {
   const level = ROLE_HIERARCHY[role];
-  
+
   // Base permissions (available to all roles)
   const basePermissions: PermissionConfig = {
     canAssignLeads: false,
@@ -99,9 +100,13 @@ function hasMinimumRole(userRole: UserRole, minimumRole: UserRole): boolean {
 /**
  * Hook for role-based permissions
  * Provides permission checks based on the current user's role
+ * 
+ * When tenant config is available, permissions are driven by tenant role definitions.
+ * Falls back to hardcoded permissions for backward compatibility.
  */
 export function useRolePermissions() {
   const { user } = useAuth();
+  const { tenantConfig } = useTenantConfig();
   const userRole = user?.role;
 
   const permissions = useMemo<PermissionConfig>(() => {
@@ -121,8 +126,33 @@ export function useRolePermissions() {
         canManageBridge: false,
       };
     }
+
+    // Try to use tenant-configured role permissions if available
+    const tenantRole = tenantConfig.roles.find(r => r.key === userRole);
+    if (tenantRole && tenantRole.permissions && Object.keys(tenantRole.permissions).length > 0) {
+      const perms = tenantRole.permissions;
+      // Try both snake_case and camelCase key variants for compatibility
+      const mappedPermissions = {
+        canAssignLeads: !!perms['assign_leads'] || !!perms['assignLeads'],
+        canViewAdminPanel: !!perms['view_admin_panel'] || !!perms['viewAdminPanel'],
+        canViewIntegrationHistory: !!perms['view_integration_history'] || !!perms['viewIntegrationHistory'],
+        canViewStudentSummary: !!perms['view_student_summary'] || !!perms['viewStudentSummary'],
+        canViewTechnicalFields: !!perms['view_technical_fields'] || !!perms['viewTechnicalFields'],
+        canManageUsers: !!perms['manage_users'] || !!perms['manageUsers'],
+        canManageSettings: !!perms['manage_settings'] || !!perms['manageSettings'],
+        canViewRetentionCases: !!perms['view_retention_cases'] || !!perms['viewRetentionCases'],
+        canManageRetentionCases: !!perms['manage_retention_cases'] || !!perms['manageRetentionCases'],
+        canViewBridgeAdmin: !!perms['view_bridge_admin'] || !!perms['viewBridgeAdmin'],
+        canManageBridge: !!perms['manage_bridge'] || !!perms['manageBridge'],
+      };
+      // Tenant permissions are authoritative when configured, even if all are false
+      // This allows tenants to restrict access below baked-in defaults
+      return mappedPermissions;
+    }
+
+    // Fallback to hardcoded permissions only when tenant permissions are not configured
     return getPermissionsForRole(userRole);
-  }, [userRole]);
+  }, [userRole, tenantConfig.roles]);
 
   /**
    * Check if current user has a specific role level

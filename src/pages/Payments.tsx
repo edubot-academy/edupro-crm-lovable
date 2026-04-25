@@ -12,12 +12,16 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { ky } from '@/lib/i18n';
 import { getPaymentWorkflowStatus } from '@/lib/crm-status';
+import { formatDate } from '@/lib/formatting';
 import type { Deal, Payment } from '@/types';
-import { dealsApi, paymentsApi } from '@/api/modules';
+import type { DealWithCourseMapping } from '@/types/bridge';
+import { dealsApi, paymentsApi, bridgeApi } from '@/api/modules';
 import { Plus, CheckCircle, Loader2 } from 'lucide-react';
 import { getFriendlyError } from '@/lib/error-messages';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRolePermissions } from '@/hooks/use-role-permissions';
+import { useTenantConfig } from '@/components/core/TenantConfigProvider';
+import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
 
 const emptyForm = { dealId: '', amount: '', kind: 'regular' as Payment['kind'], method: 'card' as string };
 
@@ -25,6 +29,8 @@ export default function PaymentsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { canViewLmsTechnicalFields } = useRolePermissions();
+  const { tenantConfig } = useTenantConfig();
+  const { isLmsBridgeEnabled } = useLmsBridge();
   const [searchParams, setSearchParams] = useSearchParams();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,6 +45,7 @@ export default function PaymentsPage() {
   const [form, setForm] = useState(emptyForm);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [dealsLoading, setDealsLoading] = useState(false);
+  const [dealBridgeData, setDealBridgeData] = useState<DealWithCourseMapping | null>(null);
   const { toast } = useToast();
   const prefillDealId = searchParams.get('dealId') || '';
   const shouldOpenCreate = searchParams.get('create') === '1';
@@ -108,6 +115,16 @@ export default function PaymentsPage() {
     setForm((prev) => ({ ...prev, dealId: prefillDealId }));
   }, [showCreate, prefillDealId]);
 
+  useEffect(() => {
+    if (!selectedDeal || !isLmsBridgeEnabled) {
+      setDealBridgeData(null);
+      return;
+    }
+    bridgeApi.getDealBridgeData(selectedDeal.id)
+      .then((data) => setDealBridgeData(data))
+      .catch(() => setDealBridgeData(null));
+  }, [selectedDeal, isLmsBridgeEnabled]);
+
   const handleCreate = async () => {
     if (!form.dealId || !form.amount) return;
     setIsCreating(true);
@@ -167,9 +184,9 @@ export default function PaymentsPage() {
     { key: 'user', header: 'Студент', render: (p) => <span className="font-medium">{getPaymentStudentName(p)}</span> },
     { key: 'deal', header: 'Келишим', render: (p) => <span className="text-sm">{getPaymentDealLabel(p)}</span> },
     { key: 'kind', header: ky.payments.kind, render: (p) => ky.paymentKind[p.kind || 'regular'] },
-    { key: 'amount', header: ky.payments.amount, render: (p) => <span className="font-semibold">{p.amount.toLocaleString()} сом</span> },
+    { key: 'amount', header: ky.payments.amount, render: (p) => <span className="font-semibold">{p.amount.toLocaleString()} {tenantConfig.currency}</span> },
     { key: 'method', header: ky.payments.method, render: (p) => ky.paymentMethod[p.method] },
-    { key: 'paidAt', header: ky.payments.paidAt, render: (p) => p.paidAt ? new Date(p.paidAt).toLocaleDateString('ky-KG') : '—' },
+    { key: 'paidAt', header: ky.payments.paidAt, render: (p) => p.paidAt ? formatDate(p.paidAt) : '—' },
     {
       key: 'status', header: ky.common.status, render: (p) => (
         <div className="flex items-center gap-2">
@@ -248,9 +265,9 @@ export default function PaymentsPage() {
         </div>
 
         <div className="mt-3 space-y-2 text-sm text-muted-foreground">
-          <p className="font-medium text-foreground">{payment.amount.toLocaleString()} сом</p>
+          <p className="font-medium text-foreground">{payment.amount.toLocaleString()} {tenantConfig.currency}</p>
           <p>{ky.paymentKind[payment.kind || 'regular']} • {ky.paymentMethod[payment.method]}</p>
-          <p>{payment.paidAt ? new Date(payment.paidAt).toLocaleDateString('ky-KG') : 'Дата жок'}</p>
+          <p>{payment.paidAt ? formatDate(payment.paidAt) : 'Дата жок'}</p>
         </div>
 
         {canConfirmPayments && workflowStatus === 'submitted' && (
@@ -321,7 +338,7 @@ export default function PaymentsPage() {
                   <SelectItem value="__none__">Тандалган эмес</SelectItem>
                   {deals.map((deal) => (
                     <SelectItem key={deal.id} value={String(deal.id)}>
-                      #{deal.id} • {deal.courseNameSnapshot || 'Курс көрсөтүлгөн эмес'} • {deal.contact?.fullName || `Байланыш #${deal.contactId ?? '—'}`}
+                      #{deal.id} • {deal.contact?.fullName || `Байланыш #${deal.contactId ?? '—'}`}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -329,18 +346,18 @@ export default function PaymentsPage() {
               {selectedDeal && (
                 <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground space-y-1">
                   <p>
-                    {selectedDeal.courseNameSnapshot || 'Курс көрсөтүлгөн эмес'}
+                    {dealBridgeData?.courseNameSnapshot || 'Курс көрсөтүлгөн эмес'}
                     {selectedDeal.contact?.fullName ? ` • ${selectedDeal.contact.fullName}` : ''}
                   </p>
                   {selectedDealSummary ? (
                     <p>
-                      Жалпы: {selectedDealSummary.dealTotal.toLocaleString()} сом
-                      {' • '}Ырасталды: {selectedDealSummary.confirmedPaid.toLocaleString()} сом
-                      {' • '}Депозит: {selectedDealSummary.depositPaid.toLocaleString()} сом
-                      {' • '}Калганы: {selectedDealSummary.remaining.toLocaleString()} сом
+                      Жалпы: {selectedDealSummary.dealTotal.toLocaleString()} {tenantConfig.currency}
+                      {' • '}Ырасталды: {selectedDealSummary.confirmedPaid.toLocaleString()} {tenantConfig.currency}
+                      {' • '}Депозит: {selectedDealSummary.depositPaid.toLocaleString()} {tenantConfig.currency}
+                      {' • '}Калганы: {selectedDealSummary.remaining.toLocaleString()} {tenantConfig.currency}
                     </p>
                   ) : selectedDeal.amount != null ? (
-                    <p>Жалпы: {Number(selectedDeal.amount).toLocaleString()} сом</p>
+                    <p>Жалпы: {Number(selectedDeal.amount).toLocaleString()} {tenantConfig.currency}</p>
                   ) : null}
                 </div>
               )}

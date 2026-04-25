@@ -1,6 +1,8 @@
 import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
 import type { TenantConfig, TenantLeadSource } from '@/types';
 import { tenantConfigApi } from '@/api/tenant-config';
+import { setFormattingConfig } from '@/lib/formatting';
+import type { TenantStatusResponse } from '@/api/tenant-config';
 
 interface TenantConfigContextValue {
   tenantConfig: TenantConfig;
@@ -28,6 +30,8 @@ const defaultTenantConfig: TenantConfig = {
     { id: '2', type: 'telegram', enabled: true },
   ],
   pipelineStages: [],
+  leadStatuses: [],
+  dealStatuses: [],
   roles: [],
 };
 
@@ -66,14 +70,16 @@ export function TenantConfigProvider({
     const loadTenantConfig = async () => {
       setIsLoading(true);
       try {
-        const [config, leadSources, roles, pipelineStages, notificationChannels] = await Promise.all([
+        const [config, leadSources, roles, pipelineStages, notificationChannels, leadStatuses, dealStatuses] = await Promise.all([
           tenantConfigApi.getConfig(),
           tenantConfigApi.getLeadSources(),
           tenantConfigApi.getRoles(),
           tenantConfigApi.getPipelineStages(),
           tenantConfigApi.getNotificationChannels(),
+          tenantConfigApi.getStatuses('lead'),
+          tenantConfigApi.getStatuses('deal'),
         ]);
-        setTenantConfig({
+        const loadedConfig = {
           tenantId: config.tenantId,
           language: config.language,
           currency: config.currency,
@@ -106,15 +112,32 @@ export function TenantConfigProvider({
             label: ps.stageName,
             order: ps.stageOrder,
           })),
+          leadStatuses: leadStatuses.map(s => ({
+            id: String(s.id),
+            key: s.statusKey,
+            label: s.statusName,
+            order: s.statusOrder,
+            entityType: s.entityType,
+          })),
+          dealStatuses: dealStatuses.map(s => ({
+            id: String(s.id),
+            key: s.statusKey,
+            label: s.statusName,
+            order: s.statusOrder,
+            entityType: s.entityType,
+          })),
           roles: roles.map(r => ({
             id: String(r.id),
             key: r.roleKey,
             label: r.roleName,
-            permissions: Object.keys(r.permissions || {}),
+            permissions: (r.permissions || {}) as Record<string, boolean>,
           })),
           createdAt: new Date(config.createdAt),
           updatedAt: new Date(config.updatedAt),
-        });
+        };
+        setTenantConfig(loadedConfig);
+        // Update formatting utilities with tenant config
+        setFormattingConfig(config.language, config.currency, config.timezone);
       } catch (error) {
         console.error('Failed to load tenant config from backend, using defaults:', error);
         // Keep using defaults

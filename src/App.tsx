@@ -5,10 +5,12 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { ModuleGuard } from "@/components/ModuleGuard";
 import { AppLayout } from "@/components/AppLayout";
 import { LmsBridgeProvider } from "@/components/lms/LmsBridgeProvider";
 import { FeatureFlagProvider, useFeatureFlags } from "@/components/core/FeatureFlagProvider";
 import { TenantConfigProvider } from "@/components/core/TenantConfigProvider";
+import { useRolePermissions } from "@/hooks/use-role-permissions";
 
 import LoginPage from "./pages/Login";
 import ForgotPasswordPage from "./pages/ForgotPassword";
@@ -48,6 +50,7 @@ function AuthRedirect({ children }: { children: React.ReactNode }) {
 function AppContent() {
   const { isFeatureEnabled } = useFeatureFlags();
   const enableLmsBridge = isFeatureEnabled('lms_bridge_enabled');
+  const { canViewLmsTechnicalFields, canViewRetentionCases, canAccessAdminPanel, canManageUsers, canManageSettings } = useRolePermissions();
 
   return (
     <LmsBridgeProvider enableLmsBridge={enableLmsBridge}>
@@ -62,25 +65,113 @@ function AppContent() {
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/leads" element={<LeadsPage />} />
-          <Route path="/courses" element={<CoursesPage />} />
           <Route path="/leads/:id" element={<LeadDetailPage />} />
           <Route path="/contacts" element={<ContactsPage />} />
           <Route path="/contacts/:id" element={<ContactDetailPage />} />
-          <Route path="/legacy-contacts" element={<ProtectedRoute allowedRoles={['superadmin']}><LegacyContactsPage /></ProtectedRoute>} />
-          <Route path="/legacy-contacts/:id" element={<ProtectedRoute allowedRoles={['superadmin']}><LegacyContactDetailPage /></ProtectedRoute>} />
           <Route path="/deals" element={<DealsPage />} />
           <Route path="/deals/:id" element={<DealDetailPage />} />
           <Route path="/pipeline" element={<PipelinePage />} />
-          <Route path="/trial-lessons" element={<TrialLessonsPage />} />
           <Route path="/payments" element={<PaymentsPage />} />
-          <Route path="/enrollments" element={<EnrollmentsPage />} />
           <Route path="/tasks" element={<TasksPage />} />
           <Route path="/timeline" element={<TimelinePage />} />
-          <Route path="/retention" element={<RetentionPage />} />
-          <Route path="/reports" element={<ProtectedRoute allowedRoles={['admin', 'superadmin']}><ReportsPage /></ProtectedRoute>} />
           <Route path="/notifications" element={<NotificationsPage />} />
-          <Route path="/users" element={<ProtectedRoute allowedRoles={['admin', 'superadmin']}><UsersPage /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute allowedRoles={['admin', 'superadmin']}><SettingsPage /></ProtectedRoute>} />
+
+          {/* LMS-dependent routes - protected by feature flag and role permissions */}
+          <Route
+            path="/courses"
+            element={
+              <ModuleGuard
+                requiredFeature="lms_bridge_enabled"
+                permissionCheck={canViewLmsTechnicalFields}
+              >
+                <CoursesPage />
+              </ModuleGuard>
+            }
+          />
+
+          <Route
+            path="/trial-lessons"
+            element={
+              <ModuleGuard
+                requiredFeature="trial_lessons_enabled"
+              >
+                <TrialLessonsPage />
+              </ModuleGuard>
+            }
+          />
+
+          <Route
+            path="/enrollments"
+            element={
+              <ModuleGuard
+                requiredFeature="lms_bridge_enabled"
+                permissionCheck={canViewLmsTechnicalFields}
+              >
+                <EnrollmentsPage />
+              </ModuleGuard>
+            }
+          />
+
+          <Route
+            path="/retention"
+            element={
+              <ModuleGuard
+                requiredFeature="retention_enabled"
+                permissionCheck={canViewRetentionCases}
+              >
+                <RetentionPage />
+              </ModuleGuard>
+            }
+          />
+
+          {/* Admin routes - protected by permission checks and feature flags */}
+          <Route
+            path="/reports"
+            element={
+              <ModuleGuard
+                requiredFeature="advanced_reports_enabled"
+                permissionCheck={canAccessAdminPanel}
+              >
+                <ReportsPage />
+              </ModuleGuard>
+            }
+          />
+
+          <Route
+            path="/users"
+            element={
+              <ModuleGuard permissionCheck={canManageUsers}>
+                <UsersPage />
+              </ModuleGuard>
+            }
+          />
+
+          <Route
+            path="/settings"
+            element={
+              <ModuleGuard permissionCheck={canManageSettings}>
+                <SettingsPage />
+              </ModuleGuard>
+            }
+          />
+
+          {/* Legacy/internal routes - superadmin only */}
+          <Route
+            path="/legacy-contacts"
+            element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <LegacyContactsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/legacy-contacts/:id"
+            element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <LegacyContactDetailPage />
+              </ProtectedRoute>
+            }
+          />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>

@@ -48,6 +48,8 @@ export interface TenantConfig {
   paymentMethods: string[];
   notificationChannels: NotificationChannel[];
   pipelineStages: PipelineStageConfig[];
+  leadStatuses: StatusConfig[];
+  dealStatuses: StatusConfig[];
   roles: RoleConfig[];
   createdAt?: Date;
   updatedAt?: Date;
@@ -84,11 +86,19 @@ export interface PipelineStageConfig {
   color?: string;
 }
 
+export interface StatusConfig {
+  id: string;
+  key: string;
+  label: string;
+  order: number;
+  entityType: string;
+}
+
 export interface RoleConfig {
   id: string;
   key: string;
   label: string;
-  permissions: string[];
+  permissions: Record<string, boolean>;
 }
 
 // ==================== AUTH ====================
@@ -159,22 +169,45 @@ export interface AssignableUser {
 }
 
 // ==================== LEADS ====================
-export type LeadSource = 'instagram' | 'telegram' | 'whatsapp' | 'website' | 'phone_call' | 'referral';
+export type LeadSource = 'instagram' | 'telegram' | 'whatsapp' | 'website' | 'phone_call' | 'referral' | 'other';
 
-export type LeadStatus =
-  | 'new'
-  | 'contacted'
-  | 'interested'
+/**
+ * CRM-native lead statuses
+ * These are generic CRM statuses that apply to any business type
+ * Education-specific trial statuses should be handled in the education layer or tenant-configured stages
+ * Changed to string type to support tenant-configured statuses
+ */
+export type LeadStatus = string;
+
+/**
+ * Education-specific lead statuses
+ * These statuses are used only when LMS bridge is enabled and trial lessons feature is active
+ * They should not be used in CRM-only mode
+ */
+export type EducationLeadStatus =
   | 'trial_scheduled'
   | 'trial_completed'
-  | 'offer_sent'
-  | 'negotiation'
-  | 'payment_pending'
-  | 'won'
-  | 'lost';
+  | 'trial_passed'
+  | 'trial_failed';
 
-export type LeadQualificationStatus = 'new' | 'contacted' | 'qualified' | 'disqualified' | 'no_response';
-
+/**
+ * CRM Product/Service Model Decision
+ *
+ * APPROVED MODEL: Keep product interest generic in CRM core, let bridge handle LMS mapping
+ *
+ * Rationale:
+ * - CRM core should remain domain-agnostic and work for any business type
+ * - Generic `productInterest` string field allows flexibility for different product types
+ * - LMS-specific course mapping is handled via bridge-enriched types (LeadWithCourseInterest)
+ * - This approach keeps CRM core clean while allowing rich LMS integration when needed
+ * - Avoids introducing a complex product/service abstraction that may not fit all use cases
+ *
+ * Implementation:
+ * - Lead.productInterest is a generic string field in CRM core
+ * - Bridge type LeadWithCourseInterest adds interestedCourseId and interestedGroupId for LMS
+ * - UI components can display productInterest directly or use bridge data when LMS is enabled
+ * - This model is consistent with the separation of concerns between CRM core and LMS bridge
+ */
 export interface Lead {
   id: number;
   fullName: string;
@@ -182,12 +215,8 @@ export interface Lead {
   email: string;
   source: LeadSource;
   status: LeadStatus;
-  qualificationStatus?: LeadQualificationStatus;
   contactId?: number | null;
-  productInterest?: string;
-  // LMS bridge fields (used by LeadCourseInterest component when LMS bridge is enabled)
-  interestedCourseId?: string;
-  interestedGroupId?: string;
+  productInterest?: string; // Generic product/service interest - domain-agnostic
   notes?: string;
   tags?: string[];
   assignedManager?: { id: number; fullName: string };
@@ -207,9 +236,6 @@ export interface Contact {
   email: string;
   source?: ContactSource;
   sourceProvider?: string;
-  // LMS bridge fields (used by ContactStudentMapping component when LMS bridge is enabled)
-  externalStudentId?: string;
-  lmsStudentId?: string;
   notes?: string;
   status?: string;
   company?: CompanyRef;
@@ -225,16 +251,29 @@ export interface ContactNote {
 }
 
 // ==================== DEALS ====================
+/**
+ * CRM-native deal stages
+ * These are generic CRM stages that apply to any business type
+ * Education-specific trial stages should be handled in the education layer or tenant-configured stages
+ */
 export type DealStage =
   | 'new_lead'
   | 'contacted'
-  | 'trial_booked'
-  | 'trial_completed'
+  | 'qualified'
   | 'offer_sent'
   | 'negotiation'
   | 'payment_pending'
   | 'won'
   | 'lost';
+
+/**
+ * Education-specific deal stages
+ * These stages are used only when LMS bridge is enabled and trial lessons feature is active
+ * They should not be used in CRM-only mode
+ */
+export type EducationDealStage =
+  | 'trial_booked'
+  | 'trial_completed';
 
 export type DealPipelineStage =
   | 'new'
@@ -253,15 +292,9 @@ export interface Deal {
   currency: string;
   contactId?: number;
   leadId?: number | null;
-  // LMS bridge fields (used by DealCourseMapping component when LMS bridge is enabled)
-  lmsCourseId?: string;
-  lmsGroupId?: string;
-  courseType?: import('@/types/lms').LmsCourseType;
-  courseNameSnapshot?: string;
-  groupNameSnapshot?: string;
   notes?: string;
   lead?: { id: number; fullName: string };
-  contact?: { id: number; fullName: string; email?: string; lmsStudentId?: string };
+  contact?: { id: number; fullName: string; email?: string };
   company?: CompanyRef;
   createdAt: string;
   updatedAt: string;
@@ -299,18 +332,10 @@ export interface Payment {
   dealId?: number;
   leadId?: number | null;
   contactId?: number | null;
-  // LMS bridge field (used by LMS enrollment features when LMS bridge is enabled)
-  lmsEnrollmentId?: string;
   paidAt?: string;
   user?: { id: number; fullName: string };
   deal?: {
     id: number;
-    // LMS bridge fields (used by LMS enrollment features when LMS bridge is enabled)
-    lmsCourseId?: string;
-    lmsGroupId?: string;
-    courseType?: import('@/types/lms').LmsCourseType;
-    courseNameSnapshot?: string;
-    groupNameSnapshot?: string;
     contact?: { id: number; fullName: string; email?: string };
   };
   contact?: { id: number; fullName: string; email?: string };

@@ -8,10 +8,12 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, ArrowLeft, BookOpen, CreditCard, Workflow, User, CalendarDays, Clock3, Users, Pencil } from 'lucide-react';
-import { contactApi, dealsApi, paymentsApi } from '@/api/modules';
+import { contactApi, dealsApi, paymentsApi, bridgeApi } from '@/api/modules';
 import type { Contact, Deal, Payment } from '@/types';
+import type { ContactWithStudentMapping, DealWithCourseMapping } from '@/types/bridge';
 import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
 import { formatLmsDate, getLmsGroupAvailability, getSeatsLeft } from '@/lib/lms-availability';
+import { formatDate } from '@/lib/formatting';
 import { IntegrationHistoryPanel } from '@/components/lms/IntegrationHistoryPanel';
 import { DealCourseMapping } from '@/components/lms/DealCourseMapping';
 import { useToast } from '@/hooks/use-toast';
@@ -26,6 +28,8 @@ export default function DealDetailPage() {
   const { canViewLmsTechnicalFields, canViewIntegrationHistory } = useRolePermissions();
   const { isLmsBridgeEnabled } = useLmsBridge();
   const [deal, setDeal] = useState<Deal | null>(null);
+  const [bridgeData, setBridgeData] = useState<DealWithCourseMapping | null>(null);
+  const [contactBridgeData, setContactBridgeData] = useState<ContactWithStudentMapping | null>(null);
   const [contact, setContact] = useState<Contact | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -63,6 +67,26 @@ export default function DealDetailPage() {
   }, [id]);
 
   useEffect(() => {
+    if (!deal || !isLmsBridgeEnabled) {
+      setBridgeData(null);
+      return;
+    }
+    bridgeApi.getDealBridgeData(deal.id)
+      .then((data) => setBridgeData(data))
+      .catch(() => setBridgeData(null));
+  }, [deal, isLmsBridgeEnabled]);
+
+  useEffect(() => {
+    if (!contact || !isLmsBridgeEnabled) {
+      setContactBridgeData(null);
+      return;
+    }
+    bridgeApi.getContactBridgeData(contact.id)
+      .then((data) => setContactBridgeData(data))
+      .catch(() => setContactBridgeData(null));
+  }, [contact, isLmsBridgeEnabled]);
+
+  useEffect(() => {
     if (!id) return;
     setPaymentsLoading(true);
     paymentsApi.list({ dealId: id, limit: 100 })
@@ -78,20 +102,20 @@ export default function DealDetailPage() {
   const { data: groupsData, isLoading: groupsLoading } = useLmsGroups(
     canViewLmsTechnicalFields() && editOpen
       ? (editNeedsGroup ? { courseId: editForm.lmsCourseId, limit: 100 } : undefined)
-      : canViewLmsTechnicalFields() && deal?.lmsCourseId ? { courseId: deal.lmsCourseId, limit: 100 } : undefined,
+      : canViewLmsTechnicalFields() && bridgeData?.lmsCourseId ? { courseId: bridgeData.lmsCourseId, limit: 100 } : undefined,
   );
   const groups = groupsData?.items ?? [];
 
   const liveGroup = useMemo(
-    () => groupsData?.items?.find((group) => group.id === deal?.lmsGroupId) ?? null,
-    [groupsData?.items, deal?.lmsGroupId],
+    () => groupsData?.items?.find((group) => group.id === bridgeData?.lmsGroupId) ?? null,
+    [groupsData?.items, bridgeData?.lmsGroupId],
   );
 
   useEffect(() => {
     if (!deal || !editOpen) return;
     setEditForm({
-      lmsCourseId: deal.lmsCourseId || '',
-      lmsGroupId: deal.lmsGroupId || '',
+      lmsCourseId: bridgeData?.lmsCourseId || '',
+      lmsGroupId: bridgeData?.lmsGroupId || '',
     });
   }, [deal, editOpen]);
 
@@ -138,7 +162,7 @@ export default function DealDetailPage() {
 
     setIsSaving(true);
     try {
-      await dealsApi.update(deal.id, {
+      await bridgeApi.updateDealLmsMapping(deal.id, {
         lmsCourseId: editForm.lmsCourseId,
         courseType: selectedEditCourse.courseType,
         courseNameSnapshot: selectedEditCourse.name || undefined,
@@ -164,7 +188,7 @@ export default function DealDetailPage() {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title={`Келишим #${deal.id}`}
-        description={canViewLmsTechnicalFields() ? (deal.courseNameSnapshot || 'LMS курс байланышы жок') : undefined}
+        description={canViewLmsTechnicalFields() ? (bridgeData?.courseNameSnapshot || 'LMS курс байланышы жок') : undefined}
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => navigate('/deals')}>
@@ -189,13 +213,13 @@ export default function DealDetailPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {isLmsBridgeEnabled && canViewLmsTechnicalFields() && (
           <DealCourseMapping
-            lmsCourseId={deal.lmsCourseId}
-            lmsGroupId={deal.lmsGroupId}
-            courseType={deal.courseType}
-            courseNameSnapshot={deal.courseNameSnapshot}
-            groupNameSnapshot={deal.groupNameSnapshot}
+            lmsCourseId={bridgeData?.lmsCourseId}
+            lmsGroupId={bridgeData?.lmsGroupId}
+            courseType={bridgeData?.courseType}
+            courseNameSnapshot={bridgeData?.courseNameSnapshot}
+            groupNameSnapshot={bridgeData?.groupNameSnapshot}
             dealId={deal.id}
-            contactLmsStudentId={contact?.lmsStudentId}
+            contactLmsStudentId={contactBridgeData?.lmsStudentId}
           />
         )}
 
@@ -232,11 +256,8 @@ export default function DealDetailPage() {
                     </div>
                     <p className="text-xs text-muted-foreground">
                       {formatPaymentMethod(payment.method)}
-                      {payment.paidAt ? ` • ${new Date(payment.paidAt).toLocaleDateString('ky-KG')}` : ''}
+                      {payment.paidAt ? ` • ${formatDate(payment.paidAt)}` : ''}
                     </p>
-                    {canViewLmsTechnicalFields() && payment.lmsEnrollmentId && (
-                      <p className="text-xs text-muted-foreground">LMS каттоо ID: {payment.lmsEnrollmentId}</p>
-                    )}
                   </div>
                 ))
               )}
@@ -253,7 +274,7 @@ export default function DealDetailPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => navigate(`/enrollments?crmDealId=${deal.id}${contact?.lmsStudentId ? `&studentId=${encodeURIComponent(contact.lmsStudentId)}` : ''}`)}
+                  onClick={() => navigate(`/enrollments?crmDealId=${deal.id}${contactBridgeData?.lmsStudentId ? `&studentId=${encodeURIComponent(contactBridgeData.lmsStudentId)}` : ''}`)}
                 >
                   Толук тарых
                 </Button>
@@ -263,7 +284,7 @@ export default function DealDetailPage() {
                   initialFilters={{
                     crmDealId: deal.id,
                     crmContactId: contact?.id,
-                    lmsStudentId: contact?.lmsStudentId,
+                    lmsStudentId: contactBridgeData?.lmsStudentId,
                   }}
                 />
               </CardContent>

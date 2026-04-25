@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Version bumps are classified by delivery scale; see `VERSIONING.md`.
 
-## [1.7.1] - 2026-04-24
+## [1.7.1] - 2026-04-25
 
 ### Added
 - CRM/LMS separation planning docs for frontend, backend, and platform decomposition
@@ -15,6 +15,17 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 - LMS bridge enablement mechanism using React Context with `LmsBridgeProvider` and `useLmsBridge` hook
 - Phase 4 feature flag system: `FeatureFlagProvider` with `useFeatureFlags` hook for module-level feature control
 - Phase 4 feature flag types: `FeatureFlag` type and `FeatureFlags` interface with _enabled suffix (crm_enabled, lms_bridge_enabled, trial_lessons_enabled, retention_enabled, telegram_notifications_enabled, advanced_reports_enabled)
+- Sync metadata fields to bridge types: `syncStatus` and `lastSyncedAt` to `LeadWithCourseInterest`, `ContactWithStudentMapping`, `DealWithCourseMapping`, and `DealPaymentSummaryWithBridge`
+- Enrollment sync fields to `PaymentWithEnrollment`: `enrollmentRequestId`, `syncError`, `syncMetadata`
+- Bridge type imports to API modules: `ContactWithStudentMapping`, `LeadWithCourseInterest`, `DealWithCourseMapping`, `PaymentWithEnrollment`
+- Status API methods to tenant-config client: `getStatuses`, `createStatus`, `updateStatus`, `deleteStatus`
+- `TenantStatusResponse` interface for status API responses
+- `StatusConfig` interface to types for status configuration
+- `leadStatuses` and `dealStatuses` to `TenantConfig` type
+- Status loading in `TenantConfigProvider` on mount
+- `leadStatusOptions` in Leads.tsx using tenant config with fallback to hardcoded i18n data
+- `leadStatusOptions` in LeadDetail.tsx using tenant config with fallback to hardcoded i18n data
+- `pipelineStageOptions` in Deals.tsx using tenant config with fallback to hardcoded i18n data
 - Phase 4 environment variables: VITE_ENABLE_CRM, VITE_ENABLE_TRIAL_LESSONS, VITE_ENABLE_RETENTION, VITE_ENABLE_TELEGRAM, VITE_ENABLE_ADVANCED_REPORTS
 - Phase 4 tenant configuration system: `TenantConfigProvider` with `useTenantConfig` hook for tenant-specific settings
 - Phase 4 tenant configuration types: `TenantConfig`, `BrandingConfig`, `NotificationChannel`, `PipelineStageConfig`, `RoleConfig`, `TenantLeadSource` interfaces
@@ -62,6 +73,22 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 - Phase 4 modularization: navigation items now filtered by feature flags in addition to permissions
 - Phase 4 modularization: courses, enrollments, trial-lessons, retention, and reports pages now respect feature flags
 - Phase 4 modularization: Settings page now displays current feature flag status (read-only, controlled by environment variables)
+- Bridge types documentation: Updated to reflect that types represent bridge-only enrichment payloads from dedicated bridge endpoints, not extensions of CRM types
+- Bridge types structure: Removed inheritance from CRM types (`Lead`, `Contact`, `Deal`, `Payment`) to align with explicit bridge boundary model
+- Bridge API client methods: Updated to use formal bridge types instead of inline type definitions
+- `bridgeApi.getContactBridgeData`: Now returns `ContactWithStudentMapping` type
+- `bridgeApi.getLeadBridgeData`: Now returns `LeadWithCourseInterest` type
+- `bridgeApi.getDealBridgeData`: Now returns `DealWithCourseMapping` type
+- `bridgeApi.updateDealLmsMapping`: Now returns `DealWithCourseMapping` type
+- `bridgeApi.getPaymentBridgeData`: Now returns `PaymentWithEnrollment` type
+- Leads.tsx: Status dropdown now uses tenant-configured statuses instead of hardcoded i18n data
+- LeadDetail.tsx: Status dropdown now uses tenant-configured statuses instead of hardcoded i18n data
+- Deals.tsx: Pipeline stage dropdown now uses tenant-configured stages instead of hardcoded i18n data
+- Deals.tsx: Mobile board columns now use tenant-configured pipeline stages
+- Reports.tsx: Currency formatting now uses `tenantConfig.currency` instead of hardcoded "сом"
+- Deals.tsx: Currency formatting now uses `tenantConfig.currency` instead of hardcoded "сом"
+- Pipeline.tsx: Currency formatting now uses `tenantConfig.currency` instead of hardcoded "сом"
+- Payments.tsx: Currency formatting now uses `tenantConfig.currency` instead of hardcoded "сом"
 
 ### Fixed
 - Dashboard now uses split `getCrmStats` and `getEducationStats` endpoints instead of legacy combined `getStats`, properly decoupling CRM from LMS data
@@ -70,25 +97,10 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 - Reports CSV export now conditionally includes LMS-only data (trial conversion, course rows) based on LMS bridge flag
 - Reports trial conversion KPI card is hidden when LMS bridge is disabled
 - LMS bridge is now truly optional - CRM UI keeps working with empty LMS stats when education endpoint fails, instead of failing the entire page
-
-### Changed
-- Role-based navigation now hides LMS and admin surfaces unless the current role is allowed to access them
-- Leads, contacts, deals, payments, and LMS support panels now use centralized permission checks instead of scattered role comparisons
-- Lead assignment permissions are now modeled separately from full user management so managers can still assign sales work
-- Deal and lead UI copy now uses more business-friendly product wording in several LMS-linked flows
-- Phase 2 CRM-LMS decoupling: removed LMS course/group loading hooks from Leads.tsx and LeadDetail.tsx
-- Phase 2 CRM-LMS decoupling: removed LMS selectors from lead create/edit forms
-- Phase 2 CRM-LMS decoupling: removed LMS fields (interestedCourseId, interestedGroupId) from lead API payloads
-- Phase 2 CRM-LMS decoupling: removed LMS fields (courseType, courseNameSnapshot, groupNameSnapshot, lmsCourseId, lmsGroupId) from Deals.tsx form state
-- Phase 2 CRM-LMS decoupling: removed LMS selectors from deal creation dialog
-- Phase 2 CRM-LMS decoupling: removed LMS enrollment logic functions from Payments.tsx
-- Phase 2 CRM-LMS decoupling: removed course/group snapshots from payment deal labels
-- Phase 2 CRM-LMS decoupling: removed LMS course/group loading hooks from Deals.tsx
-- Leads.tsx form state now uses correct types: assignedManagerId as number, tags as string[]
-- Tags input in Leads.tsx now handles comma-separated string input for string[] type
-
-### Fixed
+- Bridge type synchronization: Frontend bridge types now include all sync metadata fields present in backend DTOs, eliminating need for inline type workarounds in components
 - LMS-only fields, IDs, history panels, and enrollment actions are now hidden from non-admin roles across list and detail views
+- Tenant-config endpoint route shadowing: Moved `/statuses`, `/sources`, and `/pipeline-stages` routes before `/:id` routes in lead and deal controllers (backend)
+- Bridge API security: Added role-based access control to all bridge endpoints, restricting access to MANAGER, ADMIN, and SUPERADMIN roles (backend)
 - Manager lead assignment flow no longer regresses after permission centralization
 - Legacy migration navigation is again restricted to superadmin only
 - Deal enrollment navigation now points to the reachable `/enrollments` route

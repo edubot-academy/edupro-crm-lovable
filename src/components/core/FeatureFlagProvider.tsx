@@ -18,6 +18,54 @@ const defaultFeatureFlags: FeatureFlags = {
   advanced_reports_enabled: true,
 };
 
+/**
+ * CRM-only mode feature flag configuration
+ * This configuration represents a pure CRM deployment without LMS integration
+ *
+ * To enable CRM-only mode:
+ * 1. Set environment variable: VITE_ENABLE_LMS_BRIDGE=false
+ * 2. Or configure tenant feature flags via backend API to match this configuration
+ *
+ * In CRM-only mode:
+ * - LMS pages (/courses, /enrollments) are inaccessible and redirect to dashboard
+ * - Trial lessons page is disabled
+ * - LMS bridge components don't render
+ * - LMS hooks don't run (no API calls to LMS)
+ * - CRM core functionality remains fully operational
+ */
+export const CRM_ONLY_MODE_FLAGS: Partial<FeatureFlags> = {
+  crm_enabled: true,
+  lms_bridge_enabled: false,
+  trial_lessons_enabled: false, // Trial lessons are education-specific
+  retention_enabled: true, // Retention is useful for CRM-only businesses
+  telegram_notifications_enabled: true,
+  advanced_reports_enabled: true,
+};
+
+/**
+ * CRM+LMS bundled mode feature flag configuration
+ * This configuration represents the full bundled product with LMS integration
+ *
+ * To enable CRM+LMS bundled mode:
+ * 1. Set environment variable: VITE_ENABLE_LMS_BRIDGE=true
+ * 2. Or configure tenant feature flags via backend API to match this configuration
+ *
+ * In CRM+LMS bundled mode:
+ * - All LMS pages are accessible to authorized users
+ * - Trial lessons are enabled
+ * - LMS bridge components render where appropriate
+ * - LMS hooks run and fetch data from LMS
+ * - Full CRM and LMS integration is operational
+ */
+export const CRM_LMS_BUNDLE_MODE_FLAGS: Partial<FeatureFlags> = {
+  crm_enabled: true,
+  lms_bridge_enabled: true,
+  trial_lessons_enabled: true,
+  retention_enabled: true,
+  telegram_notifications_enabled: true,
+  advanced_reports_enabled: true,
+};
+
 const FeatureFlagContext = createContext<FeatureFlagContextValue>({
   featureFlags: defaultFeatureFlags,
   isFeatureEnabled: () => false,

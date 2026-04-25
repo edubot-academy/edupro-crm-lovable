@@ -11,6 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Card, CardContent } from '@/components/ui/card';
 import { ky } from '@/lib/i18n';
 import { contactApi } from '@/api/modules';
+import { formatDate } from '@/lib/formatting';
 import type { Contact } from '@/types';
 import { Plus, Trash2, Loader2, Mail, Phone, IdCard, GraduationCap, Pencil } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -150,7 +151,7 @@ export default function ContactsPage() {
           <div className="min-w-0">
             <p className="truncate font-semibold">{contact.fullName}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {new Date(contact.createdAt).toLocaleDateString('ky-KG')}
+              {formatDate(contact.createdAt)}
             </p>
           </div>
           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(contact); }} aria-label={`${ky.common.delete} ${contact.fullName}`}>

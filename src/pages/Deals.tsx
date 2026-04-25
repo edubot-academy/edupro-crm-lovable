@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/PageShell';
 import { DataTable, type Column } from '@/components/DataTable';
@@ -14,6 +14,7 @@ import { contactApi, dealsApi, tasksApi } from '@/api/modules';
 import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
 import { useRolePermissions } from '@/hooks/use-role-permissions';
 import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
+import { useTenantConfig } from '@/components/core/TenantConfigProvider';
 import type { Contact, Deal, DealPipelineStage } from '@/types';
 import { getDealPipelineStage, mapPipelineToDealStage } from '@/lib/crm-status';
 import type { LmsCourseType } from '@/types/lms';
@@ -40,6 +41,7 @@ export default function DealsPage() {
   const { toast } = useToast();
   const { canViewLmsTechnicalFields } = useRolePermissions();
   const { isLmsBridgeEnabled } = useLmsBridge();
+  const { tenantConfig } = useTenantConfig();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -55,6 +57,21 @@ export default function DealsPage() {
   const prefillCourseId = searchParams.get('courseId') || '';
   const prefillGroupId = searchParams.get('groupId') || '';
   const shouldOpenCreate = searchParams.get('create') === '1';
+
+  // Use tenant-configured pipeline stages if available, otherwise use hardcoded stages
+  const pipelineStageOptions = useMemo(() => {
+    if (tenantConfig.pipelineStages && tenantConfig.pipelineStages.length > 0) {
+      return tenantConfig.pipelineStages.map(stage => ({
+        value: stage.key,
+        label: stage.label,
+      }));
+    }
+    // Fallback to hardcoded stages
+    return Object.entries(ky.dealPipelineStage).map(([value, label]) => ({
+      value,
+      label,
+    }));
+  }, [tenantConfig.pipelineStages]);
 
   const clearPrefillParams = () => {
     setSearchParams((current) => {
@@ -159,7 +176,7 @@ export default function DealsPage() {
     try {
       const updatedDeal = await dealsApi.update(deal.id, {
         pipelineStage,
-        stage: mapPipelineToDealStage(pipelineStage),
+        stage: mapPipelineToDealStage(pipelineStage, tenantConfig.pipelineStages),
       });
       setDeals((current) => current.map((item) => (item.id === deal.id ? updatedDeal : item)));
       toast({ title: 'Келишимдин этабы жаңыртылды' });
@@ -172,52 +189,62 @@ export default function DealsPage() {
   };
 
   const getDealQuickActions = (deal: Deal): Array<{ value: DealPipelineStage; label: string }> => {
-    const stage = getDealPipelineStage(deal);
+    const stage = getDealPipelineStage(deal, tenantConfig.pipelineStages);
+    const stages = tenantConfig.pipelineStages || [];
+    const currentStage = stages.find(s => s.key === stage);
 
-    switch (stage) {
-      case 'new':
-        return [
-          { value: 'consultation', label: 'Консультация' },
-          { value: 'lost', label: 'Жоголду' },
-        ];
-      case 'consultation':
-        return [
-          { value: 'trial', label: 'Сыноого өткөрүү' },
-          { value: 'negotiation', label: 'Сунушка өтүү' },
-        ];
-      case 'trial':
-        return [
-          { value: 'negotiation', label: 'Сүйлөшүүгө өтүү' },
-          { value: 'lost', label: 'Жоголду' },
-        ];
-      case 'negotiation':
-        return [
-          { value: 'payment_pending', label: 'Төлөм күтүү' },
-          { value: 'won', label: 'Жабылды' },
-        ];
-      case 'payment_pending':
-        return [
-          { value: 'won', label: 'Төлөндү' },
-          { value: 'negotiation', label: 'Кайра сүйлөшүү' },
-        ];
-      case 'lost':
-        return [
-          { value: 'consultation', label: 'Кайра ачуу' },
-        ];
-      default:
-        return [];
+    if (!currentStage) {
+      return [];
     }
+
+    const actions: Array<{ value: DealPipelineStage; label: string }> = [];
+
+    // Find next stage in order
+    const nextStage = stages
+      .filter(s => s.order > currentStage.order)
+      .sort((a, b) => a.order - b.order)[0];
+
+    if (nextStage) {
+      actions.push({ value: nextStage.key as DealPipelineStage, label: nextStage.label });
+    }
+
+    // Add "lost" option from any non-lost stage
+    if (stage !== 'lost') {
+      const lostStage = stages.find(s => s.key === 'lost');
+      if (lostStage) {
+        actions.push({ value: 'lost', label: lostStage.label });
+      }
+    }
+
+    // Add previous stage option (to allow going back)
+    const previousStage = stages
+      .filter(s => s.order < currentStage.order)
+      .sort((a, b) => b.order - a.order)[0];
+
+    if (previousStage && stage !== 'lost') {
+      actions.push({ value: previousStage.key as DealPipelineStage, label: `Кайра: ${previousStage.label}` });
+    }
+
+    // Special case: if current is lost, allow reopening to first stage
+    if (stage === 'lost') {
+      const firstStage = stages.sort((a, b) => a.order - b.order)[0];
+      if (firstStage) {
+        actions.push({ value: firstStage.key as DealPipelineStage, label: `Кайра ачуу: ${firstStage.label}` });
+      }
+    }
+
+    return actions;
   };
 
   const columns: Column<Deal>[] = [
     { key: 'contact', header: 'Студент', render: (d) => <span className="font-medium">{d.contact?.fullName || '—'}</span> },
-    { key: 'amount', header: ky.deals.amount, render: (d) => <span className="font-medium">{d.amount.toLocaleString()} {d.currency || 'сом'}</span> },
-    { key: 'stage', header: ky.deals.stage, render: (d) => { const stage = getDealPipelineStage(d); return <StatusBadge variant={getLeadStatusVariant(stage)} dot>{ky.dealPipelineStage[stage]}</StatusBadge>; } },
+    { key: 'amount', header: ky.deals.amount, render: (d) => <span className="font-medium">{d.amount.toLocaleString()} {tenantConfig.currency}</span> },
+    { key: 'stage', header: ky.deals.stage, render: (d) => { const stage = getDealPipelineStage(d, tenantConfig.pipelineStages); return <StatusBadge variant={getLeadStatusVariant(stage)} dot>{pipelineStageOptions.find(opt => opt.value === stage)?.label || ky.dealPipelineStage[stage]}</StatusBadge>; } },
     {
       key: 'actions', header: '', render: (d) => (
         <div className="flex items-center justify-end gap-1">
           <Select
-            value={getDealPipelineStage(d)}
+            value={getDealPipelineStage(d, tenantConfig.pipelineStages)}
             onValueChange={(value) => handlePipelineChange(d, value as DealPipelineStage)}
             disabled={updatingDealId === d.id}
           >
@@ -229,7 +256,7 @@ export default function DealsPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {Object.entries(ky.dealPipelineStage).map(([value, label]) => (
+              {pipelineStageOptions.map(({ value, label }) => (
                 <SelectItem key={value} value={value}>{label}</SelectItem>
               ))}
             </SelectContent>
@@ -255,7 +282,7 @@ export default function DealsPage() {
       ),
     },
   ];
-  const mobileBoardColumns = Object.entries(ky.dealPipelineStage).map(([value, label]) => ({ id: value, title: label }));
+  const mobileBoardColumns = pipelineStageOptions.map(({ value, label }) => ({ id: value, title: label }));
   const activeFilters = search.trim()
     ? [{
       key: 'search',
@@ -268,17 +295,17 @@ export default function DealsPage() {
       <div className="hidden items-center gap-2 text-xs text-muted-foreground xl:flex">
         <span className="rounded-full bg-secondary px-2.5 py-1">{totalItems} келишим</span>
         <span className="rounded-full bg-secondary px-2.5 py-1">
-          {deals.filter((deal) => getDealPipelineStage(deal) === 'payment_pending').length} төлөм күтөт
+          {deals.filter((deal) => getDealPipelineStage(deal, tenantConfig.pipelineStages) === 'payment_pending').length} төлөм күтөт
         </span>
         <span className="rounded-full bg-secondary px-2.5 py-1">
-          {deals.filter((deal) => getDealPipelineStage(deal) === 'won').length} ийгиликтүү
+          {deals.filter((deal) => getDealPipelineStage(deal, tenantConfig.pipelineStages) === 'won').length} ийгиликтүү
         </span>
       </div>
     </div>
   );
 
   const renderMobileCard = (deal: Deal) => {
-    const stage = getDealPipelineStage(deal);
+    const stage = getDealPipelineStage(deal, tenantConfig.pipelineStages);
     const quickActions = getDealQuickActions(deal);
 
     return (
@@ -288,12 +315,12 @@ export default function DealsPage() {
             <p className="truncate font-semibold">{deal.contact?.fullName || '—'}</p>
           </div>
           <StatusBadge variant={getLeadStatusVariant(stage)} dot>
-            {ky.dealPipelineStage[stage]}
+            {pipelineStageOptions.find(opt => opt.value === stage)?.label || ky.dealPipelineStage[stage]}
           </StatusBadge>
         </div>
 
         <div className="mt-3 space-y-2 text-sm text-muted-foreground">
-          <p className="font-medium text-foreground">{deal.amount.toLocaleString()} {deal.currency || 'сом'}</p>
+          <p className="font-medium text-foreground">{deal.amount.toLocaleString()} {tenantConfig.currency}</p>
           <p>{deal.notes || 'Кошумча эскертүү жок'}</p>
         </div>
 
@@ -309,20 +336,6 @@ export default function DealsPage() {
             {ky.common.view}
           </Button>
           <div className="flex items-center gap-2">
-            {canViewLmsTechnicalFields() && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(`/enrollments?crmDealId=${deal.id}${deal.contact?.lmsStudentId ? `&studentId=${encodeURIComponent(deal.contact.lmsStudentId)}` : ''}`);
-                }}
-                aria-label="LMS"
-              >
-                <GraduationCap className="h-4 w-4" />
-              </Button>
-            )}
             <Button
               variant="ghost"
               size="icon"
@@ -379,7 +392,7 @@ export default function DealsPage() {
         onRowClick={(deal) => navigate(`/deals/${deal.id}`)}
         renderMobileCard={renderMobileCard}
         mobileBoardColumns={mobileBoardColumns}
-        getMobileBoardColumnId={(deal) => getDealPipelineStage(deal)}
+        getMobileBoardColumnId={(deal) => getDealPipelineStage(deal, tenantConfig.pipelineStages)}
         mobileBoardEmptyMessage="Бул этапта келишим жок"
       />
 

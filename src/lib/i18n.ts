@@ -115,19 +115,26 @@ export const ky = {
     website: 'Веб-сайт',
     phone_call: 'Телефон чалуу',
     referral: 'Сунуштоо',
+    other: 'Башка',
   },
-  // Lead statuses
+  // Lead statuses (CRM-native)
   leadStatus: {
     new: 'Жаңы',
     contacted: 'Байланышылды',
     interested: 'Кызыкты',
-    trial_scheduled: 'Сыноо пландалды',
-    trial_completed: 'Сыноо аяктады',
+    qualified: 'Квалификацияланган',
     offer_sent: 'Сунуш жиберилди',
     negotiation: 'Сүйлөшүү',
-    payment_pending: 'Төлөм күтүлүүдө',
+    payment_pending: 'Төлөм күтүүдө',
     won: 'Ийгиликтүү',
-    lost: 'Жоголду',
+    lost: 'Ийгиликсиз',
+  },
+  // Education-specific lead statuses (used only when LMS bridge is enabled)
+  educationLeadStatus: {
+    trial_scheduled: 'Сыноо пландалды',
+    trial_completed: 'Сыноо аяктады',
+    trial_passed: 'Сыноо өттү',
+    trial_failed: 'Сыноо ийгиликсиз',
   },
   leadQualificationStatus: {
     new: 'Жаңы',
@@ -159,22 +166,25 @@ export const ky = {
     deleteSuccess: 'Келишим ийгиликтүү өчүрүлдү',
     deleteError: 'Келишимди өчүрүүдө ката кетти',
   },
-  // Deal stages
+  // Deal stages (CRM-native)
   dealStage: {
     new_lead: 'Жаңы лид',
     contacted: 'Байланышылды',
-    trial_booked: 'Сыноо жазылды',
-    trial_completed: 'Сыноо аяктады',
+    qualified: 'Квалификацияланган',
     offer_sent: 'Сунуш жиберилди',
     negotiation: 'Сүйлөшүү',
     payment_pending: 'Төлөм күтүлүүдө',
     won: 'Ийгиликтүү',
     lost: 'Жоголду',
   },
+  // Education-specific deal stages (used only when LMS bridge is enabled)
+  educationDealStage: {
+    trial_booked: 'Сыноо жазылды',
+    trial_completed: 'Сыноо аяктады',
+  },
   dealPipelineStage: {
     new: 'Жаңы',
     consultation: 'Консультация',
-    trial: 'Сыноо',
     negotiation: 'Сүйлөшүү',
     payment_pending: 'Төлөм күтүлүүдө',
     won: 'Ийгиликтүү',

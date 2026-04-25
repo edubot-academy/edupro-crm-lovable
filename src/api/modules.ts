@@ -8,6 +8,13 @@ import type {
   InAppNotification, UnreadNotificationsResponse,
 } from '@/types';
 import type {
+  ContactWithStudentMapping,
+  LeadWithCourseInterest,
+  DealWithCourseMapping,
+  PaymentWithEnrollment,
+  RetentionCaseWithLmsData
+} from '@/types/bridge';
+import type {
   LmsCourseListParams, LmsGroupListParams,
   CreateEnrollmentRequest, ActivateEnrollmentRequest, PauseEnrollmentRequest,
   LmsEnrollmentResponse, LmsStudentSummary, LmsIntegrationHistoryResponse, LmsOnboardingLinkResponse,
@@ -42,11 +49,11 @@ export const paymentsApi = {
   list: (params?: Record<string, string | number | undefined>) =>
     apiClient.get<PaginatedResponse<Payment>>('/api/payment', params),
   get: (id: number) => apiClient.get<Payment>(`/api/payment/${id}`),
-  create: (data: { dealId: number; amount: number; method: import('@/types').PaymentMethod; status?: import('@/types').PaymentStatus; paymentStatus?: import('@/types').PaymentStatus; lmsEnrollmentId?: string; verified?: boolean }) =>
+  create: (data: { dealId: number; amount: number; method: import('@/types').PaymentMethod; status?: import('@/types').PaymentStatus; paymentStatus?: import('@/types').PaymentStatus; verified?: boolean }) =>
     apiClient.post<Payment>('/api/payment', data),
-  createDeposit: (data: { dealId: number; amount: number; method: import('@/types').PaymentMethod; status?: import('@/types').PaymentStatus; paymentStatus?: import('@/types').PaymentStatus; lmsEnrollmentId?: string; verified?: boolean }) =>
+  createDeposit: (data: { dealId: number; amount: number; method: import('@/types').PaymentMethod; status?: import('@/types').PaymentStatus; paymentStatus?: import('@/types').PaymentStatus; verified?: boolean }) =>
     apiClient.post<Payment>('/api/payment/deposit', data),
-  update: (id: number, data: { status?: import('@/types').PaymentStatus; paymentStatus?: import('@/types').PaymentStatus; lmsEnrollmentId?: string }) =>
+  update: (id: number, data: { status?: import('@/types').PaymentStatus; paymentStatus?: import('@/types').PaymentStatus }) =>
     apiClient.patch<Payment>(`/api/payment/${id}`, data),
 };
 
@@ -64,9 +71,7 @@ export const leadsApi = {
     apiClient.get<ContactNote[]>(`/api/leads/${leadId}/notes`, params as Record<string, string | number | undefined>),
   addNote: (leadId: number, data: { body: string }) =>
     apiClient.post<ContactNote>(`/api/leads/${leadId}/notes`, data),
-  convertToContact: (id: number) => apiClient.post<Contact>(`/api/leads/${id}/convert-to-contact`),
-  importFromContact: (contactId: number) =>
-    apiClient.post<Lead>(`/api/leads/import-from-contact/${contactId}`),
+  convertToContact: (id: number) => apiClient.post<{ converted: boolean; alreadyLinked: boolean; reusedExistingContact: boolean; lead: Lead; contact: Contact }>(`/api/leads/${id}/convert-to-contact`),
 };
 
 export const enrollmentsApi = {
@@ -195,12 +200,26 @@ export const dealsApi = {
   delete: (id: number) => apiClient.delete<{ success: boolean }>(`/api/deals/${id}`),
 };
 
+// ==================== BRIDGE (LMS Integration) ====================
+export const bridgeApi = {
+  getContactBridgeData: (contactId: number) =>
+    apiClient.get<ContactWithStudentMapping>(`/api/bridge/contacts/${contactId}`),
+  getLeadBridgeData: (leadId: number) =>
+    apiClient.get<LeadWithCourseInterest>(`/api/bridge/leads/${leadId}`),
+  getDealBridgeData: (dealId: number) =>
+    apiClient.get<DealWithCourseMapping>(`/api/bridge/deals/${dealId}`),
+  updateDealLmsMapping: (dealId: number, data: { lmsCourseId?: string; courseType?: string; lmsGroupId?: string; courseNameSnapshot?: string; groupNameSnapshot?: string }) =>
+    apiClient.put<DealWithCourseMapping>(`/api/bridge/deals/${dealId}/mapping`, data),
+  getPaymentBridgeData: (paymentId: number) =>
+    apiClient.get<PaymentWithEnrollment>(`/api/bridge/payments/${paymentId}`),
+};
+
 // ==================== TRIAL LESSONS ====================
 export const trialLessonsApi = {
   list: (params?: Record<string, string | number | undefined>) =>
     apiClient.get<PaginatedResponse<TrialLesson>>('/api/trial-lessons', params),
   get: (id: number) => apiClient.get<TrialLesson>(`/api/trial-lessons/${id}`),
-  create: (data: { leadId: number; dealId?: number; scheduledAt: string; result?: string; notes?: string }) =>
+  create: (data: { leadId?: number; contactId?: number; dealId?: number; scheduledAt: string; result?: string; notes?: string }) =>
     apiClient.post<TrialLesson>('/api/trial-lessons', data),
   update: (id: number, data: Partial<TrialLesson>) =>
     apiClient.patch<TrialLesson>(`/api/trial-lessons/${id}`, data),
@@ -230,7 +249,7 @@ export const retentionApi = {
   list: (params?: Record<string, string | number | undefined>) =>
     apiClient.get<PaginatedResponse<RetentionCase>>('/api/retention-cases', params),
   get: (id: number) => apiClient.get<RetentionCase>(`/api/retention-cases/${id}`),
-  create: (data: { lmsStudentId: string; lmsEnrollmentId: string; issueType: import('@/types').IssueType; severity: import('@/types').RiskSeverity; summary: string; leadId?: number; contactId?: number; dealId?: number; lmsCourseId?: string; lmsGroupId?: string; status?: string; metrics?: Record<string, unknown>; assignedToId?: number }) =>
+  create: (data: { lmsStudentId: string; lmsEnrollmentId: string; issueType: import('@/types').IssueType; severity: import('@/types').RiskSeverity; summary: string; leadId?: number; contactId?: number; dealId?: number; lmsCourseId?: string; lmsGroupId?: string; status?: string; metrics?: Record<string, unknown>; assignedToId?: number } & RetentionCaseWithLmsData) =>
     apiClient.post<RetentionCase>('/api/retention-cases', data),
   update: (id: number, data: Partial<RetentionCase>) =>
     apiClient.patch<RetentionCase>(`/api/retention-cases/${id}`, data),

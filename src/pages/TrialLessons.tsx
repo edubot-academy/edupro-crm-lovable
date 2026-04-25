@@ -250,7 +250,7 @@ export default function TrialLessonsPage() {
                   <SelectItem value="__none__">Тандалган эмес</SelectItem>
                   {deals.map((deal) => (
                     <SelectItem key={deal.id} value={String(deal.id)}>
-                      #{deal.id} • {deal.courseNameSnapshot || 'Курс көрсөтүлгөн эмес'}
+                      #{deal.id} {deal.contact?.fullName ? `• ${deal.contact.fullName}` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
