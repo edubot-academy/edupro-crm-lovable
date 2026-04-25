@@ -23,7 +23,6 @@ const caseStatusLabel: Record<string, string> = { open: 'Ачык', contacted: '
 
 export default function RetentionPage() {
   const { toast } = useToast();
-  const { canViewLmsTechnicalFields } = useRolePermissions();
   const [cases, setCases] = useState<RetentionCase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -113,9 +112,6 @@ export default function RetentionPage() {
       key: 'summary', header: ky.retention.summary, render: (c) => (
         <div>
           <span className="font-medium">{c.summary || '—'}</span>
-          {canViewLmsTechnicalFields() && ((c as RetentionCaseWithLmsData).lmsCourseId || (c as RetentionCaseWithLmsData).lmsGroupId) && (
-            <p className="text-xs text-muted-foreground">{(c as RetentionCaseWithLmsData).lmsCourseId} • {(c as RetentionCaseWithLmsData).lmsGroupId}</p>
-          )}
         </div>
       )
     },

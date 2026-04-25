@@ -249,9 +249,9 @@ export const retentionApi = {
   list: (params?: Record<string, string | number | undefined>) =>
     apiClient.get<PaginatedResponse<RetentionCase>>('/api/retention-cases', params),
   get: (id: number) => apiClient.get<RetentionCase>(`/api/retention-cases/${id}`),
-  create: (data: { lmsStudentId?: string; lmsEnrollmentId?: string; issueType: import('@/types').IssueType; severity: import('@/types').RiskSeverity; summary: string; leadId?: number; contactId?: number; dealId?: number; lmsCourseId?: string; lmsGroupId?: string; status?: string; metrics?: Record<string, unknown>; assignedToId?: number }) =>
+  create: (data: { issueType: import('@/types').IssueType; severity: import('@/types').RiskSeverity; summary: string; leadId?: number; contactId?: number; dealId?: number; status?: string; metrics?: Record<string, unknown>; assignedToId?: number }) =>
     apiClient.post<RetentionCase>('/api/retention-cases', data),
-  update: (id: number, data: { leadId?: number; contactId?: number; dealId?: number; lmsStudentId?: string; lmsEnrollmentId?: string; lmsCourseId?: string; lmsGroupId?: string; issueType?: import('@/types').IssueType; severity?: import('@/types').RiskSeverity; status?: string; summary?: string; metrics?: Record<string, unknown>; assignedToId?: number }) =>
+  update: (id: number, data: { leadId?: number; contactId?: number; dealId?: number; issueType?: import('@/types').IssueType; severity?: import('@/types').RiskSeverity; status?: string; summary?: string; metrics?: Record<string, unknown>; assignedToId?: number }) =>
     apiClient.patch<RetentionCase>(`/api/retention-cases/${id}`, data),
   delete: (id: number) => apiClient.delete<{ success: boolean }>(`/api/retention-cases/${id}`),
 };

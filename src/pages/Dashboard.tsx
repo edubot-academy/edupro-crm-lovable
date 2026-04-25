@@ -132,7 +132,7 @@ export default function DashboardPage() {
       onClick: () => navigate('/payments'),
       tone: 'border-warning/40 bg-warning/5',
     },
-    {
+    ...(isLmsBridgeEnabled ? [{
       key: 'retention',
       title: ky.dashboard.openRetention,
       value: stats.openRetentionCases,
@@ -140,7 +140,7 @@ export default function DashboardPage() {
       actionLabel: 'Тобокелдиктерди ачуу',
       onClick: () => navigate('/retention'),
       tone: 'border-destructive/40 bg-destructive/5',
-    },
+    }] : []),
     {
       key: 'won',
       title: ky.dashboard.wonDeals,
@@ -282,7 +282,9 @@ export default function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard title={ky.dashboard.paymentPending} value={stats.paymentPendingCount} icon={CreditCard} variant="warning" />
         <StatCard title={ky.dashboard.wonDeals} value={stats.wonDeals} icon={Trophy} variant="success" />
-        <StatCard title={ky.dashboard.openRetention} value={stats.openRetentionCases} icon={AlertTriangle} variant="destructive" />
+        {isLmsBridgeEnabled && (
+          <StatCard title={ky.dashboard.openRetention} value={stats.openRetentionCases} icon={AlertTriangle} variant="destructive" />
+        )}
       </div>
 
       {/* Charts */}

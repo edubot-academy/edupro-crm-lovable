@@ -131,6 +131,13 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 - IntegrationHistoryPanel now correctly accesses `data?.data` instead of `data?.items` for integration history items
 - LmsIntegrationHistoryResponse interface changed `items` property to `data` to match actual API response structure
 - RetentionCase interface now includes LMS fields (lmsStudentId, lmsEnrollmentId, lmsCourseId, lmsGroupId) extracted from metrics by backend
+- Frontend retention API contract no longer leaks LMS fields (lmsCourseId, lmsGroupId) for CRM-only mode
+- Dashboard backend now zeroes retention stats when LMS bridge is off (openRetentionCases conditional on lms_bridge_enabled)
+- Dashboard page conditionalized the retention priority item/stat based on isLmsBridgeEnabled flag
+- Reports page retention stat card now conditional on isLmsBridgeEnabled flag
+- Reports page retention tab trigger now conditional on isLmsBridgeEnabled flag
+- Reports page retention tab content now conditional on isLmsBridgeEnabled flag
+- Payment config authority improved: DTO method is now string, entity method is now string, runtime validates against tenant config
 
 ## [1.7.0] - 2026-04-24
 

@@ -384,11 +384,6 @@ export interface RetentionCase {
   company?: CompanyRef;
   createdAt: string;
   updatedAt: string;
-  // LMS fields extracted from metrics by backend toResponse
-  lmsStudentId?: string;
-  lmsEnrollmentId?: string;
-  lmsCourseId?: string;
-  lmsGroupId?: string;
 }
 
 // ==================== NOTIFICATIONS (Telegram) ====================

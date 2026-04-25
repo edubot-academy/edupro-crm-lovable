@@ -358,7 +358,9 @@ export default function ReportsPage() {
               <StatCard title={ky.dashboard.trialConversion} value={`${stats.trialToSaleConversion}%`} icon={Target} variant="success" />
             )}
             <StatCard title={ky.dashboard.paymentPending} value={stats.paymentPendingCount} icon={CreditCard} variant="warning" />
-            <StatCard title={ky.dashboard.openRetention} value={stats.openRetentionCases} icon={AlertTriangle} variant="destructive" />
+            {isLmsBridgeEnabled && (
+              <StatCard title={ky.dashboard.openRetention} value={stats.openRetentionCases} icon={AlertTriangle} variant="destructive" />
+            )}
           </div>
 
           {/* Leads by Source — Pie + Bar */}
@@ -750,64 +752,66 @@ export default function ReportsPage() {
         </TabsContent>
 
         {/* ===== RETENTION TAB ===== */}
-        <TabsContent value="retention" className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <StatCard title={ky.dashboard.openRetention} value={stats.openRetentionCases} icon={AlertTriangle} variant="destructive" />
-            <StatCard title={ky.dashboard.paymentPending} value={stats.paymentPendingCount} icon={CreditCard} variant="warning" />
-            <StatCard title="Конверсия" value={`${stats.conversionRate}%`} icon={TrendingUp} variant="success" />
-          </div>
+        {isLmsBridgeEnabled && (
+          <TabsContent value="retention" className="space-y-6">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <StatCard title={ky.dashboard.openRetention} value={stats.openRetentionCases} icon={AlertTriangle} variant="destructive" />
+              <StatCard title={ky.dashboard.paymentPending} value={stats.paymentPendingCount} icon={CreditCard} variant="warning" />
+              <StatCard title="Конверсия" value={`${stats.conversionRate}%`} icon={TrendingUp} variant="success" />
+            </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Retention Overview */}
-            <Card className="shadow-card border-border/50">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">Тобокелдик сводкасы</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  {[
-                    { label: 'Ачык учурлар', value: stats.openRetentionCases, color: 'bg-destructive' },
-                    { label: 'Төлөм күтүлүүдө', value: stats.paymentPendingCount, color: 'bg-warning' },
-                    { label: 'Жаңы лидтер (иштетилбеген)', value: stats.newLeads, color: 'bg-info' },
-                  ].map((item) => (
-                    <div key={item.label} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className={cn('h-2.5 w-2.5 rounded-full', item.color)} />
-                        <span className="text-sm">{item.label}</span>
+            <div className="grid gap-6 lg:grid-cols-2">
+              {/* Retention Overview */}
+              <Card className="shadow-card border-border/50">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold">Тобокелдик сводкасы</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    {[
+                      { label: 'Ачык учурлар', value: stats.openRetentionCases, color: 'bg-destructive' },
+                      { label: 'Төлөм күтүлүүдө', value: stats.paymentPendingCount, color: 'bg-warning' },
+                      { label: 'Жаңы лидтер (иштетилбеген)', value: stats.newLeads, color: 'bg-info' },
+                    ].map((item) => (
+                      <div key={item.label} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className={cn('h-2.5 w-2.5 rounded-full', item.color)} />
+                          <span className="text-sm">{item.label}</span>
+                        </div>
+                        <span className="text-sm font-semibold">{item.value}</span>
                       </div>
-                      <span className="text-sm font-semibold">{item.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
 
-            {/* Payment Status */}
-            <Card className="shadow-card border-border/50">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">Төлөм аналитикасы</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  {[
-                    { label: 'Ырасталган келишимдер', value: stats.wonDeals, pct: stats.totalLeads ? ((stats.wonDeals / stats.totalLeads) * 100).toFixed(1) : '0' },
-                    { label: 'Күтүлүүдө', value: stats.paymentPendingCount, pct: stats.totalLeads ? ((stats.paymentPendingCount / stats.totalLeads) * 100).toFixed(1) : '0' },
-                  ].map((item) => (
-                    <div key={item.label}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm">{item.label}</span>
-                        <span className="text-sm font-medium">{item.value} ({item.pct}%)</span>
+              {/* Payment Status */}
+              <Card className="shadow-card border-border/50">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold">Төлөм аналитикасы</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    {[
+                      { label: 'Ырасталган келишимдер', value: stats.wonDeals, pct: stats.totalLeads ? ((stats.wonDeals / stats.totalLeads) * 100).toFixed(1) : '0' },
+                      { label: 'Күтүлүүдө', value: stats.paymentPendingCount, pct: stats.totalLeads ? ((stats.paymentPendingCount / stats.totalLeads) * 100).toFixed(1) : '0' },
+                    ].map((item) => (
+                      <div key={item.label} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">{item.label}</span>
+                          <span className="text-sm font-medium">{item.value} ({item.pct}%)</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-muted overflow-hidden">
+                          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${item.pct}%` }} />
+                        </div>
                       </div>
-                      <div className="h-2 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${item.pct}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
