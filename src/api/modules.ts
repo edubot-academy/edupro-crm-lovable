@@ -254,6 +254,12 @@ export const retentionApi = {
   update: (id: number, data: { leadId?: number; contactId?: number; dealId?: number; issueType?: import('@/types').IssueType; severity?: import('@/types').RiskSeverity; status?: string; summary?: string; metrics?: Record<string, unknown>; assignedToId?: number }) =>
     apiClient.patch<RetentionCase>(`/api/retention-cases/${id}`, data),
   delete: (id: number) => apiClient.delete<{ success: boolean }>(`/api/retention-cases/${id}`),
+  contact: (id: number) =>
+    apiClient.patch<RetentionCase>(`/api/retention-cases/${id}/contact`),
+  resolve: (id: number) =>
+    apiClient.patch<RetentionCase>(`/api/retention-cases/${id}/resolve`),
+  escalate: (id: number) =>
+    apiClient.patch<RetentionCase>(`/api/retention-cases/${id}/escalate`),
 };
 
 // ==================== NOTIFICATIONS (Telegram) ====================

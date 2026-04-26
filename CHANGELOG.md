@@ -56,6 +56,8 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 - Settings.tsx: Integrated `useFeatureFlags` and `useTenantConfig` hooks for managing settings
 - types/index.ts: Added `FeatureFlag` type and `FeatureFlags` interface for feature flag system
 - types/index.ts: Added `TenantConfig`, `BrandingConfig`, `NotificationChannel`, `PipelineStageConfig`, `RoleConfig`, `TenantLeadSource` interfaces
+- Bridge data presence requirement to ContactDetail.tsx integration history panel (requires bridgeData.lmsStudentId)
+- Bridge data presence requirement to DealDetail.tsx integration history panel (requires contactBridgeData.lmsStudentId)
 - types/index.ts: Added LMS bridge field documentation comments to Lead, Contact, Deal, and Payment types
 - src/api/feature-flag.ts: New API client for feature flag management (getTenantFlags, setTenantFlag, getGlobalFlags, setGlobalFlag)
 - src/api/tenant-config.ts: New API client for tenant configuration (config, roles, stages, lead sources, notification channels)
@@ -125,6 +127,7 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 - DealCourseMapping.tsx enrollment navigation now uses crmDealId query param instead of dealId, matching EnrollmentForm expectations
 - EnrollmentsPage now seeds initialHistoryFilters with crmDealId for deal context, enabling proper prefiltering from deal detail "Толук тарых" navigation
 - Removed references to setManagersLoading in Leads.tsx (removed with LMS hooks)
+- LMS integration history panels now only render when bridge data is present, preventing empty UI sections in CRM-only mode
 - Removed references to courses variable in Leads.tsx (removed with LMS hooks)
 - FeatureFlagProvider now uses conservative defaults (trial_lessons_enabled, telegram_notifications_enabled, advanced_reports_enabled default to false)
 - FeatureFlagProvider environment variable override logic now only applies when explicitly set (using conditional spread instead of direct assignment)

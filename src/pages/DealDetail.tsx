@@ -95,14 +95,16 @@ export default function DealDetailPage() {
       .finally(() => setPaymentsLoading(false));
   }, [id]);
 
-  const { data: coursesData, isLoading: coursesLoading } = useLmsCourses(canViewLmsTechnicalFields() ? { isActive: 'true' } : undefined);
+  const { data: coursesData, isLoading: coursesLoading } = useLmsCourses(
+    isLmsBridgeEnabled && canViewLmsTechnicalFields() ? { isActive: 'true' } : undefined
+  );
   const courses = coursesData?.items ?? [];
   const selectedEditCourse = courses.find((course) => course.id === editForm.lmsCourseId);
   const editNeedsGroup = !!selectedEditCourse && selectedEditCourse.courseType !== 'video';
   const { data: groupsData, isLoading: groupsLoading } = useLmsGroups(
-    canViewLmsTechnicalFields() && editOpen
+    isLmsBridgeEnabled && canViewLmsTechnicalFields() && editOpen
       ? (editNeedsGroup ? { courseId: editForm.lmsCourseId, limit: 100 } : undefined)
-      : canViewLmsTechnicalFields() && bridgeData?.lmsCourseId ? { courseId: bridgeData.lmsCourseId, limit: 100 } : undefined,
+      : isLmsBridgeEnabled && canViewLmsTechnicalFields() && bridgeData?.lmsCourseId ? { courseId: bridgeData.lmsCourseId, limit: 100 } : undefined,
   );
   const groups = groupsData?.items ?? [];
 
@@ -188,7 +190,7 @@ export default function DealDetailPage() {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title={`Келишим #${deal.id}`}
-        description={canViewLmsTechnicalFields() ? (bridgeData?.courseNameSnapshot || 'LMS курс байланышы жок') : undefined}
+        description={isLmsBridgeEnabled && canViewLmsTechnicalFields() ? (bridgeData?.courseNameSnapshot || 'LMS курс байланышы жок') : undefined}
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => navigate('/deals')}>
@@ -200,7 +202,7 @@ export default function DealDetailPage() {
             >
               Төлөм кошуу
             </Button>
-            {canViewLmsTechnicalFields() && (
+            {isLmsBridgeEnabled && canViewLmsTechnicalFields() && (
               <Button variant="outline" onClick={() => setEditOpen(true)}>
                 <Pencil className="mr-2 h-4 w-4" />
                 Продукт маалыматты оңдоо
@@ -211,13 +213,13 @@ export default function DealDetailPage() {
       />
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {isLmsBridgeEnabled && canViewLmsTechnicalFields() && (
+        {isLmsBridgeEnabled && canViewLmsTechnicalFields() && bridgeData && (
           <DealCourseMapping
-            lmsCourseId={bridgeData?.lmsCourseId}
-            lmsGroupId={bridgeData?.lmsGroupId}
-            courseType={bridgeData?.courseType}
-            courseNameSnapshot={bridgeData?.courseNameSnapshot}
-            groupNameSnapshot={bridgeData?.groupNameSnapshot}
+            lmsCourseId={bridgeData.lmsCourseId}
+            lmsGroupId={bridgeData.lmsGroupId}
+            courseType={bridgeData.courseType}
+            courseNameSnapshot={bridgeData.courseNameSnapshot}
+            groupNameSnapshot={bridgeData.groupNameSnapshot}
             dealId={deal.id}
             contactLmsStudentId={contactBridgeData?.lmsStudentId}
           />
@@ -264,7 +266,7 @@ export default function DealDetailPage() {
             </CardContent>
           </Card>
 
-          {canViewIntegrationHistory() && (
+          {isLmsBridgeEnabled && canViewIntegrationHistory() && contactBridgeData?.lmsStudentId && (
             <Card className="shadow-card border-border/50">
               <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="text-base flex items-center gap-2">

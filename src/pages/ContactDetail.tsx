@@ -71,12 +71,14 @@ export default function ContactDetailPage() {
     data: studentSummary,
     isLoading: lmsLoading,
     isError: lmsError,
-  } = useLmsStudentSummary(canViewStudentSummary() ? (bridgeData?.lmsStudentId || undefined) : undefined);
+  } = useLmsStudentSummary(
+    isLmsBridgeEnabled && canViewStudentSummary() ? (bridgeData?.lmsStudentId || undefined) : undefined
+  );
   const {
     data: historyData,
     isLoading: historyLoading,
   } = useLmsIntegrationHistory(
-    canViewLmsTechnicalFields() ? {
+    isLmsBridgeEnabled && canViewLmsTechnicalFields() ? {
       crmContactId: contact?.id,
       lmsStudentId: bridgeData?.lmsStudentId,
       limit: 5,
@@ -210,10 +212,10 @@ export default function ContactDetailPage() {
           </CardContent>
         </Card>
 
-        {isLmsBridgeEnabled && canViewLmsTechnicalFields() && (
+        {isLmsBridgeEnabled && canViewLmsTechnicalFields() && bridgeData && (
           <ContactStudentMapping
-            lmsStudentId={bridgeData?.lmsStudentId}
-            externalStudentId={bridgeData?.externalStudentId}
+            lmsStudentId={bridgeData.lmsStudentId}
+            externalStudentId={bridgeData.externalStudentId}
             contactId={contact.id}
           />
         )}
@@ -226,26 +228,24 @@ export default function ContactDetailPage() {
             </CardContent>
           </Card>
 
-          {canViewStudentSummary() && (
+          {isLmsBridgeEnabled && canViewStudentSummary() && bridgeData?.lmsStudentId && (
             <Card className="shadow-card border-border/50">
               <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-start sm:justify-between">
                 <CardTitle className="text-base flex items-center gap-2 leading-tight">
                   <BookOpen className="h-4 w-4" />
                   {ky.contacts.lmsInfoTitle}
                 </CardTitle>
-                {bridgeData?.lmsStudentId && (
-                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCreateOnboardingLink}
-                      disabled={createOnboardingLinkMutation.isPending}
-                      className="w-full sm:w-auto"
-                    >
-                      {createOnboardingLinkMutation.isPending ? 'Түзүлүүдө...' : ky.contacts.newLmsLink}
-                    </Button>
-                  </div>
-                )}
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCreateOnboardingLink}
+                    disabled={createOnboardingLinkMutation.isPending}
+                    className="w-full sm:w-auto"
+                  >
+                    {createOnboardingLinkMutation.isPending ? 'Түзүлүүдө...' : ky.contacts.newLmsLink}
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 {onboardingLink && (
@@ -268,9 +268,7 @@ export default function ContactDetailPage() {
                   </div>
                 )}
 
-                {!bridgeData?.lmsStudentId ? (
-                  <p className="text-sm text-muted-foreground">LMS студент байланышы жок.</p>
-                ) : lmsLoading ? (
+                {lmsLoading ? (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     LMS маалыматы жүктөлүүдө...
@@ -336,7 +334,7 @@ export default function ContactDetailPage() {
             </Card>
           )}
 
-          {canViewIntegrationHistory() && (
+          {isLmsBridgeEnabled && canViewIntegrationHistory() && bridgeData?.lmsStudentId && (
             <Card className="shadow-card border-border/50">
               <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="text-base flex items-center gap-2">

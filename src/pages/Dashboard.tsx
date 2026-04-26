@@ -132,15 +132,15 @@ export default function DashboardPage() {
       onClick: () => navigate('/payments'),
       tone: 'border-warning/40 bg-warning/5',
     },
-    ...(isLmsBridgeEnabled ? [{
+    {
       key: 'retention',
       title: ky.dashboard.openRetention,
       value: stats.openRetentionCases,
-      description: 'Сактап калуу аракетин талап кылган студент учурлары.',
+      description: 'Сактап калуу аракетин талап кылган клиент учурлары.',
       actionLabel: 'Тобокелдиктерди ачуу',
       onClick: () => navigate('/retention'),
       tone: 'border-destructive/40 bg-destructive/5',
-    }] : []),
+    },
     {
       key: 'won',
       title: ky.dashboard.wonDeals,
@@ -220,9 +220,6 @@ export default function DashboardPage() {
         {topManager && (
           <span className="rounded-full bg-secondary px-3 py-1">Мыкты менеджер: {topManager.manager}</span>
         )}
-        {isLmsBridgeEnabled && topCourse && (
-          <span className="rounded-full bg-secondary px-3 py-1">Алдыңкы курс: {topCourse.course}</span>
-        )}
       </div>
 
       {/* Action-oriented priority cards */}
@@ -275,16 +272,11 @@ export default function DashboardPage() {
         <StatCard title={ky.dashboard.totalLeads} value={stats.totalLeads} icon={Users} variant="primary" />
         <StatCard title={ky.dashboard.newLeads} value={stats.newLeads} icon={UserPlus} variant="info" />
         <StatCard title={ky.dashboard.conversionRate} value={`${stats.conversionRate}%`} icon={TrendingUp} variant="success" />
-        {isLmsBridgeEnabled && (
-          <StatCard title={ky.dashboard.trialConversion} value={`${stats.trialToSaleConversion}%`} icon={Target} variant="success" />
-        )}
+        <StatCard title={ky.dashboard.paymentPending} value={stats.paymentPendingCount} icon={CreditCard} variant="warning" />
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard title={ky.dashboard.paymentPending} value={stats.paymentPendingCount} icon={CreditCard} variant="warning" />
         <StatCard title={ky.dashboard.wonDeals} value={stats.wonDeals} icon={Trophy} variant="success" />
-        {isLmsBridgeEnabled && (
-          <StatCard title={ky.dashboard.openRetention} value={stats.openRetentionCases} icon={AlertTriangle} variant="destructive" />
-        )}
+        <StatCard title={ky.dashboard.openRetention} value={stats.openRetentionCases} icon={AlertTriangle} variant="destructive" />
       </div>
 
       {/* Charts */}

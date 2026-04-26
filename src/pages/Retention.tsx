@@ -52,14 +52,43 @@ export default function RetentionPage() {
     setIsDeleting(true);
     try {
       await retentionApi.delete(deleteTarget.id);
-      toast({ title: ky.retention.deleteSuccess });
+      toast({ title: 'Учур ийгиликтүү өчүрүлдү' });
       setDeleteTarget(null);
       fetchCases();
-    } catch (error) {
-      const friendly = getFriendlyError(error, { fallbackTitle: ky.retention.deleteError });
-      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
+    } catch {
+      toast({ title: 'Өчүрүү ишке ашкан жок', variant: 'destructive' });
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleContact = async (id: number) => {
+    try {
+      await retentionApi.contact(id);
+      toast({ title: 'Статус "Байланышталды" деп белгиледи' });
+      fetchCases();
+    } catch {
+      toast({ title: 'Статус өзгөртүү ишке ашкан жок', variant: 'destructive' });
+    }
+  };
+
+  const handleResolve = async (id: number) => {
+    try {
+      await retentionApi.resolve(id);
+      toast({ title: 'Учур ийгиликтүү чечилди' });
+      fetchCases();
+    } catch {
+      toast({ title: 'Чечүү ишке ашкан жок', variant: 'destructive' });
+    }
+  };
+
+  const handleEscalate = async (id: number) => {
+    try {
+      await retentionApi.escalate(id);
+      toast({ title: 'Учур ийгиликтүү жогорулатылды' });
+      fetchCases();
+    } catch {
+      toast({ title: 'Жогорулатуу ишке ашкан жок', variant: 'destructive' });
     }
   };
 
@@ -123,9 +152,9 @@ export default function RetentionPage() {
     {
       key: 'actions', header: ky.common.actions, render: (c) => (
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" className="h-7 text-xs" title={ky.retention.contactStudent} aria-label={`${c.summary || 'Учур'}: ${ky.retention.contactStudent.toLowerCase()}`}><Phone className="h-3.5 w-3.5" /></Button>
-          {c.status === 'open' && <Button variant="ghost" size="sm" className="h-7 text-xs text-success" title={ky.retention.resolve} aria-label={`${c.summary || 'Учур'}: ${ky.retention.resolve.toLowerCase()}`}><CheckCircle className="h-3.5 w-3.5" /></Button>}
-          {(c.status === 'open' || c.status === 'contacted') && <Button variant="ghost" size="sm" className="h-7 text-xs text-warning" title={ky.retention.escalate} aria-label={`${c.summary || 'Учур'}: ${ky.retention.escalate.toLowerCase()}`}><ArrowUpCircle className="h-3.5 w-3.5" /></Button>}
+          <Button variant="ghost" size="sm" className="h-7 text-xs" title={ky.retention.contactStudent} aria-label={`${c.summary || 'Учур'}: ${ky.retention.contactStudent.toLowerCase()}`} onClick={() => handleContact(c.id)}><Phone className="h-3.5 w-3.5" /></Button>
+          {c.status === 'open' && <Button variant="ghost" size="sm" className="h-7 text-xs text-success" title={ky.retention.resolve} aria-label={`${c.summary || 'Учур'}: ${ky.retention.resolve.toLowerCase()}`} onClick={() => handleResolve(c.id)}><CheckCircle className="h-3.5 w-3.5" /></Button>}
+          {(c.status === 'open' || c.status === 'contacted') && <Button variant="ghost" size="sm" className="h-7 text-xs text-warning" title={ky.retention.escalate} aria-label={`${c.summary || 'Учур'}: ${ky.retention.escalate.toLowerCase()}`} onClick={() => handleEscalate(c.id)}><ArrowUpCircle className="h-3.5 w-3.5" /></Button>}
           <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(c); }} aria-label={`${ky.common.delete} ${c.summary || 'учур'}`}>
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
@@ -157,7 +186,9 @@ export default function RetentionPage() {
         <div className="flex items-center justify-between">
           <div className="text-xs text-muted-foreground">{retentionCase.assignedTo?.fullName || 'Менеджер жок'}</div>
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title={ky.retention.contactStudent} onClick={(e) => e.stopPropagation()}><Phone className="h-3.5 w-3.5" /></Button>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title={ky.retention.contactStudent} onClick={(e) => { e.stopPropagation(); handleContact(retentionCase.id); }}><Phone className="h-3.5 w-3.5" /></Button>
+            {retentionCase.status === 'open' && <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-success" title={ky.retention.resolve} onClick={(e) => { e.stopPropagation(); handleResolve(retentionCase.id); }}><CheckCircle className="h-3.5 w-3.5" /></Button>}
+            {(retentionCase.status === 'open' || retentionCase.status === 'contacted') && <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-warning" title={ky.retention.escalate} onClick={(e) => { e.stopPropagation(); handleEscalate(retentionCase.id); }}><ArrowUpCircle className="h-3.5 w-3.5" /></Button>}
             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(retentionCase); }}>
               <Trash2 className="h-4 w-4" />
             </Button>
