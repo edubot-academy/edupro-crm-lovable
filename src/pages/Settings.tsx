@@ -403,15 +403,6 @@ export default function SettingsPage() {
             </div>
             <Switch checked={featureFlags.retention_enabled} onCheckedChange={() => handleFeatureFlagToggle('retention_enabled')} />
           </div>
-          <Separator />
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Telegram Notifications</p>
-              <p className="text-xs text-muted-foreground">Telegram билдирүүлөрү</p>
-            </div>
-            <Switch checked={featureFlags.telegram_notifications_enabled} onCheckedChange={() => handleFeatureFlagToggle('telegram_notifications_enabled')} />
-          </div>
-          <Separator />
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium">Advanced Reports</p>
@@ -458,39 +449,6 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card className="shadow-card border-border/50 opacity-75">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            Билдирүүлөр
-            <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">Тез арада</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Жаңы лид билдирүүсү</p>
-              <p className="text-xs text-muted-foreground">Жаңы лид кошулганда эскертүү алуу</p>
-            </div>
-            <Switch disabled />
-          </div>
-          <Separator />
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Төлөм билдирүүсү</p>
-              <p className="text-xs text-muted-foreground">Төлөм жиберилгенде эскертүү алуу</p>
-            </div>
-            <Switch disabled />
-          </div>
-          <Separator />
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Тобокелдик сигналдары</p>
-              <p className="text-xs text-muted-foreground">LMS тобокелдик сигналдарын алуу</p>
-            </div>
-            <Switch disabled />
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

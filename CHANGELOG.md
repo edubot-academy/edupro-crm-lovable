@@ -145,6 +145,12 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 - React context error: Fixed "useAuth must be used within AuthProvider" error in AppContent by adding proper useAuth hook usage
 - API client header injection: Removed localStorage dependency from tenant-config and feature-flag API clients, now using automatic X-Company-Id header from AuthContext
 - Tenant config type fixes: Fixed type mismatches in TenantConfigProvider for mapped data structures (leadSources, pipelineStages, statuses, paymentMethods)
+- Frontend feature gating: Updated Reports.tsx to gate retention tab by retention_enabled feature flag instead of lms_bridge_enabled
+- Frontend feature gating: Updated Dashboard.tsx to gate retention priority item and stat card by retention_enabled feature flag
+- Frontend feature gating: Updated Settings.tsx to remove telegram_notifications_enabled toggle and notification settings card section
+- Frontend cleanup: Removed misleading CRM_ONLY_MODE_FLAGS and CRM_LMS_BUNDLE_MODE_FLAGS from FeatureFlagProvider.tsx
+- TenantConfigProvider defaults: Changed default tenantId from 'default' to '' and companyName from 'EduPro CRM' to '' for proper tenant resolution
+- Login auto-detect: Changed loginTenantId from undefined to '' for proper auto-detect flow
 
 ## [1.7.0] - 2026-04-24
 

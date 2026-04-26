@@ -11,11 +11,11 @@ interface TenantConfigContextValue {
 }
 
 const defaultTenantConfig: TenantConfig = {
-  tenantId: 'default',
+  tenantId: '',
   language: 'ky',
   currency: 'KGS',
   timezone: 'Asia/Bishkek',
-  companyName: 'EduPro CRM',
+  companyName: '',
   leadSources: [],
   paymentMethods: [],
   notificationChannels: [],

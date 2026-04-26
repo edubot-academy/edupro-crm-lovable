@@ -25,8 +25,8 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       // For platform login, pass undefined tenantId
-      // For tenant login, pass the tenantId if provided, otherwise undefined
-      const loginTenantId = isPlatformLogin ? undefined : (tenantId.trim() || undefined);
+      // For tenant login, pass the tenantId if provided, otherwise empty string for auto-detect
+      const loginTenantId = isPlatformLogin ? undefined : (tenantId.trim() || '');
       await login(email, password, loginTenantId);
 
       // Redirect based on login mode

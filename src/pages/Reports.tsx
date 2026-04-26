@@ -15,6 +15,7 @@ import type { DashboardStats, DashboardStatsQueryParams, CrmDashboardStats, Educ
 import { DateRangeFilter } from '@/components/DateRangeFilter';
 import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
 import { useTenantConfig } from '@/components/core/TenantConfigProvider';
+import { useFeatureFlags } from '@/components/core/FeatureFlagProvider';
 import {
   Users, UserPlus, TrendingUp, Target, CreditCard, Trophy,
   AlertTriangle, Download, RefreshCw, GraduationCap,
@@ -105,6 +106,7 @@ function exportCSV(stats: DashboardStats, isLmsEnabled: boolean) {
 export default function ReportsPage() {
   const { isLmsBridgeEnabled } = useLmsBridge();
   const { tenantConfig } = useTenantConfig();
+  const { isFeatureEnabled } = useFeatureFlags();
   const [searchParams, setSearchParams] = useSearchParams();
   const getSearchParam = (key: string, fallback = '') => searchParams.get(key) ?? fallback;
   const [stats, setStats] = useState<DashboardStats>({ ...emptyCrmStats, ...emptyEducationStats });
@@ -334,14 +336,16 @@ export default function ReportsPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className={`flex w-full min-w-max items-center justify-start gap-1 overflow-x-auto rounded-lg p-1 lg:inline-grid lg:w-auto ${isLmsBridgeEnabled ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
+        <TabsList className={`flex w-full min-w-max items-center justify-start gap-1 overflow-x-auto rounded-lg p-1 lg:inline-grid lg:w-auto ${isLmsBridgeEnabled ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} ${isFeatureEnabled('retention_enabled') ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
           <TabsTrigger value="overview" className="text-xs gap-1.5"><BarChart3 className="h-3.5 w-3.5" />Жалпы</TabsTrigger>
           <TabsTrigger value="sales" className="text-xs gap-1.5"><TrendingUp className="h-3.5 w-3.5" />Сатуу</TabsTrigger>
           {isLmsBridgeEnabled && (
             <TabsTrigger value="courses" className="text-xs gap-1.5"><GraduationCap className="h-3.5 w-3.5" />Курстар</TabsTrigger>
           )}
           <TabsTrigger value="payments" className="text-xs gap-1.5"><DollarSign className="h-3.5 w-3.5" />Төлөмдөр</TabsTrigger>
-          <TabsTrigger value="retention" className="text-xs gap-1.5"><Activity className="h-3.5 w-3.5" />Тобокелдик</TabsTrigger>
+          {isFeatureEnabled('retention_enabled') && (
+            <TabsTrigger value="retention" className="text-xs gap-1.5"><Activity className="h-3.5 w-3.5" />Тобокелдик</TabsTrigger>
+          )}
         </TabsList>
 
         {/* ===== OVERVIEW TAB ===== */}
@@ -358,7 +362,7 @@ export default function ReportsPage() {
               <StatCard title={ky.dashboard.trialConversion} value={`${stats.trialToSaleConversion}%`} icon={Target} variant="success" />
             )}
             <StatCard title={ky.dashboard.paymentPending} value={stats.paymentPendingCount} icon={CreditCard} variant="warning" />
-            {isLmsBridgeEnabled && (
+            {isFeatureEnabled('retention_enabled') && (
               <StatCard title={ky.dashboard.openRetention} value={stats.openRetentionCases} icon={AlertTriangle} variant="destructive" />
             )}
           </div>
@@ -752,7 +756,7 @@ export default function ReportsPage() {
         </TabsContent>
 
         {/* ===== RETENTION TAB ===== */}
-        {isLmsBridgeEnabled && (
+        {isFeatureEnabled('retention_enabled') && (
           <TabsContent value="retention" className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <StatCard title={ky.dashboard.openRetention} value={stats.openRetentionCases} icon={AlertTriangle} variant="destructive" />

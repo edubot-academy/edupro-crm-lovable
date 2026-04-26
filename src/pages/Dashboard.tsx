@@ -10,6 +10,7 @@ import type { DashboardStats, CrmDashboardStats, EducationDashboardStats } from 
 import { useToast } from '@/hooks/use-toast';
 import { DateRangeFilter } from '@/components/DateRangeFilter';
 import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
+import { useFeatureFlags } from '@/components/core/FeatureFlagProvider';
 import {
   Users, UserPlus, TrendingUp, Target,
   CreditCard, Trophy, AlertTriangle, BookOpen, RefreshCw, Plus
@@ -38,6 +39,7 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isLmsBridgeEnabled } = useLmsBridge();
+  const { isFeatureEnabled } = useFeatureFlags();
   const [stats, setStats] = useState<DashboardStats>({ ...emptyCrmStats, ...emptyEducationStats });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -132,15 +134,15 @@ export default function DashboardPage() {
       onClick: () => navigate('/payments'),
       tone: 'border-warning/40 bg-warning/5',
     },
-    {
-      key: 'retention',
+    ...(isFeatureEnabled('retention_enabled') ? [{
+      key: 'retention' as const,
       title: ky.dashboard.openRetention,
       value: stats.openRetentionCases,
       description: 'Сактап калуу аракетин талап кылган клиент учурлары.',
       actionLabel: 'Тобокелдиктерди ачуу',
       onClick: () => navigate('/retention'),
       tone: 'border-destructive/40 bg-destructive/5',
-    },
+    }] : []),
     {
       key: 'won',
       title: ky.dashboard.wonDeals,
@@ -276,7 +278,9 @@ export default function DashboardPage() {
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard title={ky.dashboard.wonDeals} value={stats.wonDeals} icon={Trophy} variant="success" />
-        <StatCard title={ky.dashboard.openRetention} value={stats.openRetentionCases} icon={AlertTriangle} variant="destructive" />
+        {isFeatureEnabled('retention_enabled') && (
+          <StatCard title={ky.dashboard.openRetention} value={stats.openRetentionCases} icon={AlertTriangle} variant="destructive" />
+        )}
       </div>
 
       {/* Charts */}
