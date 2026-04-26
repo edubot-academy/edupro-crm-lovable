@@ -5,7 +5,7 @@ export const authApi = {
   /** POST /api/auth/login — returns { accessToken, refreshToken } */
   login: (data: LoginRequest, tenantId?: string) =>
     apiClient.post<AuthTokens>('/api/auth/login', data, {
-      extraHeaders: tenantId ? { 'X-Company-Id': tenantId } : undefined,
+      extraHeaders: tenantId !== undefined ? { 'X-Company-Id': tenantId } : undefined,
     }),
 
   /** POST /api/auth/refresh — returns { accessToken, refreshToken } */
