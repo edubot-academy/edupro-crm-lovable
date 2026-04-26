@@ -74,9 +74,10 @@ class ApiClient {
       ...((fetchOptions.headers as Record<string, string>) || {}),
     };
 
-    // Add X-Company-Id header if tenantId is available
+    // Add X-Company-Id header if tenantId is available AND not already in extraHeaders
+    // This prevents conflicts when login explicitly passes a tenantId
     const tenantId = getTenantIdFn ? getTenantIdFn() : null;
-    if (tenantId) {
+    if (tenantId && !extraHeaders?.['X-Company-Id']) {
       headers["X-Company-Id"] = tenantId;
     }
 

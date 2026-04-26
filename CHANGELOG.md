@@ -141,6 +141,10 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 - Reports page retention tab trigger now conditional on isLmsBridgeEnabled flag
 - Reports page retention tab content now conditional on isLmsBridgeEnabled flag
 - Payment config authority improved: DTO method is now string, entity method is now string, runtime validates against tenant config
+- Feature flags and tenant config loading: Fixed JSON parse errors by making providers only load data when user is authenticated
+- React context error: Fixed "useAuth must be used within AuthProvider" error in AppContent by adding proper useAuth hook usage
+- API client header injection: Removed localStorage dependency from tenant-config and feature-flag API clients, now using automatic X-Company-Id header from AuthContext
+- Tenant config type fixes: Fixed type mismatches in TenantConfigProvider for mapped data structures (leadSources, pipelineStages, statuses, paymentMethods)
 
 ## [1.7.0] - 2026-04-24
 

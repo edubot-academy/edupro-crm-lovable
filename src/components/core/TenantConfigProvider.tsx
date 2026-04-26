@@ -1,8 +1,8 @@
 import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
-import type { TenantConfig, TenantLeadSource, TenantPaymentMethod } from '@/types';
+import type { TenantConfig } from '@/types';
 import { tenantConfigApi } from '@/api/tenant-config';
 import { setFormattingConfig } from '@/lib/formatting';
-import type { TenantStatusResponse } from '@/api/tenant-config';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface TenantConfigContextValue {
   tenantConfig: TenantConfig;
@@ -55,7 +55,8 @@ export function TenantConfigProvider({
   });
   const [isLoading, setIsLoading] = useState(false);
 
-  // Load tenant config from API on mount
+  // Load tenant config from API when authenticated
+  const { isAuthenticated } = useAuth();
   useEffect(() => {
     const loadTenantConfig = async () => {
       setIsLoading(true);
@@ -70,7 +71,7 @@ export function TenantConfigProvider({
           tenantConfigApi.getStatuses('deal'),
           tenantConfigApi.getPaymentMethods(),
         ]);
-        const loadedConfig = {
+        const loadedConfig: TenantConfig = {
           tenantId: config.tenantId,
           language: config.language,
           currency: config.currency,
@@ -83,34 +84,24 @@ export function TenantConfigProvider({
             logoUrl: config.logoUrl || undefined,
             primaryColor: config.primaryColor || undefined,
           },
-          leadSources: leadSources.map(ls => ({
-            id: ls.id,
-            tenantId: ls.tenantId,
-            sourceKey: ls.sourceKey,
-            sourceName: ls.sourceName,
-            isDefault: ls.isDefault,
+          leadSources: leadSources.map(s => ({
+            id: s.id,
+            tenantId: s.tenantId,
+            sourceKey: s.sourceKey,
+            sourceName: s.sourceName,
+            isDefault: s.isDefault,
           })),
-          paymentMethods: paymentMethods.map(pm => ({
-            id: pm.id,
-            tenantId: pm.tenantId,
-            methodKey: pm.methodKey,
-            methodName: pm.methodName,
-            methodType: pm.methodType,
-            config: pm.config,
-            enabled: pm.enabled,
-            displayOrder: pm.displayOrder,
+          roles: roles.map(r => ({
+            id: String(r.id),
+            key: r.roleKey,
+            label: r.roleName,
+            permissions: (r.permissions || {}) as Record<string, boolean>,
           })),
-          notificationChannels: notificationChannels.map(nc => ({
-            id: String(nc.id),
-            type: nc.channelType as any,
-            enabled: nc.enabled,
-            config: nc.config,
-          })),
-          pipelineStages: pipelineStages.map(ps => ({
-            id: String(ps.id),
-            key: ps.stageKey,
-            label: ps.stageName,
-            order: ps.stageOrder,
+          pipelineStages: pipelineStages.map(s => ({
+            id: String(s.id),
+            key: s.stageKey,
+            label: s.stageName,
+            order: s.stageOrder,
           })),
           leadStatuses: leadStatuses.map(s => ({
             id: String(s.id),
@@ -126,11 +117,21 @@ export function TenantConfigProvider({
             order: s.statusOrder,
             entityType: s.entityType,
           })),
-          roles: roles.map(r => ({
-            id: String(r.id),
-            key: r.roleKey,
-            label: r.roleName,
-            permissions: (r.permissions || {}) as Record<string, boolean>,
+          notificationChannels: notificationChannels.map(n => ({
+            id: String(n.id),
+            type: n.channelType as 'email' | 'telegram' | 'sms' | 'whatsapp',
+            config: n.config,
+            enabled: n.enabled,
+          })),
+          paymentMethods: paymentMethods.map(p => ({
+            id: p.id,
+            tenantId: p.tenantId,
+            methodKey: p.methodKey,
+            methodName: p.methodName,
+            methodType: p.methodType,
+            config: p.config,
+            enabled: p.enabled,
+            displayOrder: p.displayOrder,
           })),
           createdAt: new Date(config.createdAt),
           updatedAt: new Date(config.updatedAt),
@@ -145,8 +146,13 @@ export function TenantConfigProvider({
         setIsLoading(false);
       }
     };
-    loadTenantConfig();
-  }, []);
+
+    if (isAuthenticated) {
+      loadTenantConfig();
+    } else {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated]);
 
   const updateTenantConfig = async (config: Partial<TenantConfig>) => {
     const previousState = tenantConfig;

@@ -1,6 +1,7 @@
 import { createContext, useContext, ReactNode, useEffect, useState } from 'react';
 import type { FeatureFlags } from '@/types';
 import { featureFlagApi } from '@/api/feature-flag';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface FeatureFlagContextValue {
   featureFlags: FeatureFlags;
@@ -120,9 +121,15 @@ export function FeatureFlagProvider({
     }
   };
 
+  // Only load feature flags when user is authenticated
+  const { isAuthenticated } = useAuth();
   useEffect(() => {
-    loadFeatureFlags();
-  }, []);
+    if (isAuthenticated) {
+      loadFeatureFlags();
+    } else {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated]);
 
   const isFeatureEnabled = (flag: keyof FeatureFlags): boolean => {
     return featureFlags[flag] ?? false;

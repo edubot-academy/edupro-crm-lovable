@@ -9,7 +9,8 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   tenantId: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  isPlatformAdmin: boolean;
+  login: (email: string, password: string, tenantId?: string) => Promise<void>;
   logout: () => void;
   /** Get a valid access token (refreshes automatically if expired). */
   getAccessToken: () => Promise<string | null>;
@@ -39,9 +40,16 @@ function tenantIdFromToken(token: string): string | null {
   return payload.tenantId || null;
 }
 
+function isPlatformAdminFromToken(token: string): boolean {
+  const payload = decodeJwt(token);
+  if (!payload) return false;
+  return payload.role === 'superadmin' && !payload.tenantId;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [tenantId, setTenantId] = useState<string | null>(null);
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const refreshPromise = useRef<Promise<string | null> | null>(null);
 
@@ -68,12 +76,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .finally(() => setIsLoading(false));
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const tokens = await authApi.login({ email, password });
+  const login = useCallback(async (email: string, password: string, tenantId?: string) => {
+    const tokens = await authApi.login({ email, password }, tenantId);
     accessTokenMemory = tokens.accessToken;
     localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+    const decodedTenantId = tenantIdFromToken(tokens.accessToken);
     setUser(userFromToken(tokens.accessToken));
-    setTenantId(tenantIdFromToken(tokens.accessToken));
+    setTenantId(decodedTenantId);
+    setIsPlatformAdmin(isPlatformAdminFromToken(tokens.accessToken));
   }, []);
 
   const logout = useCallback(async () => {
@@ -88,6 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem(REFRESH_TOKEN_KEY);
       setUser(null);
       setTenantId(null);
+      setIsPlatformAdmin(false);
     }
   }, []);
 
@@ -116,6 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
         setUser(userFromToken(tokens.accessToken));
         setTenantId(tenantIdFromToken(tokens.accessToken));
+        setIsPlatformAdmin(isPlatformAdminFromToken(tokens.accessToken));
         return tokens.accessToken;
       })
       .catch(() => {
@@ -123,6 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.removeItem(REFRESH_TOKEN_KEY);
         setUser(null);
         setTenantId(null);
+        setIsPlatformAdmin(false);
         return null;
       })
       .finally(() => {
@@ -139,7 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [getAccessToken, tenantId]);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, tenantId, login, logout, getAccessToken }}>
+    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, tenantId, isPlatformAdmin, login, logout, getAccessToken }}>
       {children}
     </AuthContext.Provider>
   );

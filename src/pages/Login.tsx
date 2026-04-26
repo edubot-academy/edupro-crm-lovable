@@ -13,6 +13,8 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isPlatformLogin, setIsPlatformLogin] = useState(false);
+  const [tenantId, setTenantId] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -22,8 +24,17 @@ export default function LoginPage() {
     if (!email || !password) return;
     setIsLoading(true);
     try {
-      await login(email, password);
-      navigate('/');
+      // For platform login, pass undefined tenantId
+      // For tenant login, pass the tenantId (must be provided)
+      const loginTenantId = isPlatformLogin ? undefined : tenantId;
+      await login(email, password, loginTenantId);
+
+      // Redirect based on login mode
+      if (isPlatformLogin) {
+        navigate('/platform');
+      } else {
+        navigate('/');
+      }
     } catch (err: unknown) {
       const message = err instanceof Error
         ? err.message
@@ -78,6 +89,30 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Login Mode Toggle */}
+              <div className="flex gap-2 p-1 bg-muted rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setIsPlatformLogin(false)}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${!isPlatformLogin
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                >
+                  Tenant Login
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPlatformLogin(true)}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${isPlatformLogin
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                >
+                  Platform Admin
+                </button>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="email">{ky.auth.email}</Label>
                 <Input
@@ -100,9 +135,26 @@ export default function LoginPage() {
                   required
                 />
               </div>
+
+              {!isPlatformLogin && (
+                <div className="space-y-2">
+                  <Label htmlFor="tenantId">Tenant ID (optional)</Label>
+                  <Input
+                    id="tenantId"
+                    type="text"
+                    placeholder="Auto-detected from your account"
+                    value={tenantId}
+                    onChange={(e) => setTenantId(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Leave empty to auto-detect from your account
+                  </p>
+                </div>
+              )}
+
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {ky.auth.loginButton}
+                {isPlatformLogin ? 'Login as Platform Admin' : ky.auth.loginButton}
               </Button>
             </form>
             <div className="mt-6 space-y-3">

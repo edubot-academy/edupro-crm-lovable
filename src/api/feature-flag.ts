@@ -19,21 +19,22 @@ export interface TenantFeatureFlagResponse {
   enabled: boolean;
 }
 
-const getCompanyId = () => localStorage.getItem('companyId') || undefined;
+// Don't use localStorage - the API client handles X-Company-Id automatically from AuthContext
 
 export const featureFlagApi = {
   // Get all feature flags for current tenant
   getTenantFlags: async (): Promise<Record<FeatureFlagKey, boolean>> => {
-    return apiClient.get<Record<FeatureFlagKey, boolean>>('/feature-flag/tenant', undefined, {
-      extraHeaders: getCompanyId() ? { 'x-company-id': getCompanyId()! } : undefined,
-    });
+    try {
+      return await apiClient.get<Record<FeatureFlagKey, boolean>>('/feature-flag/tenant');
+    } catch (error) {
+      console.error('Failed to load feature flags, using defaults');
+      throw error;
+    }
   },
 
   // Set a tenant-specific feature flag override
   setTenantFlag: async (key: FeatureFlagKey, enabled: boolean): Promise<void> => {
-    return apiClient.post<void>('/feature-flag/tenant', { key, enabled }, {
-      extraHeaders: getCompanyId() ? { 'x-company-id': getCompanyId()! } : undefined,
-    });
+    return apiClient.post<void>('/feature-flag/tenant', { key, enabled });
   },
 
   // Get all global feature flags

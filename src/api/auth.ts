@@ -3,8 +3,10 @@ import type { AuthTokens, LoginRequest, AcceptInviteRequest, ResetPasswordReques
 
 export const authApi = {
   /** POST /api/auth/login — returns { accessToken, refreshToken } */
-  login: (data: LoginRequest) =>
-    apiClient.post<AuthTokens>('/api/auth/login', data),
+  login: (data: LoginRequest, tenantId?: string) =>
+    apiClient.post<AuthTokens>('/api/auth/login', data, {
+      extraHeaders: tenantId ? { 'X-Company-Id': tenantId } : undefined,
+    }),
 
   /** POST /api/auth/refresh — returns { accessToken, refreshToken } */
   refresh: (refreshToken: string) =>

@@ -16,6 +16,7 @@ import LoginPage from "./pages/Login";
 import ForgotPasswordPage from "./pages/ForgotPassword";
 import ResetPasswordPage from "./pages/ResetPassword";
 import AcceptInvitePage from "./pages/AcceptInvite";
+import PlatformAdminPage from "./pages/PlatformAdmin";
 import DashboardPage from "./pages/Dashboard";
 import LeadsPage from "./pages/Leads";
 import CoursesPage from "./pages/Courses";
@@ -50,6 +51,7 @@ function AuthRedirect({ children }: { children: React.ReactNode }) {
 function AppContent() {
   const { isFeatureEnabled } = useFeatureFlags();
   const enableLmsBridge = isFeatureEnabled('lms_bridge_enabled');
+  const { user } = useAuth();
   const { canViewLmsTechnicalFields, canViewRetentionCases, canAccessAdminPanel, canManageUsers, canManageSettings } = useRolePermissions();
 
   return (
@@ -60,6 +62,16 @@ function AppContent() {
         <Route path="/forgot-password" element={<AuthRedirect><ForgotPasswordPage /></AuthRedirect>} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/accept-invite" element={<AcceptInvitePage />} />
+
+        {/* Platform admin route - superadmin only, no tenant context */}
+        <Route
+          path="/platform"
+          element={
+            <ProtectedRoute allowedRoles={['superadmin']}>
+              <PlatformAdminPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Protected routes */}
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
