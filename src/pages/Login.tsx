@@ -13,7 +13,6 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isPlatformLogin, setIsPlatformLogin] = useState(false);
   const [tenantId, setTenantId] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -24,17 +23,27 @@ export default function LoginPage() {
     if (!email || !password) return;
     setIsLoading(true);
     try {
-      // For platform login, pass undefined tenantId
-      // For tenant login, pass the tenantId if provided, otherwise empty string for auto-detect
-      const loginTenantId = isPlatformLogin ? undefined : (tenantId.trim() || '');
+      // Tenant login only - pass the tenantId if provided, otherwise empty string for auto-detect
+      // Validate tenant ID format: alphanumeric, hyphens, underscores only, max 50 chars
+      const rawTenantId = tenantId.trim();
+      const loginTenantId = rawTenantId ? rawTenantId.replace(/[^a-zA-Z0-9-_]/g, '') : '';
+
+      if (rawTenantId && rawTenantId !== loginTenantId) {
+        toast({ title: 'Tenant ID contains invalid characters. Only letters, numbers, hyphens, and underscores are allowed.', variant: 'destructive' });
+        setIsLoading(false);
+        return;
+      }
+
+      if (loginTenantId.length > 50) {
+        toast({ title: 'Tenant ID is too long. Maximum 50 characters allowed.', variant: 'destructive' });
+        setIsLoading(false);
+        return;
+      }
+
       await login(email, password, loginTenantId);
 
-      // Redirect based on login mode
-      if (isPlatformLogin) {
-        navigate('/platform');
-      } else {
-        navigate('/');
-      }
+      // Redirect to tenant CRM dashboard
+      navigate('/');
     } catch (err: unknown) {
       const message = err instanceof Error
         ? err.message
@@ -89,30 +98,6 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Login Mode Toggle */}
-              <div className="flex gap-2 p-1 bg-muted rounded-lg">
-                <button
-                  type="button"
-                  onClick={() => setIsPlatformLogin(false)}
-                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${!isPlatformLogin
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                >
-                  Tenant Login
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsPlatformLogin(true)}
-                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${isPlatformLogin
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                >
-                  Platform Admin
-                </button>
-              </div>
-
               <div className="space-y-2">
                 <Label htmlFor="email">{ky.auth.email}</Label>
                 <Input
@@ -136,25 +121,23 @@ export default function LoginPage() {
                 />
               </div>
 
-              {!isPlatformLogin && (
-                <div className="space-y-2">
-                  <Label htmlFor="tenantId">Tenant ID (optional)</Label>
-                  <Input
-                    id="tenantId"
-                    type="text"
-                    placeholder="Auto-detected from your account"
-                    value={tenantId}
-                    onChange={(e) => setTenantId(e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Leave empty to auto-detect from your account
-                  </p>
-                </div>
-              )}
+              <div className="space-y-2">
+                <Label htmlFor="tenantId">Tenant ID (optional)</Label>
+                <Input
+                  id="tenantId"
+                  type="text"
+                  placeholder="Auto-detected from your account"
+                  value={tenantId}
+                  onChange={(e) => setTenantId(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Leave empty to auto-detect from your account
+                </p>
+              </div>
 
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isPlatformLogin ? 'Login as Platform Admin' : ky.auth.loginButton}
+                {ky.auth.loginButton}
               </Button>
             </form>
             <div className="mt-6 space-y-3">

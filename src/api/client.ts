@@ -3,6 +3,9 @@ const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
   (import.meta.env.PROD ? "https://api.edupro.edubot.it.com" : "");
 
+// Security: Request timeout to prevent hanging requests (30 seconds)
+const REQUEST_TIMEOUT = 30000;
+
 interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | undefined>;
   /** Skip auto-refresh on 401 (used internally for refresh calls). */
@@ -49,13 +52,29 @@ class ApiClient {
     getAttemptHeaders?: (() => Record<string, string>) | undefined,
   ): Promise<Response> {
     const attemptHeaders = getAttemptHeaders ? getAttemptHeaders() : {};
-    return fetch(url, {
-      ...fetchOptions,
-      headers: {
-        ...baseHeaders,
-        ...attemptHeaders,
-      },
-    });
+
+    // Security: Add timeout to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+
+    try {
+      const response = await fetch(url, {
+        ...fetchOptions,
+        headers: {
+          ...baseHeaders,
+          ...attemptHeaders,
+        },
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Request timeout. Please check your connection and try again.');
+      }
+      throw error;
+    }
   }
 
   private async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -78,7 +97,11 @@ class ApiClient {
     // This prevents conflicts when login explicitly passes a tenantId
     const tenantId = getTenantIdFn ? getTenantIdFn() : null;
     if (tenantId && !extraHeaders?.['X-Company-Id']) {
-      headers["X-Company-Id"] = tenantId;
+      // Security: Sanitize tenant ID to prevent header injection attacks
+      const sanitizedTenantId = tenantId.replace(/[^a-zA-Z0-9-_]/g, '');
+      if (sanitizedTenantId.length > 0 && sanitizedTenantId.length <= 50) {
+        headers["X-Company-Id"] = sanitizedTenantId;
+      }
     }
 
     const url = this.buildUrl(path, params);

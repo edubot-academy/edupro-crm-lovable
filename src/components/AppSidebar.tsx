@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, UserCheck, Handshake, GitBranch,
   GraduationCap, CreditCard, CheckSquare, MessageSquare,
-  AlertTriangle, BarChart3, Bell, Settings, UserCog, LogOut, BookOpen, Database,
+  AlertTriangle, BarChart3, Bell, Settings, UserCog, LogOut, BookOpen,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
@@ -45,10 +45,6 @@ const systemNav = [
   { title: ky.nav.notifications, url: '/notifications', icon: Bell },
   { title: ky.nav.users, url: '/users', icon: UserCog },
   { title: ky.nav.settings, url: '/settings', icon: Settings },
-];
-
-const legacyNav = [
-  { title: ky.nav.legacyContacts, url: '/legacy-contacts', icon: Database },
 ];
 
 function NavSection({
@@ -146,7 +142,6 @@ export function AppSidebar() {
       <SidebarContent className="px-2 py-2">
         <NavSection label="Негизги" items={visibleMainNav} collapsed={collapsed} onNavigate={handleNavigate} />
         <NavSection label="Операциялар" items={visibleOperationsNav} collapsed={collapsed} onNavigate={handleNavigate} />
-        {isSuperAdmin && <NavSection label={ky.nav.legacyData} items={legacyNav} collapsed={collapsed} onNavigate={handleNavigate} />}
         <NavSection label="Система" items={visibleSystemNav} collapsed={collapsed} onNavigate={handleNavigate} />
       </SidebarContent>
 

@@ -51,7 +51,6 @@ export function AppLayout() {
           notifications: ky.nav.notifications,
           users: ky.nav.users,
           settings: ky.nav.settings,
-          'legacy-contacts': ky.nav.legacyContacts,
         };
 
         let label = labelMap[name] || name;
@@ -60,7 +59,6 @@ export function AppLayout() {
           if (previousSegment === 'leads') label = 'Лид маалыматы';
           if (previousSegment === 'contacts') label = 'Байланыш маалыматы';
           if (previousSegment === 'deals') label = 'Келишим маалыматы';
-          if (previousSegment === 'legacy-contacts') label = 'Эски байланыш маалыматы';
         }
 
         if (name === 'create') {

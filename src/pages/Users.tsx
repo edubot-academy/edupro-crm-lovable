@@ -40,7 +40,12 @@ export default function UsersPage() {
   const [isResendingInvite, setIsResendingInvite] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<SystemUser | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const creatableRoles = Object.entries(ky.userRole).filter(([role]) => user?.role === 'superadmin' || role !== 'superadmin');
+
+  // Tenant users only - exclude SUPERADMIN from tenant CRM
+  // Platform users (superadmin) must be created through Platform Admin
+  const creatableRoles = Object.entries(ky.userRole).filter(([role]) =>
+    role !== 'superadmin' // SUPERADMIN is platform-only, not tenant-creatable
+  );
 
   const resetCreateForm = () => {
     setForm(emptyForm);
@@ -59,6 +64,20 @@ export default function UsersPage() {
 
   const handleCreate = async () => {
     if (!form.fullName || !form.email || !form.role) return;
+
+    // Additional security validation: prevent role escalation
+    if (form.role === 'superadmin') {
+      toast({ title: 'Security violation: Cannot create superadmin users in tenant CRM', description: 'Platform users must be created through the Platform Admin interface.', variant: 'destructive' });
+      return;
+    }
+
+    // Validate that current user has permission to create this role
+    const currentUserRole = user?.role;
+    if (currentUserRole !== 'admin' && form.role === 'admin') {
+      toast({ title: 'Permission denied: Only admins can create admin users', variant: 'destructive' });
+      return;
+    }
+
     setIsCreating(true);
     try {
       const createdUser = await usersApi.create(form) as CreatedUserResponse;

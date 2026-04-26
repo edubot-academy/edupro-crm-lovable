@@ -320,7 +320,6 @@ export const ky = {
     assistant: 'Жардамчы',
     manager: 'Менеджер',
     admin: 'Админ',
-    superadmin: 'Башкы Админ',
   } as Record<string, string>,
   // Reports
   reports: {

@@ -107,6 +107,15 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 ### Removed
 - docs/PHASE_2_ARCHITECTURE.md: Superseded by PHASE_1_4_FINAL_COMPLETION_PLAN.md
 - docs/PHASE_2_MIGRATION.md: Superseded by PHASE_1_4_FINAL_COMPLETION_PLAN.md
+- Platform admin routes: Removed /platform route and PlatformAdminPage component (platform operations moved to separate application)
+- Legacy contact routes: Removed /legacy-contacts and /legacy-contacts/:id routes and related components (LegacyContactsPage, LegacyContactDetailPage)
+- src/api/modules.ts: Removed companiesApi (companies endpoint no longer used in tenant CRM)
+- src/api/modules.ts: Removed legacyContactsApi (legacy contacts endpoint no longer used in tenant CRM)
+- src/api/feature-flag.ts: Removed getGlobalFlags and setGlobalFlag methods (global flags managed in platform admin)
+- src/pages/Login.tsx: Removed platform admin login mode toggle (tenant-only CRM)
+- src/lib/i18n.ts: Removed superadmin translation key (superadmin is platform-only role)
+- src/components/AppSidebar.tsx: Removed legacy navigation section and Database icon import
+- src/components/AppLayout.tsx: Removed legacy-contacts from breadcrumb label map
 
 ### Fixed
 - Dashboard now uses split `getCrmStats` and `getEducationStats` endpoints instead of legacy combined `getStats`, properly decoupling CRM from LMS data
@@ -151,6 +160,15 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 - Frontend cleanup: Removed misleading CRM_ONLY_MODE_FLAGS and CRM_LMS_BUNDLE_MODE_FLAGS from FeatureFlagProvider.tsx
 - TenantConfigProvider defaults: Changed default tenantId from 'default' to '' and companyName from 'EduPro CRM' to '' for proper tenant resolution
 - Login auto-detect: Changed loginTenantId from undefined to '' for proper auto-detect flow
+- docs/backend/DEPRECATED_ENDPOINTS.md: New documentation tracking deprecated API endpoints and migration status
+- src/api/client.ts: Added 30-second request timeout with AbortController to prevent hanging requests
+- src/api/client.ts: Added X-Company-Id header sanitization to prevent injection attacks (alphanumeric, hyphens, underscores only, max 50 chars)
+- src/api/feature-flag.ts: Added temporary fallback to legacy endpoint /feature-flag/tenant when new /feature-flags/tenant fails
+- src/api/feature-flag.ts: Added TODO comments for removing legacy endpoint fallback after staging verification
+- src/api/feature-flag.ts: Added development-mode console.warn when fallback is triggered
+- src/pages/Login.tsx: Added tenant ID validation (alphanumeric, hyphens, underscores only, max 50 chars)
+- src/pages/Users.tsx: Added client-side role validation to prevent superadmin creation
+- src/pages/Users.tsx: Added permission check: only admins can create other admin users
 
 ## [1.7.0] - 2026-04-24
 

@@ -23,27 +23,42 @@ export interface TenantFeatureFlagResponse {
 
 export const featureFlagApi = {
   // Get all feature flags for current tenant
+  // Uses new endpoint: /feature-flags/tenant
   getTenantFlags: async (): Promise<Record<FeatureFlagKey, boolean>> => {
     try {
-      return await apiClient.get<Record<FeatureFlagKey, boolean>>('/feature-flag/tenant');
+      return await apiClient.get<Record<FeatureFlagKey, boolean>>('/feature-flags/tenant');
     } catch (error) {
-      console.error('Failed to load feature flags, using defaults');
-      throw error;
+      // TODO: Remove legacy /feature-flag/tenant fallback after staging verification.
+      if (import.meta.env.DEV) {
+        console.warn('Feature flag: Falling back to legacy endpoint /feature-flag/tenant. This is temporary for migration.');
+      }
+      try {
+        // Fallback to legacy endpoint during migration
+        return await apiClient.get<Record<FeatureFlagKey, boolean>>('/feature-flag/tenant');
+      } catch (legacyError) {
+        console.error('Failed to load feature flags from legacy endpoint as well');
+        throw new Error('Unable to load feature flags. Please check your connection and try again.');
+      }
     }
   },
 
   // Set a tenant-specific feature flag override
+  // Uses new endpoint: /feature-flags/tenant
   setTenantFlag: async (key: FeatureFlagKey, enabled: boolean): Promise<void> => {
-    return apiClient.post<void>('/feature-flag/tenant', { key, enabled });
-  },
-
-  // Get all global feature flags
-  getGlobalFlags: async (): Promise<FeatureFlagResponse[]> => {
-    return apiClient.get<FeatureFlagResponse[]>('/feature-flag/global');
-  },
-
-  // Set a global feature flag (admin only)
-  setGlobalFlag: async (key: FeatureFlagKey, enabled: boolean): Promise<void> => {
-    return apiClient.put<void>(`/feature-flag/global/${key}`, { enabled });
+    try {
+      return await apiClient.post<void>('/feature-flags/tenant', { key, enabled });
+    } catch (error) {
+      // TODO: Remove legacy /feature-flag/tenant fallback after staging verification.
+      if (import.meta.env.DEV) {
+        console.warn('Feature flag: Falling back to legacy endpoint /feature-flag/tenant. This is temporary for migration.');
+      }
+      try {
+        // Fallback to legacy endpoint during migration
+        return await apiClient.post<void>('/feature-flag/tenant', { key, enabled });
+      } catch (legacyError) {
+        console.error('Failed to set feature flag with legacy endpoint as well');
+        throw new Error('Unable to update feature flag. Please check your connection and try again.');
+      }
+    }
   },
 };

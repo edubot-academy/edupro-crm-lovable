@@ -16,7 +16,6 @@ import LoginPage from "./pages/Login";
 import ForgotPasswordPage from "./pages/ForgotPassword";
 import ResetPasswordPage from "./pages/ResetPassword";
 import AcceptInvitePage from "./pages/AcceptInvite";
-import PlatformAdminPage from "./pages/PlatformAdmin";
 import DashboardPage from "./pages/Dashboard";
 import LeadsPage from "./pages/Leads";
 import CoursesPage from "./pages/Courses";
@@ -24,8 +23,6 @@ import LeadDetailPage from "./pages/LeadDetail";
 import DealDetailPage from "./pages/DealDetail";
 import ContactsPage from "./pages/Contacts";
 import ContactDetailPage from "./pages/ContactDetail";
-import LegacyContactsPage from "./pages/LegacyContactsPage";
-import LegacyContactDetailPage from "./pages/LegacyContactDetailPage";
 import DealsPage from "./pages/Deals";
 import PipelinePage from "./pages/Pipeline";
 import TrialLessonsPage from "./pages/TrialLessons";
@@ -62,16 +59,6 @@ function AppContent() {
         <Route path="/forgot-password" element={<AuthRedirect><ForgotPasswordPage /></AuthRedirect>} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/accept-invite" element={<AcceptInvitePage />} />
-
-        {/* Platform admin route - superadmin only, no tenant context */}
-        <Route
-          path="/platform"
-          element={
-            <ProtectedRoute allowedRoles={['superadmin']}>
-              <PlatformAdminPage />
-            </ProtectedRoute>
-          }
-        />
 
         {/* Protected routes */}
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
@@ -164,24 +151,6 @@ function AppContent() {
               <ModuleGuard permissionCheck={canManageSettings}>
                 <SettingsPage />
               </ModuleGuard>
-            }
-          />
-
-          {/* Legacy/internal routes - superadmin only */}
-          <Route
-            path="/legacy-contacts"
-            element={
-              <ProtectedRoute allowedRoles={['superadmin']}>
-                <LegacyContactsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/legacy-contacts/:id"
-            element={
-              <ProtectedRoute allowedRoles={['superadmin']}>
-                <LegacyContactDetailPage />
-              </ProtectedRoute>
             }
           />
         </Route>

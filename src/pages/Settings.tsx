@@ -370,6 +370,9 @@ export default function SettingsPage() {
             Мүмкүнчүлүктөр
             <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">Тенант конфигурациясы</span>
           </CardTitle>
+          <p className="text-xs text-muted-foreground mt-1">
+            Бул мүмкүнчүлүктөр сиздин тенант конфигурациясыңыз үчүн.
+          </p>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
@@ -403,6 +406,7 @@ export default function SettingsPage() {
             </div>
             <Switch checked={featureFlags.retention_enabled} onCheckedChange={() => handleFeatureFlagToggle('retention_enabled')} />
           </div>
+          <Separator />
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium">Advanced Reports</p>

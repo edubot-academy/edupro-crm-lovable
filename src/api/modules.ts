@@ -3,7 +3,7 @@ import type {
   LmsCourse, LmsGroup, Payment, TrialLesson, Task,
   TimelineEvent, RetentionCase, DashboardStats, DashboardStatsQueryParams,
   CrmDashboardStats, EducationDashboardStats,
-  FunnelReport, SystemUser, CreatedUserResponse, AssignableUser, Company, Lead, Contact, ContactNote, Deal, PaginatedResponse,
+  FunnelReport, SystemUser, CreatedUserResponse, AssignableUser, Lead, Contact, ContactNote, Deal, PaginatedResponse,
   TelegramLinkResponse, TelegramStatusResponse,
   InAppNotification, UnreadNotificationsResponse,
 } from '@/types';
@@ -19,13 +19,6 @@ import type {
   CreateEnrollmentRequest, ActivateEnrollmentRequest, PauseEnrollmentRequest,
   LmsEnrollmentResponse, LmsStudentSummary, LmsIntegrationHistoryResponse, LmsOnboardingLinkResponse,
 } from '@/types/lms';
-
-// ==================== COMPANIES ====================
-export const companiesApi = {
-  list: () => apiClient.get<Company[]>('/api/companies'),
-  get: (id: number) => apiClient.get<Company>(`/api/companies/${id}`),
-  create: (data: { name: string; industry: 'education' | 'retail' }) => apiClient.post<Company>('/api/companies', data),
-};
 
 // ==================== USERS ====================
 export const usersApi = {
@@ -135,41 +128,6 @@ export const enrollmentsApi = {
       offset: number;
       status: string;
     }>('/api/enrollments/history', params as Record<string, string | number | undefined>),
-};
-
-// ==================== LEGACY CONTACTS ====================
-export const legacyContactsApi = {
-  list: (params?: Record<string, string | number | undefined>) =>
-    apiClient.get<PaginatedResponse<Contact>>('/api/legacy-contacts', params),
-  get: (id: number) => apiClient.get<Contact>(`/api/legacy-contacts/${id}`),
-  /** Public lead capture (no auth required) */
-  create: (data: Partial<Contact> & { message?: string; captchaToken?: string; consent?: boolean; utmSource?: string; utmMedium?: string; utmCampaign?: string; courseType?: string; courseName?: string }) =>
-    apiClient.post<Contact>('/api/legacy-contacts', data),
-  /** Authenticated manual contact creation */
-  createManual: (data: Partial<Contact>) =>
-    apiClient.post<Contact>('/api/legacy-contacts/manual', data),
-  update: (id: number, data: Partial<Contact>) => apiClient.patch<Contact>(`/api/legacy-contacts/${id}`, data),
-  delete: (id: number) => apiClient.delete<{ success: boolean }>(`/api/legacy-contacts/${id}`),
-  /** Assign/unassign contact owner */
-  assign: (data: { contactId: number; assigneeUserId?: number | null }) =>
-    apiClient.post<Contact>('/api/legacy-contacts/assign', data),
-  /** Quick self-assignment */
-  selfAssign: (id: number) => apiClient.patch<Contact>(`/api/legacy-contacts/${id}/self-assign`),
-  /** Soft-delete contacts in bulk */
-  bulkDelete: (data: { ids: number[] }) =>
-    apiClient.post<{ success: boolean }>('/api/legacy-contacts/bulk-delete', data),
-  /** Hard purge contacts (superadmin) */
-  purge: (data: { ids: number[] }) =>
-    apiClient.post<{ success: boolean }>('/api/legacy-contacts/purge', data),
-  /** Delete all test contacts */
-  deleteTests: () =>
-    apiClient.post<{ success: boolean }>('/api/legacy-contacts/delete-tests'),
-  /** Create DEPOSIT payment for contact */
-  deposit: (id: number, data: Record<string, unknown>) =>
-    apiClient.post<Payment>(`/api/legacy-contacts/${id}/deposit`, data),
-  /** Create ENROLLMENT payment for contact */
-  enroll: (id: number, data: Record<string, unknown>) =>
-    apiClient.post<Payment>(`/api/legacy-contacts/${id}/enroll`, data),
 };
 
 // ==================== CONTACT (Compact CRUD) ====================
