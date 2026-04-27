@@ -2,33 +2,33 @@ import { apiClient } from './client';
 import type { AuthTokens, LoginRequest, AcceptInviteRequest, ResetPasswordRequest } from '@/types';
 
 export const authApi = {
-  /** POST /api/auth/login — returns { accessToken, refreshToken } */
+  /** POST /auth/login — returns { accessToken, refreshToken } */
   login: (data: LoginRequest, tenantId?: string) =>
-    apiClient.post<AuthTokens>('/api/auth/login', data, {
+    apiClient.post<AuthTokens>('/auth/login', data, {
       extraHeaders: tenantId !== undefined ? { 'X-Company-Id': tenantId } : undefined,
     }),
 
-  /** POST /api/auth/refresh — returns { accessToken, refreshToken } */
+  /** POST /auth/refresh — returns { accessToken, refreshToken } */
   refresh: (refreshToken: string) =>
-    apiClient.post<AuthTokens>('/api/auth/refresh', { refreshToken }, { skipAuthRefresh: true }),
+    apiClient.post<AuthTokens>('/auth/refresh', { refreshToken }, { skipAuthRefresh: true }),
 
-  /** POST /api/auth/logout — invalidates refresh token server-side */
+  /** POST /auth/logout — invalidates refresh token server-side */
   logout: () =>
-    apiClient.post<void>('/api/auth/logout'),
+    apiClient.post<void>('/auth/logout'),
 
-  /** POST /api/auth/accept-invite — returns { accessToken, refreshToken } */
+  /** POST /auth/accept-invite — returns { accessToken, refreshToken } */
   acceptInvite: (data: AcceptInviteRequest) =>
-    apiClient.post<AuthTokens>('/api/auth/accept-invite', data),
+    apiClient.post<AuthTokens>('/auth/accept-invite', data),
 
-  /** POST /api/auth/resend-invite */
+  /** POST /auth/resend-invite */
   resendInvite: (email: string) =>
-    apiClient.post<void>('/api/auth/resend-invite', { email }),
+    apiClient.post<void>('/auth/resend-invite', { email }),
 
-  /** POST /api/auth/request-password-reset */
+  /** POST /auth/request-password-reset */
   requestPasswordReset: (email: string) =>
-    apiClient.post<void>('/api/auth/request-password-reset', { email }),
+    apiClient.post<void>('/auth/request-password-reset', { email }),
 
-  /** POST /api/auth/reset-password */
+  /** POST /auth/reset-password */
   resetPassword: (data: ResetPasswordRequest) =>
-    apiClient.post<void>('/api/auth/reset-password', data),
+    apiClient.post<void>('/auth/reset-password', data),
 };

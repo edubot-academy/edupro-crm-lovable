@@ -3,6 +3,12 @@ const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
   (import.meta.env.PROD ? "https://api.edupro.edubot.it.com" : "");
 
+import { validateAndSanitizeTenantId } from '@/lib/validation';
+
+// Automatically prepend /api to all paths in development
+// In production, the API_BASE_URL already includes the full path
+const API_PREFIX = import.meta.env.PROD ? "" : "/api";
+
 // Security: Request timeout to prevent hanging requests (30 seconds)
 const REQUEST_TIMEOUT = 30000;
 
@@ -36,7 +42,9 @@ class ApiClient {
   }
 
   private buildUrl(path: string, params?: Record<string, string | number | undefined>): string {
-    const url = new URL(`${this.baseUrl}${path}`, window.location.origin);
+    // Automatically prepend /api prefix in development
+    const fullPath = path.startsWith('/') ? `${API_PREFIX}${path}` : `${API_PREFIX}/${path}`;
+    const url = new URL(`${this.baseUrl}${fullPath}`, window.location.origin);
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) url.searchParams.set(key, String(value));
@@ -98,8 +106,8 @@ class ApiClient {
     const tenantId = getTenantIdFn ? getTenantIdFn() : null;
     if (tenantId && !extraHeaders?.['X-Company-Id']) {
       // Security: Sanitize tenant ID to prevent header injection attacks
-      const sanitizedTenantId = tenantId.replace(/[^a-zA-Z0-9-_]/g, '');
-      if (sanitizedTenantId.length > 0 && sanitizedTenantId.length <= 50) {
+      const sanitizedTenantId = validateAndSanitizeTenantId(tenantId);
+      if (sanitizedTenantId) {
         headers["X-Company-Id"] = sanitizedTenantId;
       }
     }

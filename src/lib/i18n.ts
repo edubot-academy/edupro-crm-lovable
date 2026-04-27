@@ -33,6 +33,11 @@ export const ky = {
     emailPlaceholder: 'email@example.com',
     passwordPlaceholder: 'Сырсөзүңүздү киргизиңиз',
     loginError: 'Кирүү учурунда ката кетти',
+    tenantDomainNotFound: 'Тенант домени табылган жок',
+    tenantNotActive: 'Бул тенант учурда активдүү эмес',
+    crmAccessDenied: 'CRMге кирүү мүмкүн эмес',
+    forgotPassword: 'Сырсөзүңүздү унутуңузбу?',
+    help: 'Жардам',
   },
   // Common
   common: {

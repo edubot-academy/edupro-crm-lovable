@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { TenantProvider } from "@/contexts/TenantContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ModuleGuard } from "@/components/ModuleGuard";
 import { AppLayout } from "@/components/AppLayout";
@@ -46,13 +47,11 @@ function AuthRedirect({ children }: { children: React.ReactNode }) {
 }
 
 function AppContent() {
-  const { isFeatureEnabled } = useFeatureFlags();
-  const enableLmsBridge = isFeatureEnabled('lms_bridge_enabled');
   const { user } = useAuth();
   const { canViewLmsTechnicalFields, canViewRetentionCases, canAccessAdminPanel, canManageUsers, canManageSettings } = useRolePermissions();
 
   return (
-    <LmsBridgeProvider enableLmsBridge={enableLmsBridge}>
+    <LmsBridgeProvider>
       <Routes>
         {/* Public auth routes */}
         <Route path="/login" element={<AuthRedirect><LoginPage /></AuthRedirect>} />
@@ -166,13 +165,15 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <AuthProvider>
-          <TenantConfigProvider>
-            <FeatureFlagProvider>
-              <AppContent />
-            </FeatureFlagProvider>
-          </TenantConfigProvider>
-        </AuthProvider>
+        <TenantProvider>
+          <AuthProvider>
+            <TenantConfigProvider>
+              <FeatureFlagProvider>
+                <AppContent />
+              </FeatureFlagProvider>
+            </TenantConfigProvider>
+          </AuthProvider>
+        </TenantProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

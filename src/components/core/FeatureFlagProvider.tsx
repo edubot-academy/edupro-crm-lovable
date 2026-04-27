@@ -1,5 +1,6 @@
 import { createContext, useContext, ReactNode, useEffect, useState } from 'react';
 import type { FeatureFlags } from '@/types';
+import type { TenantFeatureFlagsResponse } from '@/api/feature-flag';
 import { featureFlagApi } from '@/api/feature-flag';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -8,6 +9,8 @@ interface FeatureFlagContextValue {
   isFeatureEnabled: (flag: keyof FeatureFlags) => boolean;
   isLoading: boolean;
   refreshFlags: () => Promise<void>;
+  allowedFeatures?: Partial<Record<keyof FeatureFlags, boolean>>;
+  sources?: Partial<Record<keyof FeatureFlags, 'platform' | 'tenant'>>;
 }
 
 const defaultFeatureFlags: FeatureFlags = {
@@ -24,6 +27,8 @@ const FeatureFlagContext = createContext<FeatureFlagContextValue>({
   isFeatureEnabled: () => false,
   isLoading: false,
   refreshFlags: async () => { },
+  allowedFeatures: undefined,
+  sources: undefined,
 });
 
 /**
@@ -58,13 +63,17 @@ export function FeatureFlagProvider({
     ...(import.meta.env.VITE_ENABLE_TELEGRAM !== undefined && { telegram_notifications_enabled: import.meta.env.VITE_ENABLE_TELEGRAM === 'true' }),
     ...(import.meta.env.VITE_ENABLE_ADVANCED_REPORTS !== undefined && { advanced_reports_enabled: import.meta.env.VITE_ENABLE_ADVANCED_REPORTS === 'true' }),
   });
+  const [allowedFeatures, setAllowedFeatures] = useState<Partial<Record<keyof FeatureFlags, boolean>>>();
+  const [sources, setSources] = useState<Partial<Record<keyof FeatureFlags, 'platform' | 'tenant'>>>();
   const [isLoading, setIsLoading] = useState(true); // Start as loading to prevent UI flicker
 
   const loadFeatureFlags = async () => {
     setIsLoading(true);
     try {
-      const flags = await featureFlagApi.getTenantFlags();
-      setFeatureFlags(flags);
+      const response = await featureFlagApi.getTenantFlags();
+      setFeatureFlags(response);
+      setAllowedFeatures(response.allowedFeatures);
+      setSources(response.sources);
     } catch (error) {
       console.error('Failed to load feature flags from backend, using defaults:', error);
       // Keep using conservative defaults (environment variables only if explicitly set)
@@ -92,6 +101,8 @@ export function FeatureFlagProvider({
     isFeatureEnabled,
     isLoading,
     refreshFlags: loadFeatureFlags,
+    allowedFeatures,
+    sources,
   };
 
   return (

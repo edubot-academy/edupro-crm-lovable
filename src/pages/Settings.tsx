@@ -12,7 +12,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useFeatureFlags } from '@/components/core/FeatureFlagProvider';
 import { useTenantConfig } from '@/components/core/TenantConfigProvider';
 import { profileApi } from '@/api/modules';
-import { featureFlagApi } from '@/api/feature-flag';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, PencilLine, ToggleLeft, Palette, Globe, DollarSign, Tag, CreditCard } from 'lucide-react';
 import { getFriendlyError } from '@/lib/error-messages';
@@ -20,7 +19,7 @@ import { getFriendlyError } from '@/lib/error-messages';
 export default function SettingsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { featureFlags, isFeatureEnabled } = useFeatureFlags();
+  const { featureFlags, isFeatureEnabled, allowedFeatures, sources } = useFeatureFlags();
   const { tenantConfig, updateTenantConfig } = useTenantConfig();
   const [fullName, setFullName] = useState(user?.fullName || '');
   const [email, setEmail] = useState(user?.email || '');
@@ -133,25 +132,6 @@ export default function SettingsPage() {
     setCompanyName(previousTenantConfig.companyName || previousTenantConfig.branding?.companyName || '');
     setPrimaryColor(previousTenantConfig.primaryColor || previousTenantConfig.branding?.primaryColor || '');
     setIsEditingTenantConfig(false);
-  };
-
-  const handleFeatureFlagToggle = async (flag: keyof typeof featureFlags) => {
-    try {
-      await featureFlagApi.setTenantFlag(flag, !featureFlags[flag]);
-      toast({
-        title: 'Мүмкүнчүлүк ийгиликтүү өзгөртүлдү',
-        description: 'Өзгөрүүлөр сакталды',
-      });
-      // Refresh flags from backend
-      window.location.reload();
-    } catch (error) {
-      console.error('Failed to toggle feature flag:', error);
-      toast({
-        title: 'Ката',
-        description: error instanceof Error ? error.message : 'Мүмкүнчүлүктү өзгөртүү мүмкүн эмес',
-        variant: 'destructive'
-      });
-    }
   };
 
   return (
@@ -380,39 +360,63 @@ export default function SettingsPage() {
               <p className="text-sm font-medium">CRM</p>
               <p className="text-xs text-muted-foreground">CRM модулу</p>
             </div>
-            <Switch checked={featureFlags.crm_enabled} onCheckedChange={() => handleFeatureFlagToggle('crm_enabled')} />
+            <Switch checked={true} disabled className="opacity-50" />
           </div>
           <Separator />
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">LMS Bridge</p>
+            <div className="flex-1">
+              <p className="text-sm font-medium">LMS байланышы</p>
               <p className="text-xs text-muted-foreground">LMS интеграциясы</p>
+              {allowedFeatures?.lms_bridge_enabled === false && (
+                <p className="text-xs text-destructive mt-1">Бул функция сиздин тарифиңизде жеткиликтүү эмес</p>
+              )}
+              {sources?.lms_bridge_enabled === 'platform' && (
+                <p className="text-xs text-muted-foreground mt-1">Бул функция платформа тарифи аркылуу башкарылат</p>
+              )}
             </div>
-            <Switch checked={featureFlags.lms_bridge_enabled} onCheckedChange={() => handleFeatureFlagToggle('lms_bridge_enabled')} />
+            <Switch checked={featureFlags.lms_bridge_enabled} disabled className="opacity-50" />
           </div>
           <Separator />
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Trial Lessons</p>
+            <div className="flex-1">
+              <p className="text-sm font-medium">Сыноо сабактар</p>
               <p className="text-xs text-muted-foreground">Сыноо сабактары</p>
+              {allowedFeatures?.trial_lessons_enabled === false && (
+                <p className="text-xs text-destructive mt-1">Бул функция сиздин тарифиңизде жеткиликтүү эмес</p>
+              )}
+              {sources?.trial_lessons_enabled === 'platform' && (
+                <p className="text-xs text-muted-foreground mt-1">Бул функция платформа тарифи аркылуу башкарылат</p>
+              )}
             </div>
-            <Switch checked={featureFlags.trial_lessons_enabled} onCheckedChange={() => handleFeatureFlagToggle('trial_lessons_enabled')} />
+            <Switch checked={featureFlags.trial_lessons_enabled} disabled className="opacity-50" />
           </div>
           <Separator />
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Retention</p>
+            <div className="flex-1">
+              <p className="text-sm font-medium">Студентти кармап калуу</p>
               <p className="text-xs text-muted-foreground">Тутумду сактоо</p>
+              {allowedFeatures?.retention_enabled === false && (
+                <p className="text-xs text-destructive mt-1">Бул функция сиздин тарифиңизде жеткиликтүү эмес</p>
+              )}
+              {sources?.retention_enabled === 'platform' && (
+                <p className="text-xs text-muted-foreground mt-1">Бул функция платформа тарифи аркылуу башкарылат</p>
+              )}
             </div>
-            <Switch checked={featureFlags.retention_enabled} onCheckedChange={() => handleFeatureFlagToggle('retention_enabled')} />
+            <Switch checked={featureFlags.retention_enabled} disabled className="opacity-50" />
           </div>
           <Separator />
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Advanced Reports</p>
+            <div className="flex-1">
+              <p className="text-sm font-medium">Кеңейтилген отчеттор</p>
               <p className="text-xs text-muted-foreground">Кеңейтрилген отчеттор</p>
+              {allowedFeatures?.advanced_reports_enabled === false && (
+                <p className="text-xs text-destructive mt-1">Бул функция сиздин тарифиңизде жеткиликтүү эмес</p>
+              )}
+              {sources?.advanced_reports_enabled === 'platform' && (
+                <p className="text-xs text-muted-foreground mt-1">Бул функция платформа тарифи аркылуу башкарылат</p>
+              )}
             </div>
-            <Switch checked={featureFlags.advanced_reports_enabled} onCheckedChange={() => handleFeatureFlagToggle('advanced_reports_enabled')} />
+            <Switch checked={featureFlags.advanced_reports_enabled} disabled className="opacity-50" />
           </div>
         </CardContent>
       </Card>
@@ -426,12 +430,21 @@ export default function SettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {tenantConfig.leadSources.map((source) => (
-            <div key={source.sourceKey} className="flex items-center justify-between py-2">
-              <span className="text-sm">{source.sourceName}</span>
-              <Switch checked={true} disabled />
+          {tenantConfig.leadSources.length > 0 ? (
+            tenantConfig.leadSources.map((source) => (
+              <div key={source.sourceKey} className="flex items-center justify-between py-2">
+                <span className="text-sm">{source.sourceName}</span>
+                <Switch checked={true} disabled />
+              </div>
+            ))
+          ) : (
+            <div className="py-4 text-center text-sm text-muted-foreground">
+              Лид булактары азырынча кошула элек
             </div>
-          ))}
+          )}
+          <Button variant="outline" className="w-full mt-2" onClick={() => toast({ title: 'Бул функция азырынча жеткиликтүү эмес', variant: 'destructive' })}>
+            Лид булагын кошуу
+          </Button>
         </CardContent>
       </Card>
 
@@ -444,12 +457,21 @@ export default function SettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {tenantConfig.paymentMethods.map((pm) => (
-            <div key={pm.methodKey} className="flex items-center justify-between py-2">
-              <span className="text-sm">{pm.methodName || pm.methodKey}</span>
-              <Switch checked={pm.enabled} disabled />
+          {tenantConfig.paymentMethods.length > 0 ? (
+            tenantConfig.paymentMethods.map((pm) => (
+              <div key={pm.methodKey} className="flex items-center justify-between py-2">
+                <span className="text-sm">{pm.methodName || pm.methodKey}</span>
+                <Switch checked={pm.enabled} disabled />
+              </div>
+            ))
+          ) : (
+            <div className="py-4 text-center text-sm text-muted-foreground">
+              Төлөм ыкмалары азырынча кошула элек
             </div>
-          ))}
+          )}
+          <Button variant="outline" className="w-full mt-2" onClick={() => toast({ title: 'Бул функция азырынча жеткиликтүү эмес', variant: 'destructive' })}>
+            Төлөм ыкмасын кошуу
+          </Button>
         </CardContent>
       </Card>
 

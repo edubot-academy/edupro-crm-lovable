@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenant } from '@/contexts/TenantContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ky } from '@/lib/i18n';
-import { Loader2, HelpCircle, Mail, Phone } from 'lucide-react';
+import { Loader2, HelpCircle, Mail, Phone, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
@@ -15,29 +16,44 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [tenantId, setTenantId] = useState('');
   const { login } = useAuth();
+  const { tenant, isProductionDomain, error: tenantError } = useTenant();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return;
+
+    // Block login if tenant resolution failed on production domain
+    if (isProductionDomain && tenantError) {
+      toast({ title: tenantError, variant: 'destructive' });
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // Tenant login only - pass the tenantId if provided, otherwise empty string for auto-detect
-      // Validate tenant ID format: alphanumeric, hyphens, underscores only, max 50 chars
-      const rawTenantId = tenantId.trim();
-      const loginTenantId = rawTenantId ? rawTenantId.replace(/[^a-zA-Z0-9-_]/g, '') : '';
+      // Production domain: use resolved tenant ID
+      // Localhost/dev: use hidden tenant ID input if provided
+      let loginTenantId = '';
 
-      if (rawTenantId && rawTenantId !== loginTenantId) {
-        toast({ title: 'Tenant ID contains invalid characters. Only letters, numbers, hyphens, and underscores are allowed.', variant: 'destructive' });
-        setIsLoading(false);
-        return;
-      }
+      if (isProductionDomain && tenant) {
+        loginTenantId = tenant.tenantId.toString();
+      } else {
+        // Use hidden tenant ID input for dev
+        const rawTenantId = tenantId.trim();
+        loginTenantId = rawTenantId ? rawTenantId.replace(/[^a-zA-Z0-9-_]/g, '') : '';
 
-      if (loginTenantId.length > 50) {
-        toast({ title: 'Tenant ID is too long. Maximum 50 characters allowed.', variant: 'destructive' });
-        setIsLoading(false);
-        return;
+        if (rawTenantId && rawTenantId !== loginTenantId) {
+          toast({ title: 'Tenant ID contains invalid characters. Only letters, numbers, hyphens, and underscores are allowed.', variant: 'destructive' });
+          setIsLoading(false);
+          return;
+        }
+
+        if (loginTenantId.length > 50) {
+          toast({ title: 'Tenant ID is too long. Maximum 50 characters allowed.', variant: 'destructive' });
+          setIsLoading(false);
+          return;
+        }
       }
 
       await login(email, password, loginTenantId);
@@ -64,7 +80,7 @@ export default function LoginPage() {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm font-bold text-2xl">
             E
           </div>
-          <span className="text-2xl font-bold">EduPro CRM</span>
+          <span className="text-2xl font-bold">{tenant?.brandingName || 'EduPro CRM'}</span>
         </div>
         <div className="space-y-6">
           <h1 className="text-4xl font-bold leading-tight">
@@ -121,33 +137,40 @@ export default function LoginPage() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="tenantId">Tenant ID (optional)</Label>
-                <Input
-                  id="tenantId"
-                  type="text"
-                  placeholder="Auto-detected from your account"
-                  value={tenantId}
-                  onChange={(e) => setTenantId(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Leave empty to auto-detect from your account
-                </p>
-              </div>
+              {/* Tenant ID input - hidden but functional for dev/testing */}
+              {!isProductionDomain && (
+                <div className="hidden">
+                  <Label htmlFor="tenantId">Tenant ID</Label>
+                  <Input
+                    id="tenantId"
+                    type="text"
+                    value={tenantId}
+                    onChange={(e) => setTenantId(e.target.value)}
+                  />
+                </div>
+              )}
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              {/* Tenant resolution error alert */}
+              {isProductionDomain && tenantError && (
+                <div className="flex items-start gap-2 p-3 rounded-md bg-destructive/10 text-destructive text-sm">
+                  <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <span>{tenantError}</span>
+                </div>
+              )}
+
+              <Button type="submit" className="w-full" disabled={isLoading || (isProductionDomain && !!tenantError)}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {ky.auth.loginButton}
               </Button>
             </form>
             <div className="mt-6 space-y-3">
               <Link to="/forgot-password" className="block text-center text-sm text-muted-foreground hover:text-foreground transition-colors">
-                Сырсөзүңүздү унутуңузбу?
+                {ky.auth.forgotPassword}
               </Link>
               <div className="flex items-center justify-center gap-2 pt-4 border-t">
                 <Button variant="ghost" size="sm" className="text-muted-foreground">
                   <HelpCircle className="mr-2 h-4 w-4" />
-                  Жардам
+                  {ky.auth.help}
                 </Button>
               </div>
             </div>

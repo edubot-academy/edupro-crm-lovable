@@ -9,6 +9,13 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 ## [1.7.1] - 2026-04-25
 
 ### Added
+- Tenant resolution API (`src/api/tenant-resolve.ts`) for resolving tenant from domain
+- Tenant Context (`src/contexts/TenantContext.tsx`) for tenant information management
+- Shared validation utilities (`src/lib/validation.ts`) for tenant ID sanitization
+- Kyrgyz i18n keys for "forgot password" and "help" in auth section
+- Toast handlers for "Add lead source" and "Add payment method" buttons in Settings
+- `.codeiumignore` to gitignore for Codeium configuration
+- Configurable production tenant domain pattern via `VITE_TENANT_DOMAIN_PATTERN` environment variable
 - CRM/LMS separation planning docs for frontend, backend, and platform decomposition
 - Role permission hook for centralized CRM, LMS, admin, and retention visibility checks
 - Workflow docs for sales, assistant, and manager daily operations
@@ -77,6 +84,14 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 - CURRENT_STATE_IMPLEMENTATION_REPORT_CODEX.md: Current state implementation report documenting platformization progress
 
 ### Changed
+- LmsBridgeProvider now uses feature flags internally instead of accepting enableLmsBridge prop
+- App.tsx removed enableLmsBridge prop from LmsBridgeProvider
+- src/api/modules.ts removed explicit /api/ prefixes from endpoints for consistent API prefix handling
+- src/api/client.ts now uses centralized validateAndSanitizeTenantId function for X-Company-Id header sanitization
+- src/api/auth.ts login function accepts optional tenantId parameter
+- src/contexts/AuthContext.tsx login function accepts optional tenantId parameter
+- src/pages/Login.tsx uses i18n keys for forgot password and help instead of hardcoded Kyrgyz text
+- src/pages/Login.tsx added hidden tenant ID input field for localhost/dev mode (functional via dev tools)
 - Phase 2.3 CRM-LMS decoupling: bridge components (LeadCourseInterest, ContactStudentMapping, DealCourseMapping) now check LMS bridge flag in addition to permissions
 - Phase 2.3 CRM-LMS decoupling: removed unused LMS course/group hooks from Leads.tsx
 - Phase 2.3 CRM-LMS decoupling: LMS enrollment buttons in Leads and Deals tables now conditional on LMS bridge flag
@@ -118,6 +133,8 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 - src/components/AppLayout.tsx: Removed legacy-contacts from breadcrumb label map
 
 ### Fixed
+- Type mismatch in feature-flag.ts warning comments (removed flags not in FeatureFlagKey type: payments_enabled, whatsapp_integration_enabled, custom_roles_enabled, custom_domain_enabled)
+- Inconsistent /api/ prefix on approve endpoint in modules.ts (line 87)
 - Dashboard now uses split `getCrmStats` and `getEducationStats` endpoints instead of legacy combined `getStats`, properly decoupling CRM from LMS data
 - Reports page now uses the original `reportsApi.getStats` endpoint instead of dashboard endpoints to preserve report-specific backend behavior
 - Reports course filter now ignores URL params when LMS bridge is disabled, preventing hidden filters from bookmarked URLs
