@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenant } from '@/contexts/TenantContext';
 import { useRolePermissions } from '@/hooks/use-role-permissions';
 import { useFeatureFlags } from '@/components/core/FeatureFlagProvider';
 import { ky } from '@/lib/i18n';
@@ -91,10 +92,15 @@ export function AppSidebar() {
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === 'collapsed';
   const { user, logout } = useAuth();
+  const { tenant } = useTenant();
   const { userRole, canAccessAdminPanel, canViewLmsTechnicalFields, canViewStudentSummary, canViewBridgeAdmin, canViewRetentionCases, canManageUsers, canManageSettings } = useRolePermissions();
   const { isFeatureEnabled } = useFeatureFlags();
   const isSystemAdmin = canAccessAdminPanel();
   const isSuperAdmin = userRole === 'superadmin';
+
+  // Use brandingName from tenant config, fallback to name, then to default
+  const brandingName = tenant?.brandingName || tenant?.name || 'Edubot CRM';
+  const firstChar = brandingName.charAt(0) || 'E';
 
   // Filter mainNav based on LMS permissions and feature flags
   const visibleMainNav = mainNav.filter((item) => {
@@ -130,11 +136,11 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r-0">
       <div className="flex h-14 items-center gap-2 px-4 border-b border-sidebar-border">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground font-bold text-sm">
-          E
+          {firstChar}
         </div>
         {!collapsed && (
           <span className="font-bold text-sidebar-accent-foreground tracking-tight">
-            EduPro CRM
+            {brandingName}
           </span>
         )}
       </div>

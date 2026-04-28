@@ -72,15 +72,19 @@ export default function LoginPage() {
     }
   };
 
+  // Use brandingName from tenant config, fallback to name, then to default
+  const brandingName = tenant?.brandingName || tenant?.name || 'Edubot CRM';
+  const firstChar = brandingName.charAt(0) || 'E';
+
   return (
     <div className="flex min-h-screen">
       {/* Left side - Branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary to-primary/80 flex-col justify-between p-12 text-primary-foreground">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm font-bold text-2xl">
-            E
+            {firstChar}
           </div>
-          <span className="text-2xl font-bold">{tenant?.brandingName || 'EduPro CRM'}</span>
+          <span className="text-2xl font-bold">{brandingName}</span>
         </div>
         <div className="space-y-6">
           <h1 className="text-4xl font-bold leading-tight">
@@ -107,7 +111,7 @@ export default function LoginPage() {
         <Card className="w-full max-w-md shadow-elevated border-border/50">
           <CardHeader className="text-center space-y-2 pb-2">
             <div className="lg:hidden mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-xl mb-4">
-              E
+              {firstChar}
             </div>
             <CardTitle className="text-2xl font-bold">{ky.auth.loginTitle}</CardTitle>
             <CardDescription>{ky.auth.loginSubtitle}</CardDescription>

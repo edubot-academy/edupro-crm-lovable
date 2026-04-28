@@ -92,6 +92,10 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 - src/contexts/AuthContext.tsx login function accepts optional tenantId parameter
 - src/pages/Login.tsx uses i18n keys for forgot password and help instead of hardcoded Kyrgyz text
 - src/pages/Login.tsx added hidden tenant ID input field for localhost/dev mode (functional via dev tools)
+- src/components/AppSidebar.tsx: Branding now uses tenant-resolve endpoint data with fallback chain (brandingName → name → 'Edubot CRM')
+- src/components/AppSidebar.tsx: Sidebar icon character now dynamic based on branding name with empty string guard
+- src/pages/Login.tsx: Branding now uses tenant-resolve endpoint data with fallback chain (brandingName → name → 'Edubot CRM')
+- src/pages/Login.tsx: Desktop and mobile login icons now dynamic based on branding name with empty string guard
 - Phase 2.3 CRM-LMS decoupling: bridge components (LeadCourseInterest, ContactStudentMapping, DealCourseMapping) now check LMS bridge flag in addition to permissions
 - Phase 2.3 CRM-LMS decoupling: removed unused LMS course/group hooks from Leads.tsx
 - Phase 2.3 CRM-LMS decoupling: LMS enrollment buttons in Leads and Deals tables now conditional on LMS bridge flag
