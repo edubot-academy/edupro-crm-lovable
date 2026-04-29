@@ -370,7 +370,7 @@ export default function SettingsPage() {
               {allowedFeatures?.lms_bridge_enabled === false && (
                 <p className="text-xs text-destructive mt-1">Бул функция сиздин тарифиңизде жеткиликтүү эмес</p>
               )}
-              {sources?.lms_bridge_enabled === 'platform' && (
+              {(sources?.lms_bridge_enabled === 'global' || sources?.lms_bridge_enabled === 'plan') && (
                 <p className="text-xs text-muted-foreground mt-1">Бул функция платформа тарифи аркылуу башкарылат</p>
               )}
             </div>
@@ -384,7 +384,7 @@ export default function SettingsPage() {
               {allowedFeatures?.trial_lessons_enabled === false && (
                 <p className="text-xs text-destructive mt-1">Бул функция сиздин тарифиңизде жеткиликтүү эмес</p>
               )}
-              {sources?.trial_lessons_enabled === 'platform' && (
+              {(sources?.trial_lessons_enabled === 'global' || sources?.trial_lessons_enabled === 'plan') && (
                 <p className="text-xs text-muted-foreground mt-1">Бул функция платформа тарифи аркылуу башкарылат</p>
               )}
             </div>
@@ -398,7 +398,7 @@ export default function SettingsPage() {
               {allowedFeatures?.retention_enabled === false && (
                 <p className="text-xs text-destructive mt-1">Бул функция сиздин тарифиңизде жеткиликтүү эмес</p>
               )}
-              {sources?.retention_enabled === 'platform' && (
+              {(sources?.retention_enabled === 'global' || sources?.retention_enabled === 'plan') && (
                 <p className="text-xs text-muted-foreground mt-1">Бул функция платформа тарифи аркылуу башкарылат</p>
               )}
             </div>
@@ -412,7 +412,7 @@ export default function SettingsPage() {
               {allowedFeatures?.advanced_reports_enabled === false && (
                 <p className="text-xs text-destructive mt-1">Бул функция сиздин тарифиңизде жеткиликтүү эмес</p>
               )}
-              {sources?.advanced_reports_enabled === 'platform' && (
+              {(sources?.advanced_reports_enabled === 'global' || sources?.advanced_reports_enabled === 'plan') && (
                 <p className="text-xs text-muted-foreground mt-1">Бул функция платформа тарифи аркылуу башкарылат</p>
               )}
             </div>

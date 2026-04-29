@@ -1,11 +1,17 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { tenantResolveApi, type TenantResolveResponse } from '@/api/tenant-resolve';
+import { setResolvedTenantIdProvider } from '@/api/client';
 import { ky } from '@/lib/i18n';
+import { getDevelopmentTenantId, getQueryTenantId, normalizeTenantBootstrap, type TenantBootstrapData } from '@/lib/tenant-bootstrap';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface TenantContextType {
   tenant: TenantResolveResponse | null;
+  tenantBranding: TenantBootstrapData;
+  resolvedTenantId: string | null;
   isLoading: boolean;
   isProductionDomain: boolean;
+  isLocalDevelopment: boolean;
   error: string | null;
   resolveTenant: () => Promise<void>;
 }
@@ -39,19 +45,22 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isProductionDomain, setIsProductionDomain] = useState(false);
+  const [isLocalDevelopment, setIsLocalDevelopment] = useState(false);
+  const { bootstrapData, isAuthenticated } = useAuth();
 
   const resolveTenant = useCallback(async () => {
     const hostname = window.location.hostname;
 
-    // Localhost/dev: don't auto-resolve, allow manual tenant ID
     if (isLocalhost(hostname)) {
       setIsProductionDomain(false);
+      setIsLocalDevelopment(true);
       setTenant(null);
       setError(null);
       return;
     }
 
-    // Production tenant domain: resolve from hostname
+    setIsLocalDevelopment(false);
+
     if (isProductionTenantDomain(hostname)) {
       setIsProductionDomain(true);
       setIsLoading(true);
@@ -63,13 +72,12 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
 
-        // Map backend error messages to Kyrgyz UI text
         if (message.includes('Тенант домени табылган жок')) {
           setError(ky.auth.tenantDomainNotFound);
         } else if (message.includes('Бул тенант учурда активдүү эмес')) {
           setError(ky.auth.tenantNotActive);
         } else {
-          setError(ky.auth.crmAccessDenied);
+          setError(ky.auth.tenantDomainNotFound);
         }
 
         setTenant(null);
@@ -77,20 +85,43 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false);
       }
     } else {
-      // Platform/admin domain or unknown domain
       setIsProductionDomain(false);
       setTenant(null);
       setError(null);
     }
   }, []);
 
-  // Resolve tenant on mount
+  // Resolve tenant on mount (only for pre-login branding)
   useEffect(() => {
-    resolveTenant();
-  }, [resolveTenant]);
+    if (!isAuthenticated) {
+      resolveTenant();
+    }
+  }, [resolveTenant, isAuthenticated]);
+
+  const tenantBranding = normalizeTenantBootstrap({
+    resolvedTenant: tenant,
+    authBootstrap: bootstrapData,
+  });
+
+  const resolvedTenantId = tenantBranding.tenantId || getQueryTenantId() || getDevelopmentTenantId();
+
+  useEffect(() => {
+    setResolvedTenantIdProvider(() => resolvedTenantId);
+  }, [resolvedTenantId]);
 
   return (
-    <TenantContext.Provider value={{ tenant, isLoading, isProductionDomain, error, resolveTenant }}>
+    <TenantContext.Provider
+      value={{
+        tenant,
+        tenantBranding,
+        resolvedTenantId,
+        isLoading,
+        isProductionDomain,
+        isLocalDevelopment,
+        error,
+        resolveTenant,
+      }}
+    >
       {children}
     </TenantContext.Provider>
   );

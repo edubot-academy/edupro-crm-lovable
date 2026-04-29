@@ -355,10 +355,10 @@ export default function ContactDetailPage() {
                     <Loader2 className="h-4 w-4 animate-spin" />
                     LMS окуялары жүктөлүүдө...
                   </div>
-                ) : !historyData?.items?.length ? (
+                ) : !historyData?.data?.length ? (
                   <p className="text-sm text-muted-foreground">LMS окуялары табылган жок.</p>
                 ) : (
-                  historyData.items.map((item) => (
+                  historyData.data.map((item) => (
                     <div key={item.id} className="rounded-md border p-3 space-y-2">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>

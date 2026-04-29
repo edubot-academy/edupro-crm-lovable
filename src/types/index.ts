@@ -22,7 +22,17 @@ export interface SelectOption {
 }
 
 // ==================== FEATURE FLAGS ====================
-export type FeatureFlag = 'crm_enabled' | 'lms_bridge_enabled' | 'trial_lessons_enabled' | 'retention_enabled' | 'telegram_notifications_enabled' | 'advanced_reports_enabled';
+export type FeatureFlag =
+  | 'crm_enabled'
+  | 'lms_bridge_enabled'
+  | 'trial_lessons_enabled'
+  | 'retention_enabled'
+  | 'telegram_notifications_enabled'
+  | 'advanced_reports_enabled'
+  | 'payments_enabled'
+  | 'whatsapp_integration_enabled'
+  | 'custom_roles_enabled'
+  | 'custom_domain_enabled';
 
 export interface FeatureFlags {
   crm_enabled: boolean;
@@ -31,6 +41,10 @@ export interface FeatureFlags {
   retention_enabled: boolean;
   telegram_notifications_enabled: boolean;
   advanced_reports_enabled: boolean;
+  payments_enabled: boolean;
+  whatsapp_integration_enabled: boolean;
+  custom_roles_enabled: boolean;
+  custom_domain_enabled: boolean;
 }
 
 // ==================== TENANT CONFIGURATION ====================

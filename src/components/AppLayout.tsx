@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { ky } from '@/lib/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
+import { useTenantBranding } from '@/hooks/use-tenant-branding';
 import { notificationsApi } from '@/api/modules';
 import {
   Breadcrumb,
@@ -22,6 +23,7 @@ export function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const tenantBranding = useTenantBranding();
   const [unreadCount, setUnreadCount] = useState(0);
 
   const getBreadcrumbs = () => {
@@ -73,6 +75,7 @@ export function AppLayout() {
   };
 
   const breadcrumbs = getBreadcrumbs();
+  const currentPageTitle = breadcrumbs[breadcrumbs.length - 1]?.label || ky.nav.dashboard;
 
   const handleQuickCreate = () => {
     const currentPath = location.pathname;
@@ -118,6 +121,10 @@ export function AppLayout() {
     };
   }, [user]);
 
+  useEffect(() => {
+    document.title = `${tenantBranding.displayName} | ${currentPageTitle}`;
+  }, [currentPageTitle, tenantBranding.displayName]);
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
@@ -146,6 +153,12 @@ export function AppLayout() {
                   </BreadcrumbList>
                 </Breadcrumb>
               )}
+              <div className="hidden xl:block min-w-0">
+                <p className="truncate text-sm font-semibold">{tenantBranding.displayName}</p>
+                {tenantBranding.primaryDomain && (
+                  <p className="truncate text-xs text-muted-foreground">{tenantBranding.primaryDomain}</p>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <Button

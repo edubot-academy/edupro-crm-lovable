@@ -6,17 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Version bumps are classified by delivery scale; see `VERSIONING.md`.
 
-## [1.7.1] - 2026-04-25
+## [1.7.1] - 2026-04-29
 
 ### Added
-- Tenant resolution API (`src/api/tenant-resolve.ts`) for resolving tenant from domain
-- Tenant Context (`src/contexts/TenantContext.tsx`) for tenant information management
-- Shared validation utilities (`src/lib/validation.ts`) for tenant ID sanitization
-- Kyrgyz i18n keys for "forgot password" and "help" in auth section
-- Toast handlers for "Add lead source" and "Add payment method" buttons in Settings
-- `.codeiumignore` to gitignore for Codeium configuration
-- Configurable production tenant domain pattern via `VITE_TENANT_DOMAIN_PATTERN` environment variable
-- CRM/LMS separation planning docs for frontend, backend, and platform decomposition
+- New backend feature flags: payments_enabled, whatsapp_integration_enabled, custom_roles_enabled, custom_domain_enabled to FeatureFlag type and FeatureFlags interface
+- Route guard for /payments using ModuleGuard with payments_enabled feature flag
+- Sidebar filter for payments navigation item based on payments_enabled flag
+- Module mappings in tenant-bootstrap for new modules (payments, whatsapp, custom_roles, custom_domain)
+- Kyrgyz translations for security error messages in Users.tsx (superadmin creation prevention, admin role permission)
+- Kyrgyz translations for UI labels in Users.tsx (invite link label, warning message)
+- Auth bootstrap API method (authApi.bootstrap) for authenticated tenant data loading
+- Bootstrap data state in AuthContext with loadBootstrapData function called after login and token refresh
+- use-tenant-branding hook for centralized tenant branding access
+- tenant-bootstrap.ts library with normalizeTenantBootstrap function for safe tenant data merging
 - Role permission hook for centralized CRM, LMS, admin, and retention visibility checks
 - Workflow docs for sales, assistant, and manager daily operations
 - LMS bridge enablement mechanism using React Context with `LmsBridgeProvider` and `useLmsBridge` hook
@@ -84,6 +86,26 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 - CURRENT_STATE_IMPLEMENTATION_REPORT_CODEX.md: Current state implementation report documenting platformization progress
 
 ### Changed
+- ModuleGuard now displays Kyrgyz message "Бул мүмкүнчүлүк сиздин тарифиңизде жеткиликтүү эмес" instead of redirecting when feature is disabled
+- TenantResolveResponse type now only includes pre-login branding fields (removed supportEmail, supportPhone, planCode, features, modules)
+- TenantContext now prioritizes bootstrap data over public tenant resolve for authenticated users
+- TenantContext only calls public tenant resolve when user is not authenticated
+- AuthContext now loads bootstrap data after login and token refresh
+- AuthContext clears bootstrap data on logout
+- API client now uses separate providers for auth tenant ID and resolved tenant ID with fallback logic
+- API client now throws Kyrgyz error when tenant-scoped API is called without tenant ID
+- API client LMS requests now use conditional X-Company-Id header instead of default company ID
+- AppLayout now uses useTenantBranding hook for consistent tenant branding access
+- ContactDetail.tsx fixed integration history data access (historyData.items → historyData.data)
+- ForgotPassword.tsx now imports ky i18n for localization
+- Login.tsx now uses useTenantBranding hook for consistent branding access
+- Login.tsx removed hidden tenant ID input for dev mode
+- Login.tsx now shows local development warning when VITE_DEV_TENANT_ID is not set
+- Login.tsx login button disabled when local development tenant ID is missing
+- Settings.tsx feature flag source checks updated from 'platform' to 'global' or 'plan'
+- Kyrgyz login title changed from "EduPro CRM" to "Аккаунтка кирүү"
+- Kyrgyz login subtitle updated to "CRM системаңызга кирүү үчүн маалыматтарыңызды жазыңыз"
+- Kyrgyz tenant domain error updated to "Уюм табылган жок. Доменди текшерип, кайра аракет кылыңыз."
 - LmsBridgeProvider now uses feature flags internally instead of accepting enableLmsBridge prop
 - App.tsx removed enableLmsBridge prop from LmsBridgeProvider
 - src/api/modules.ts removed explicit /api/ prefixes from endpoints for consistent API prefix handling

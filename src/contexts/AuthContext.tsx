@@ -2,7 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import type { User } from '@/types';
 import { authApi } from '@/api/auth';
 import { decodeJwt, isTokenExpired } from '@/lib/jwt';
-import { setAccessTokenProvider, setTenantIdProvider } from '@/api/client';
+import { setAccessTokenProvider, setAuthTenantIdProvider } from '@/api/client';
+import type { AuthBootstrapResponse } from '@/lib/tenant-bootstrap';
 
 interface AuthContextType {
   user: User | null;
@@ -10,7 +11,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   tenantId: string | null;
   isPlatformAdmin: boolean;
-  login: (email: string, password: string, tenantId?: string) => Promise<void>;
+  bootstrapData: AuthBootstrapResponse | null;
+  login: (email: string, password: string, tenantId?: string | null) => Promise<void>;
   logout: () => void;
   /** Get a valid access token (refreshes automatically if expired). */
   getAccessToken: () => Promise<string | null>;
@@ -51,7 +53,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [bootstrapData, setBootstrapData] = useState<AuthBootstrapResponse | null>(null);
   const refreshPromise = useRef<Promise<string | null> | null>(null);
+
+  // Load bootstrap data after successful authentication
+  const loadBootstrapData = useCallback(async () => {
+    try {
+      const data = await authApi.bootstrap();
+      setBootstrapData(data);
+    } catch (error) {
+      console.error('Bootstrap жүктөө катаасы:', error);
+      setBootstrapData(null);
+    }
+  }, []);
 
   // On mount, attempt to restore session via refresh token
   useEffect(() => {
@@ -62,21 +76,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     authApi.refresh(refreshToken)
-      .then((tokens) => {
+      .then(async (tokens) => {
         accessTokenMemory = tokens.accessToken;
         localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
         setUser(userFromToken(tokens.accessToken));
         setTenantId(tenantIdFromToken(tokens.accessToken));
+        setIsPlatformAdmin(isPlatformAdminFromToken(tokens.accessToken));
+        await loadBootstrapData();
       })
       .catch(() => {
         localStorage.removeItem(REFRESH_TOKEN_KEY);
         accessTokenMemory = null;
         setTenantId(null);
+        setBootstrapData(null);
       })
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [loadBootstrapData]);
 
-  const login = useCallback(async (email: string, password: string, tenantId?: string) => {
+  const login = useCallback(async (email: string, password: string, tenantId?: string | null) => {
     const tokens = await authApi.login({ email, password }, tenantId);
     accessTokenMemory = tokens.accessToken;
     localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
@@ -84,7 +101,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(userFromToken(tokens.accessToken));
     setTenantId(decodedTenantId);
     setIsPlatformAdmin(isPlatformAdminFromToken(tokens.accessToken));
-  }, []);
+    await loadBootstrapData();
+  }, [loadBootstrapData]);
 
   const logout = useCallback(async () => {
     try {
@@ -99,6 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setTenantId(null);
       setIsPlatformAdmin(false);
+      setBootstrapData(null);
     }
   }, []);
 
@@ -122,12 +141,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     refreshPromise.current = authApi.refresh(refreshToken)
-      .then((tokens) => {
+      .then(async (tokens) => {
         accessTokenMemory = tokens.accessToken;
         localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
         setUser(userFromToken(tokens.accessToken));
         setTenantId(tenantIdFromToken(tokens.accessToken));
         setIsPlatformAdmin(isPlatformAdminFromToken(tokens.accessToken));
+        await loadBootstrapData();
         return tokens.accessToken;
       })
       .catch(() => {
@@ -136,6 +156,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null);
         setTenantId(null);
         setIsPlatformAdmin(false);
+        setBootstrapData(null);
         return null;
       })
       .finally(() => {
@@ -148,11 +169,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Register the token provider with the API client
   useEffect(() => {
     setAccessTokenProvider(getAccessToken);
-    setTenantIdProvider(() => tenantId);
-  }, [getAccessToken, tenantId]);
+    setAuthTenantIdProvider(() => tenantId ?? (isPlatformAdmin ? 'platform' : null));
+  }, [getAccessToken, isPlatformAdmin, tenantId]);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, tenantId, isPlatformAdmin, login, logout, getAccessToken }}>
+    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, tenantId, isPlatformAdmin, bootstrapData, login, logout, getAccessToken }}>
       {children}
     </AuthContext.Provider>
   );

@@ -11,7 +11,7 @@ export interface TenantResolveResponse {
 }
 
 export const tenantResolveApi = {
-  /** GET /public/tenant-resolve?domain={hostname} — resolves tenant from domain */
+  /** GET /public/tenant-resolve?domain={hostname} — resolves tenant from domain (pre-login branding only) */
   resolveByDomain: (domain: string) =>
     apiClient.get<TenantResolveResponse>('/public/tenant-resolve', { domain }),
 };

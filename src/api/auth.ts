@@ -1,11 +1,14 @@
 import { apiClient } from './client';
 import type { AuthTokens, LoginRequest, AcceptInviteRequest, ResetPasswordRequest } from '@/types';
+import type { AuthBootstrapResponse } from '@/lib/tenant-bootstrap';
 
 export const authApi = {
   /** POST /auth/login — returns { accessToken, refreshToken } */
-  login: (data: LoginRequest, tenantId?: string) =>
+  login: (data: LoginRequest, tenantId?: string | null) =>
     apiClient.post<AuthTokens>('/auth/login', data, {
-      extraHeaders: tenantId !== undefined ? { 'X-Company-Id': tenantId } : undefined,
+      extraHeaders: tenantId !== undefined
+        ? { 'X-Company-Id': tenantId ?? 'platform' }
+        : undefined,
     }),
 
   /** POST /auth/refresh — returns { accessToken, refreshToken } */
@@ -15,6 +18,10 @@ export const authApi = {
   /** POST /auth/logout — invalidates refresh token server-side */
   logout: () =>
     apiClient.post<void>('/auth/logout'),
+
+  /** GET /auth/bootstrap — returns tenant bootstrap data for authenticated user */
+  bootstrap: () =>
+    apiClient.get<AuthBootstrapResponse>('/auth/bootstrap'),
 
   /** POST /auth/accept-invite — returns { accessToken, refreshToken } */
   acceptInvite: (data: AcceptInviteRequest) =>

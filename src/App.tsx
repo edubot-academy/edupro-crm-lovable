@@ -9,7 +9,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ModuleGuard } from "@/components/ModuleGuard";
 import { AppLayout } from "@/components/AppLayout";
 import { LmsBridgeProvider } from "@/components/lms/LmsBridgeProvider";
-import { FeatureFlagProvider, useFeatureFlags } from "@/components/core/FeatureFlagProvider";
+import { FeatureFlagProvider } from "@/components/core/FeatureFlagProvider";
 import { TenantConfigProvider } from "@/components/core/TenantConfigProvider";
 import { useRolePermissions } from "@/hooks/use-role-permissions";
 
@@ -69,7 +69,14 @@ function AppContent() {
           <Route path="/deals" element={<DealsPage />} />
           <Route path="/deals/:id" element={<DealDetailPage />} />
           <Route path="/pipeline" element={<PipelinePage />} />
-          <Route path="/payments" element={<PaymentsPage />} />
+          <Route
+            path="/payments"
+            element={
+              <ModuleGuard requiredFeature="payments_enabled">
+                <PaymentsPage />
+              </ModuleGuard>
+            }
+          />
           <Route path="/tasks" element={<TasksPage />} />
           <Route path="/timeline" element={<TimelinePage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
@@ -165,15 +172,15 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <TenantProvider>
-          <AuthProvider>
+        <AuthProvider>
+          <TenantProvider>
             <TenantConfigProvider>
               <FeatureFlagProvider>
                 <AppContent />
               </FeatureFlagProvider>
             </TenantConfigProvider>
-          </AuthProvider>
-        </TenantProvider>
+          </TenantProvider>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

@@ -67,14 +67,14 @@ export default function UsersPage() {
 
     // Additional security validation: prevent role escalation
     if (form.role === 'superadmin') {
-      toast({ title: 'Security violation: Cannot create superadmin users in tenant CRM', description: 'Platform users must be created through the Platform Admin interface.', variant: 'destructive' });
+      toast({ title: 'Коопсуздук бузуу: Tenant CRMде superadmin колдонуучуларын түзүү мүмкүн эмес', description: 'Платформа колдонуучулары Platform Admin интерфейси аркылуу түзүлүшү керек.', variant: 'destructive' });
       return;
     }
 
     // Validate that current user has permission to create this role
     const currentUserRole = user?.role;
     if (currentUserRole !== 'admin' && form.role === 'admin') {
-      toast({ title: 'Permission denied: Only admins can create admin users', variant: 'destructive' });
+      toast({ title: 'Уруксат жок: Бул админ колдонуучуларын түзүүгө гана админ уруксаттуу', variant: 'destructive' });
       return;
     }
 
@@ -227,12 +227,12 @@ export default function UsersPage() {
             </div>
             {inviteInfo?.inviteUrl ? (
               <div className="space-y-2">
-                <Label>Shareable invite link</Label>
+                <Label>Бөлүшүлүү чакыруу шилтемеси</Label>
                 <Textarea value={inviteInfo.inviteUrl} readOnly rows={3} />
               </div>
             ) : (
               <div className="rounded-md border border-warning/30 bg-warning/10 p-3 text-sm text-warning-foreground">
-                Create жоопто invite link келген жок. Email аркылуу чакырууну кайра жөнөтө аласың.
+                Жоопто чакыруу шилтемеси келген жок. Email аркылуу чакырууну кайра жөнөтө аласың.
               </div>
             )}
           </div>

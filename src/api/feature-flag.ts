@@ -1,6 +1,16 @@
 import { apiClient } from './client';
 
-export type FeatureFlagKey = 'crm_enabled' | 'lms_bridge_enabled' | 'trial_lessons_enabled' | 'retention_enabled' | 'telegram_notifications_enabled' | 'advanced_reports_enabled';
+export type FeatureFlagKey =
+  | 'crm_enabled'
+  | 'lms_bridge_enabled'
+  | 'trial_lessons_enabled'
+  | 'retention_enabled'
+  | 'telegram_notifications_enabled'
+  | 'advanced_reports_enabled'
+  | 'payments_enabled'
+  | 'whatsapp_integration_enabled'
+  | 'custom_roles_enabled'
+  | 'custom_domain_enabled';
 
 export interface FeatureFlagResponse {
   id: number;
@@ -22,8 +32,8 @@ export interface TenantFeatureFlagResponse {
 export interface TenantFeatureFlagsResponse extends Record<FeatureFlagKey, boolean> {
   // Optional: Platform-provided allowed features based on tenant plan/package
   allowedFeatures?: Partial<Record<FeatureFlagKey, boolean>>;
-  // Optional: Source of feature control (platform | tenant)
-  sources?: Partial<Record<FeatureFlagKey, 'platform' | 'tenant'>>;
+  // Optional: Source of feature control from backend resolution order
+  sources?: Partial<Record<FeatureFlagKey, 'global' | 'plan' | 'override'>>;
 }
 
 // Don't use localStorage - the API client handles X-Company-Id automatically from AuthContext

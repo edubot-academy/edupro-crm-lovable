@@ -5,11 +5,11 @@ import {
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTenant } from '@/contexts/TenantContext';
 import { useRolePermissions } from '@/hooks/use-role-permissions';
 import { useFeatureFlags } from '@/components/core/FeatureFlagProvider';
 import { ky } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
+import { useTenantBranding } from '@/hooks/use-tenant-branding';
 import {
   Sidebar,
   SidebarContent,
@@ -92,14 +92,11 @@ export function AppSidebar() {
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === 'collapsed';
   const { user, logout } = useAuth();
-  const { tenant } = useTenant();
-  const { userRole, canAccessAdminPanel, canViewLmsTechnicalFields, canViewStudentSummary, canViewBridgeAdmin, canViewRetentionCases, canManageUsers, canManageSettings } = useRolePermissions();
+  const tenantBranding = useTenantBranding();
+  const { canViewLmsTechnicalFields, canViewRetentionCases, canManageUsers, canManageSettings, canAccessAdminPanel } = useRolePermissions();
   const { isFeatureEnabled } = useFeatureFlags();
-  const isSystemAdmin = canAccessAdminPanel();
-  const isSuperAdmin = userRole === 'superadmin';
 
-  // Use brandingName from tenant config, fallback to name, then to default
-  const brandingName = tenant?.brandingName || tenant?.name || 'Edubot CRM';
+  const brandingName = tenantBranding.displayName;
   const firstChar = brandingName.charAt(0) || 'E';
 
   // Filter mainNav based on LMS permissions and feature flags
@@ -112,6 +109,7 @@ export function AppSidebar() {
 
   // Filter operationsNav based on permissions and feature flags
   const visibleOperationsNav = operationsNav.filter((item) => {
+    if (item.url === '/payments' && !isFeatureEnabled('payments_enabled')) return false;
     if (item.url === '/enrollments' && !canViewLmsTechnicalFields()) return false;
     if (item.url === '/enrollments' && !isFeatureEnabled('lms_bridge_enabled')) return false;
     if (item.url === '/retention' && !canViewRetentionCases()) return false;
@@ -135,9 +133,13 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r-0">
       <div className="flex h-14 items-center gap-2 px-4 border-b border-sidebar-border">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground font-bold text-sm">
-          {firstChar}
-        </div>
+        {tenantBranding.logoUrl ? (
+          <img src={tenantBranding.logoUrl} alt={brandingName} className="h-8 w-8 rounded-lg object-cover" />
+        ) : (
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground font-bold text-sm">
+            {firstChar}
+          </div>
+        )}
         {!collapsed && (
           <span className="font-bold text-sidebar-accent-foreground tracking-tight">
             {brandingName}

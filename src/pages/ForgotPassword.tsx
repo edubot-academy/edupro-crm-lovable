@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { authApi } from '@/api/auth';
+import { ky } from '@/lib/i18n';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');

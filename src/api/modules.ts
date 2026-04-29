@@ -287,14 +287,13 @@ export const profileApi = {
 
 
 // ==================== LMS INTEGRATION ====================
-const DEFAULT_LMS_COMPANY_ID = import.meta.env.VITE_LMS_COMPANY_ID || 'default';
 const API_ORIGIN = import.meta.env.VITE_API_BASE_URL ? new URL(import.meta.env.VITE_API_BASE_URL).origin : window.location.origin;
 const SHOULD_SEND_LMS_REQUEST_ID = API_ORIGIN === window.location.origin;
 
 function lmsRequestOptions(companyId?: string, idempotencyKey?: string) {
   return {
     extraHeaders: {
-      'X-Company-Id': companyId || DEFAULT_LMS_COMPANY_ID,
+      ...(companyId ? { 'X-Company-Id': companyId } : {}),
       ...(idempotencyKey ? { 'X-Idempotency-Key': idempotencyKey } : {}),
     },
     getAttemptHeaders: SHOULD_SEND_LMS_REQUEST_ID

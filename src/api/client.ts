@@ -4,6 +4,7 @@ const API_BASE_URL =
   (import.meta.env.PROD ? "https://api.edupro.edubot.it.com" : "");
 
 import { validateAndSanitizeTenantId } from '@/lib/validation';
+import { isTenantScopedApiPath } from '@/lib/tenant-bootstrap';
 
 // Automatically prepend /api to all paths in development
 // In production, the API_BASE_URL already includes the full path
@@ -24,14 +25,19 @@ interface RequestOptions extends RequestInit {
 
 // This will be set by AuthContext after mount
 let getAccessTokenFn: (() => Promise<string | null>) | null = null;
-let getTenantIdFn: (() => string | null) | null = null;
+let getAuthTenantIdFn: (() => string | null) | null = null;
+let getResolvedTenantIdFn: (() => string | null) | null = null;
 
 export function setAccessTokenProvider(fn: () => Promise<string | null>) {
   getAccessTokenFn = fn;
 }
 
-export function setTenantIdProvider(fn: () => string | null) {
-  getTenantIdFn = fn;
+export function setAuthTenantIdProvider(fn: () => string | null) {
+  getAuthTenantIdFn = fn;
+}
+
+export function setResolvedTenantIdProvider(fn: () => string | null) {
+  getResolvedTenantIdFn = fn;
 }
 
 class ApiClient {
@@ -94,6 +100,10 @@ class ApiClient {
       token = await getAccessTokenFn();
     }
 
+    const resolvedTenantId = getResolvedTenantIdFn ? getResolvedTenantIdFn() : null;
+    const authTenantId = getAuthTenantIdFn ? getAuthTenantIdFn() : null;
+    const tenantId = authTenantId || resolvedTenantId;
+
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -101,15 +111,16 @@ class ApiClient {
       ...((fetchOptions.headers as Record<string, string>) || {}),
     };
 
-    // Add X-Company-Id header if tenantId is available AND not already in extraHeaders
-    // This prevents conflicts when login explicitly passes a tenantId
-    const tenantId = getTenantIdFn ? getTenantIdFn() : null;
+    // Add X-Company-Id header if a tenant is available and no explicit value was provided.
     if (tenantId && !extraHeaders?.['X-Company-Id']) {
-      // Security: Sanitize tenant ID to prevent header injection attacks
       const sanitizedTenantId = validateAndSanitizeTenantId(tenantId);
       if (sanitizedTenantId) {
         headers["X-Company-Id"] = sanitizedTenantId;
       }
+    }
+
+    if (isTenantScopedApiPath(path) && !headers['X-Company-Id']) {
+      throw new Error('Уюм табылган жок. Доменди текшерип, кайра аракет кылыңыз.');
     }
 
     const url = this.buildUrl(path, params);
