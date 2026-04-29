@@ -115,6 +115,8 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 - Tenant config API added TenantConfigUpdatePayload interface with branding support
 - Tenant config API role permissions type changed from `Record<string, any>` to `Record<string, boolean>`
 - Tenant config API config types changed from `Record<string, any>` to `Record<string, unknown>`
+- Leads page header actions now align items to end instead of center
+- Leads page added custom date range inputs to header actions when custom date filter is selected
 - TenantResolveResponse type now only includes pre-login branding fields (removed supportEmail, supportPhone, planCode, features, modules)
 - TenantContext now prioritizes bootstrap data over public tenant resolve for authenticated users
 - TenantContext only calls public tenant resolve when user is not authenticated

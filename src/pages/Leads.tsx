@@ -612,7 +612,7 @@ export default function LeadsPage() {
   };
 
   const headerActions = (
-    <div className="hidden xl:flex flex-wrap items-center gap-2">
+    <div className="hidden xl:flex flex-wrap items-end gap-2">
       <div className="space-y-1">
         <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Статус</p>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -642,6 +642,28 @@ export default function LeadsPage() {
           </SelectContent>
         </Select>
       </div>
+      {dateFilter === 'custom' && (
+        <>
+          <div className="space-y-1">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{ky.dateRange.fromDate}</p>
+            <Input
+              type="date"
+              value={customFromDate}
+              onChange={(e) => setCustomFromDate(e.target.value)}
+              className="h-9 w-[168px]"
+            />
+          </div>
+          <div className="space-y-1">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{ky.dateRange.toDate}</p>
+            <Input
+              type="date"
+              value={customToDate}
+              onChange={(e) => setCustomToDate(e.target.value)}
+              className="h-9 w-[168px]"
+            />
+          </div>
+        </>
+      )}
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <span className="rounded-full bg-secondary px-2.5 py-1">{totalItems} лид</span>
         <span className="rounded-full bg-secondary px-2.5 py-1">
