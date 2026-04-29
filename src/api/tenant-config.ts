@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { TenantConfig, TenantLeadSource, RoleConfig, PipelineStageConfig, NotificationChannel } from '@/types';
+import type { BrandingConfig } from '@/types';
 
 export interface TenantConfigResponse {
   id: number;
@@ -12,6 +12,10 @@ export interface TenantConfigResponse {
   primaryColor: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface TenantConfigUpdatePayload extends Partial<TenantConfigResponse> {
+  branding?: BrandingConfig;
 }
 
 export interface TenantLeadSourceResponse {
@@ -27,7 +31,7 @@ export interface TenantRoleResponse {
   tenantId: string;
   roleKey: string;
   roleName: string;
-  permissions: Record<string, any>;
+  permissions: Record<string, boolean>;
 }
 
 export interface TenantPipelineStageResponse {
@@ -53,7 +57,7 @@ export interface TenantNotificationChannelResponse {
   id: number;
   tenantId: string;
   channelType: string;
-  config: Record<string, any>;
+  config: Record<string, unknown>;
   enabled: boolean;
 }
 
@@ -63,7 +67,7 @@ export interface TenantPaymentMethodResponse {
   methodKey: string;
   methodName: string;
   methodType: 'card' | 'qr' | 'bank' | 'manual' | 'other';
-  config: Record<string, any>;
+  config: Record<string, unknown>;
   enabled: boolean;
   displayOrder: number;
 }
@@ -76,7 +80,7 @@ export const tenantConfigApi = {
     return apiClient.get<TenantConfigResponse>('/tenant-config');
   },
 
-  updateConfig: async (updates: Partial<TenantConfigResponse>): Promise<TenantConfigResponse> => {
+  updateConfig: async (updates: TenantConfigUpdatePayload): Promise<TenantConfigResponse> => {
     return apiClient.put<TenantConfigResponse>('/tenant-config', updates);
   },
 
@@ -102,7 +106,7 @@ export const tenantConfigApi = {
     return apiClient.get<TenantRoleResponse[]>('/tenant-config/roles');
   },
 
-  createRole: async (data: { roleKey: string; roleName: string; permissions?: Record<string, any> }): Promise<TenantRoleResponse> => {
+  createRole: async (data: { roleKey: string; roleName: string; permissions?: Record<string, boolean> }): Promise<TenantRoleResponse> => {
     return apiClient.post<TenantRoleResponse>('/tenant-config/roles', data);
   },
 
@@ -153,7 +157,7 @@ export const tenantConfigApi = {
     return apiClient.get<TenantNotificationChannelResponse[]>('/tenant-config/notification-channels');
   },
 
-  createNotificationChannel: async (data: { channelType: string; config?: Record<string, any>; enabled?: boolean }): Promise<TenantNotificationChannelResponse> => {
+  createNotificationChannel: async (data: { channelType: string; config?: Record<string, unknown>; enabled?: boolean }): Promise<TenantNotificationChannelResponse> => {
     return apiClient.post<TenantNotificationChannelResponse>('/tenant-config/notification-channels', data);
   },
 
@@ -170,7 +174,7 @@ export const tenantConfigApi = {
     return apiClient.get<TenantPaymentMethodResponse[]>('/tenant-config/payment-methods');
   },
 
-  createPaymentMethod: async (data: { methodKey: string; methodName: string; methodType: 'card' | 'qr' | 'bank' | 'manual' | 'other'; config?: Record<string, any>; enabled?: boolean; displayOrder?: number }): Promise<TenantPaymentMethodResponse> => {
+  createPaymentMethod: async (data: { methodKey: string; methodName: string; methodType: 'card' | 'qr' | 'bank' | 'manual' | 'other'; config?: Record<string, unknown>; enabled?: boolean; displayOrder?: number }): Promise<TenantPaymentMethodResponse> => {
     return apiClient.post<TenantPaymentMethodResponse>('/tenant-config/payment-methods', data);
   },
 

@@ -24,10 +24,7 @@ const formatDateTime = (value?: string | null) => {
 
 export function IntegrationHistoryPanel({ initialFilters }: { initialFilters?: Record<string, string | number | undefined> }) {
   const { canViewIntegrationHistory } = useRolePermissions();
-
-  if (!canViewIntegrationHistory()) {
-    return null;
-  }
+  const canViewHistory = canViewIntegrationHistory();
 
   const [filters, setFilters] = useState({
     crmLeadId: '',
@@ -77,6 +74,10 @@ export function IntegrationHistoryPanel({ initialFilters }: { initialFilters?: R
   };
 
   const items = data?.data || [];
+
+  if (!canViewHistory) {
+    return null;
+  }
 
   return (
     <Card>

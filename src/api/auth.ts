@@ -4,10 +4,10 @@ import type { AuthBootstrapResponse } from '@/lib/tenant-bootstrap';
 
 export const authApi = {
   /** POST /auth/login — returns { accessToken, refreshToken } */
-  login: (data: LoginRequest, tenantId?: string | null) =>
+  login: (data: LoginRequest, tenantId?: string) =>
     apiClient.post<AuthTokens>('/auth/login', data, {
-      extraHeaders: tenantId !== undefined
-        ? { 'X-Company-Id': tenantId ?? 'platform' }
+      extraHeaders: tenantId
+        ? { 'X-Company-Id': tenantId }
         : undefined,
     }),
 
@@ -20,8 +20,12 @@ export const authApi = {
     apiClient.post<void>('/auth/logout'),
 
   /** GET /auth/bootstrap — returns tenant bootstrap data for authenticated user */
-  bootstrap: () =>
-    apiClient.get<AuthBootstrapResponse>('/auth/bootstrap'),
+  bootstrap: (tenantId?: string) =>
+    apiClient.get<AuthBootstrapResponse>('/auth/bootstrap', undefined, {
+      extraHeaders: tenantId
+        ? { 'X-Company-Id': tenantId }
+        : undefined,
+    }),
 
   /** POST /auth/accept-invite — returns { accessToken, refreshToken } */
   acceptInvite: (data: AcceptInviteRequest) =>

@@ -87,6 +87,34 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 
 ### Changed
 - ModuleGuard now displays Kyrgyz message "Бул мүмкүнчүлүк сиздин тарифиңизде жеткиликтүү эмес" instead of redirecting when feature is disabled
+- ModuleGuard now waits for both feature flags and permissions to load before showing content
+- AuthContext loadBootstrapData now accepts optional tenantIdOverride parameter for platform admin bootstrap data loading
+- AuthContext now passes tenantIdOverride to bootstrap API during token refresh and login for platform admin support
+- Role permissions hook now checks custom_roles_enabled feature flag before using tenant-configured permissions
+- Role permissions hook now preserves legacy hardcoded permissions when custom_roles_enabled is false
+- Role permissions hook now exposes isLoading and isUsingTenantPermissions states
+- FeatureFlagProvider refactored with getEnvironmentFeatureFlags and buildFallbackFeatureFlags helper functions
+- FeatureFlagProvider now resets to fallback flags when user is not authenticated
+- FeatureFlagProvider error message changed from "conservative fallback" to "fail-closed fallback"
+- FeatureFlagProvider now depends on tenantId in addition to isAuthenticated for loading flags
+- TenantConfigProvider now uses useMemo for initialTenantConfig to prevent unnecessary recalculations
+- TenantConfigProvider now resets to initial config when user is not authenticated
+- TenantConfigProvider now depends on tenantId in addition to isAuthenticated for loading config
+- IntegrationHistoryPanel moved permission check after data fetch to avoid premature null returns
+- StudentSummaryPanel added getApiErrorDetails helper function for safer error extraction
+- StudentSummaryPanel improved error handling with type-safe error message and requestId extraction
+- Command component removed CommandDialogProps interface, now uses DialogProps directly
+- Textarea component type definition changed from interface to type alias
+- Tailwind config now uses ES module import for tailwindcss-animate instead of CommonJS require
+- App.tsx added Suspense wrapper around Routes with RouteLoadingState fallback for lazy-loaded routes
+- Auth API bootstrap method now accepts optional tenantId parameter for platform admin support
+- Auth API login method tenantId parameter changed from `string | null` to `string`
+- Feature flag API added isApiError type guard for safer error type checking
+- Feature flag API setTenantFlag error handling improved with proper type checking and details extraction
+- Feature flag API error types changed from `any` to `unknown` for type safety
+- Tenant config API added TenantConfigUpdatePayload interface with branding support
+- Tenant config API role permissions type changed from `Record<string, any>` to `Record<string, boolean>`
+- Tenant config API config types changed from `Record<string, any>` to `Record<string, unknown>`
 - TenantResolveResponse type now only includes pre-login branding fields (removed supportEmail, supportPhone, planCode, features, modules)
 - TenantContext now prioritizes bootstrap data over public tenant resolve for authenticated users
 - TenantContext only calls public tenant resolve when user is not authenticated

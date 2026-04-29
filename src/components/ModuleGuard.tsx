@@ -41,10 +41,11 @@ export function ModuleGuard({
   redirectPath = '/',
 }: ModuleGuardProps) {
   const { isFeatureEnabled, isLoading: flagsLoading } = useFeatureFlags();
+  const { isLoading: permissionsLoading } = useRolePermissions();
   const permissionCheckResult = permissionCheck?.() ?? true;
 
-  // Show loading state while feature flags are being fetched
-  if (flagsLoading) {
+  // Show loading state while feature flags and permissions are being fetched
+  if (flagsLoading || permissionsLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

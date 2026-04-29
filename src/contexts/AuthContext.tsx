@@ -57,9 +57,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshPromise = useRef<Promise<string | null> | null>(null);
 
   // Load bootstrap data after successful authentication
-  const loadBootstrapData = useCallback(async () => {
+  const loadBootstrapData = useCallback(async (tenantIdOverride?: string) => {
     try {
-      const data = await authApi.bootstrap();
+      const data = await authApi.bootstrap(tenantIdOverride);
       setBootstrapData(data);
     } catch (error) {
       console.error('Bootstrap жүктөө катаасы:', error);
@@ -79,10 +79,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .then(async (tokens) => {
         accessTokenMemory = tokens.accessToken;
         localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
-        setUser(userFromToken(tokens.accessToken));
-        setTenantId(tenantIdFromToken(tokens.accessToken));
-        setIsPlatformAdmin(isPlatformAdminFromToken(tokens.accessToken));
-        await loadBootstrapData();
+        const restoredUser = userFromToken(tokens.accessToken);
+        const restoredTenantId = tenantIdFromToken(tokens.accessToken);
+        const restoredIsPlatformAdmin = isPlatformAdminFromToken(tokens.accessToken);
+        setUser(restoredUser);
+        setTenantId(restoredTenantId);
+        setIsPlatformAdmin(restoredIsPlatformAdmin);
+        await loadBootstrapData(restoredTenantId ?? (restoredIsPlatformAdmin ? 'platform' : undefined));
       })
       .catch(() => {
         localStorage.removeItem(REFRESH_TOKEN_KEY);
@@ -98,10 +101,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     accessTokenMemory = tokens.accessToken;
     localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
     const decodedTenantId = tenantIdFromToken(tokens.accessToken);
-    setUser(userFromToken(tokens.accessToken));
+    const loggedInUser = userFromToken(tokens.accessToken);
+    const loggedInIsPlatformAdmin = isPlatformAdminFromToken(tokens.accessToken);
+    setUser(loggedInUser);
     setTenantId(decodedTenantId);
-    setIsPlatformAdmin(isPlatformAdminFromToken(tokens.accessToken));
-    await loadBootstrapData();
+    setIsPlatformAdmin(loggedInIsPlatformAdmin);
+    await loadBootstrapData(decodedTenantId ?? (loggedInIsPlatformAdmin ? 'platform' : undefined));
   }, [loadBootstrapData]);
 
   const logout = useCallback(async () => {
@@ -144,10 +149,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .then(async (tokens) => {
         accessTokenMemory = tokens.accessToken;
         localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
-        setUser(userFromToken(tokens.accessToken));
-        setTenantId(tenantIdFromToken(tokens.accessToken));
-        setIsPlatformAdmin(isPlatformAdminFromToken(tokens.accessToken));
-        await loadBootstrapData();
+        const refreshedUser = userFromToken(tokens.accessToken);
+        const refreshedTenantId = tenantIdFromToken(tokens.accessToken);
+        const refreshedIsPlatformAdmin = isPlatformAdminFromToken(tokens.accessToken);
+        setUser(refreshedUser);
+        setTenantId(refreshedTenantId);
+        setIsPlatformAdmin(refreshedIsPlatformAdmin);
+        await loadBootstrapData(refreshedTenantId ?? (refreshedIsPlatformAdmin ? 'platform' : undefined));
         return tokens.accessToken;
       })
       .catch(() => {

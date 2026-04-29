@@ -8,6 +8,7 @@ import { Search, User, BookOpen, Activity, Link as LinkIcon } from 'lucide-react
 import { useLmsStudentSummary, useCreateStudentOnboardingLink } from '@/hooks/use-lms';
 import { useToast } from '@/hooks/use-toast';
 import { useRolePermissions } from '@/hooks/use-role-permissions';
+import type { ApiError } from '@/types';
 import { ActivateEnrollmentDialog, PauseEnrollmentDialog } from './EnrollmentActions';
 
 function ProgressBar({ value, label, color }: { value?: number; label: string; color: string }) {
@@ -42,12 +43,28 @@ const statusLabel: Record<string, string> = {
   cancelled: 'Жокко чыгарылган',
 };
 
-export function StudentSummaryPanel({ initialStudentId }: { initialStudentId?: string }) {
-  const { canViewStudentSummary } = useRolePermissions();
-
-  if (!canViewStudentSummary()) {
+function getApiErrorDetails(error: unknown): Pick<ApiError, 'message' | 'requestId'> | null {
+  if (!error || typeof error !== 'object') {
     return null;
   }
+
+  const errorLike = error as Record<string, unknown>;
+  const message = typeof errorLike.message === 'string' ? errorLike.message : null;
+  const requestId = typeof errorLike.requestId === 'string' ? errorLike.requestId : undefined;
+
+  if (!message && !requestId) {
+    return null;
+  }
+
+  return {
+    message: message || 'Студент маалыматын жүктөөдө ката кетти',
+    requestId,
+  };
+}
+
+export function StudentSummaryPanel({ initialStudentId }: { initialStudentId?: string }) {
+  const { canViewStudentSummary } = useRolePermissions();
+  const canViewSummary = canViewStudentSummary();
 
   const [studentIdInput, setStudentIdInput] = useState(initialStudentId || '');
   const [searchId, setSearchId] = useState<string | undefined>(initialStudentId || undefined);
@@ -62,6 +79,7 @@ export function StudentSummaryPanel({ initialStudentId }: { initialStudentId?: s
 
   const { data: summary, isLoading, isError, error } = useLmsStudentSummary(searchId);
   const onboardingMutation = useCreateStudentOnboardingLink();
+  const apiError = getApiErrorDetails(error);
 
   const handleSearch = () => {
     if (studentIdInput.trim()) {
@@ -107,6 +125,10 @@ export function StudentSummaryPanel({ initialStudentId }: { initialStudentId?: s
     }
   };
 
+  if (!canViewSummary) {
+    return null;
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -142,10 +164,10 @@ export function StudentSummaryPanel({ initialStudentId }: { initialStudentId?: s
         {/* Error */}
         {isError && (
           <div className="text-sm text-destructive bg-destructive/10 rounded-md p-3">
-            {(error as { message?: string })?.message || 'Студент маалыматын жүктөөдө ката кетти'}
-            {(error as { requestId?: string })?.requestId && (
+            {apiError?.message || 'Студент маалыматын жүктөөдө ката кетти'}
+            {apiError?.requestId && (
               <div className="mt-1 text-xs text-destructive/80">
-                Request ID: {(error as { requestId?: string }).requestId}
+                Request ID: {apiError.requestId}
               </div>
             )}
           </div>

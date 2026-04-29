@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenantConfig } from '@/components/core/TenantConfigProvider';
 import type { UserRole } from '@/types';
+import { useFeatureFlags } from '@/components/core/FeatureFlagProvider';
 
 /**
  * Role hierarchy for permission checks
@@ -106,8 +107,10 @@ function hasMinimumRole(userRole: UserRole, minimumRole: UserRole): boolean {
  */
 export function useRolePermissions() {
   const { user } = useAuth();
-  const { tenantConfig } = useTenantConfig();
+  const { tenantConfig, isLoading: tenantConfigLoading } = useTenantConfig();
+  const { isFeatureEnabled, isLoading: featureFlagsLoading } = useFeatureFlags();
   const userRole = user?.role;
+  const customRolesEnabled = !featureFlagsLoading && isFeatureEnabled('custom_roles_enabled');
 
   const permissions = useMemo<PermissionConfig>(() => {
     if (!userRole) {
@@ -125,6 +128,11 @@ export function useRolePermissions() {
         canViewBridgeAdmin: false,
         canManageBridge: false,
       };
+    }
+
+    // Preserve legacy role behavior unless tenant-custom roles are explicitly enabled.
+    if (!customRolesEnabled) {
+      return getPermissionsForRole(userRole);
     }
 
     // Try to use tenant-configured role permissions if available
@@ -152,7 +160,7 @@ export function useRolePermissions() {
 
     // Fallback to hardcoded permissions only when tenant permissions are not configured
     return getPermissionsForRole(userRole);
-  }, [userRole, tenantConfig.roles]);
+  }, [customRolesEnabled, tenantConfig.roles, userRole]);
 
   /**
    * Check if current user has a specific role level
@@ -249,6 +257,8 @@ export function useRolePermissions() {
   };
 
   return {
+    isLoading: tenantConfigLoading || featureFlagsLoading,
+    isUsingTenantPermissions: customRolesEnabled,
     userRole,
     permissions,
     hasRole,

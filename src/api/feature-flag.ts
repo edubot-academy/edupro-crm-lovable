@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import type { ApiError } from '@/types';
 
 export type FeatureFlagKey =
   | 'crm_enabled'
@@ -38,6 +39,10 @@ export interface TenantFeatureFlagsResponse extends Record<FeatureFlagKey, boole
 
 // Don't use localStorage - the API client handles X-Company-Id automatically from AuthContext
 
+function isApiError(error: unknown): error is ApiError {
+  return typeof error === 'object' && error !== null && 'message' in error && 'status' in error;
+}
+
 export const featureFlagApi = {
   // Get all feature flags for current tenant
   // Uses new endpoint: /feature-flags/tenant
@@ -73,10 +78,13 @@ export const featureFlagApi = {
   setTenantFlag: async (key: FeatureFlagKey, enabled: boolean): Promise<void> => {
     try {
       return await apiClient.post<void>('/feature-flags/tenant', { key, enabled });
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Handle 400 errors from backend with Kyrgyz message
-      if (error?.status === 400) {
-        const message = error?.message || error?.details || 'Бул функция платформа тарифи аркылуу башкарылат';
+      if (isApiError(error) && error.status === 400) {
+        const message =
+          error.message ||
+          (typeof error.details === 'string' ? error.details : undefined) ||
+          'Бул функция платформа тарифи аркылуу башкарылат';
         throw new Error(message);
       }
       // TODO: Remove legacy /feature-flag/tenant fallback after staging verification.
@@ -86,7 +94,7 @@ export const featureFlagApi = {
       try {
         // Fallback to legacy endpoint during migration
         return await apiClient.post<void>('/feature-flag/tenant', { key, enabled });
-      } catch (legacyError: any) {
+      } catch {
         console.error('Failed to set feature flag with legacy endpoint as well');
         throw new Error('Unable to update feature flag. Please check your connection and try again.');
       }

@@ -1,12 +1,12 @@
-import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
+import { createContext, useContext, ReactNode, useState, useEffect, useMemo } from 'react';
 import type { TenantConfig } from '@/types';
-import { tenantConfigApi } from '@/api/tenant-config';
+import { tenantConfigApi, type TenantConfigUpdatePayload } from '@/api/tenant-config';
 import { setFormattingConfig } from '@/lib/formatting';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface TenantConfigContextValue {
   tenantConfig: TenantConfig;
-  updateTenantConfig: (config: Partial<TenantConfig>) => void;
+  updateTenantConfig: (config: Partial<TenantConfig>) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -27,7 +27,7 @@ const defaultTenantConfig: TenantConfig = {
 
 const TenantConfigContext = createContext<TenantConfigContextValue>({
   tenantConfig: defaultTenantConfig,
-  updateTenantConfig: () => { },
+  updateTenantConfig: async () => {},
   isLoading: false,
 });
 
@@ -49,14 +49,15 @@ export function TenantConfigProvider({
   children: ReactNode;
   initialConfig?: Partial<TenantConfig>
 }) {
-  const [tenantConfig, setTenantConfig] = useState<TenantConfig>({
+  const initialTenantConfig = useMemo<TenantConfig>(() => ({
     ...defaultTenantConfig,
     ...initialConfig,
-  });
+  }), [initialConfig]);
+  const [tenantConfig, setTenantConfig] = useState<TenantConfig>(initialTenantConfig);
   const [isLoading, setIsLoading] = useState(false);
 
   // Load tenant config from API when authenticated
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, tenantId } = useAuth();
   useEffect(() => {
     const loadTenantConfig = async () => {
       setIsLoading(true);
@@ -150,16 +151,22 @@ export function TenantConfigProvider({
     if (isAuthenticated) {
       loadTenantConfig();
     } else {
+      setTenantConfig(initialTenantConfig);
+      setFormattingConfig(
+        initialTenantConfig.language,
+        initialTenantConfig.currency,
+        initialTenantConfig.timezone,
+      );
       setIsLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [initialTenantConfig, isAuthenticated, tenantId]);
 
   const updateTenantConfig = async (config: Partial<TenantConfig>) => {
     const previousState = tenantConfig;
     setTenantConfig((prev) => ({ ...prev, ...config }));
     try {
       // Convert to backend format (Date -> string)
-      const backendConfig: any = {
+      const backendConfig: TenantConfigUpdatePayload = {
         ...config,
         createdAt: config.createdAt?.toISOString(),
         updatedAt: config.updatedAt?.toISOString(),

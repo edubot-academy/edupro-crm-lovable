@@ -1,6 +1,5 @@
 import { createContext, useContext, ReactNode, useEffect, useState, useMemo, useCallback } from 'react';
 import type { FeatureFlags } from '@/types';
-import type { TenantFeatureFlagsResponse } from '@/api/feature-flag';
 import { featureFlagApi } from '@/api/feature-flag';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
@@ -28,11 +27,26 @@ const defaultFeatureFlags: FeatureFlags = {
   custom_domain_enabled: false,
 };
 
+function getEnvironmentFeatureFlags(): Partial<FeatureFlags> {
+  return {
+    ...(import.meta.env.VITE_ENABLE_CRM !== undefined && { crm_enabled: import.meta.env.VITE_ENABLE_CRM !== 'false' }),
+    ...(import.meta.env.VITE_ENABLE_LMS_BRIDGE !== undefined && { lms_bridge_enabled: import.meta.env.VITE_ENABLE_LMS_BRIDGE === 'true' }),
+    ...(import.meta.env.VITE_ENABLE_TRIAL_LESSONS !== undefined && { trial_lessons_enabled: import.meta.env.VITE_ENABLE_TRIAL_LESSONS === 'true' }),
+    ...(import.meta.env.VITE_ENABLE_RETENTION !== undefined && { retention_enabled: import.meta.env.VITE_ENABLE_RETENTION === 'true' }),
+    ...(import.meta.env.VITE_ENABLE_TELEGRAM !== undefined && { telegram_notifications_enabled: import.meta.env.VITE_ENABLE_TELEGRAM === 'true' }),
+    ...(import.meta.env.VITE_ENABLE_ADVANCED_REPORTS !== undefined && { advanced_reports_enabled: import.meta.env.VITE_ENABLE_ADVANCED_REPORTS === 'true' }),
+  };
+}
+
 function normalizeFeatureFlags(flags?: Partial<FeatureFlags>): FeatureFlags {
   return {
     ...defaultFeatureFlags,
     ...flags,
   };
+}
+
+function buildFallbackFeatureFlags(...sources: Array<Partial<FeatureFlags> | undefined>): FeatureFlags {
+  return normalizeFeatureFlags(Object.assign({}, ...sources, getEnvironmentFeatureFlags()));
 }
 
 const FeatureFlagContext = createContext<FeatureFlagContextValue>({
@@ -70,29 +84,18 @@ export function FeatureFlagProvider({
     () => tenantBranding.featureFlags || featureFlagsFromModules(tenantBranding.modules),
     [tenantBranding.featureFlags, tenantBranding.modules],
   );
-  const [featureFlags, setFeatureFlags] = useState<FeatureFlags>({
-    ...normalizeFeatureFlags(initialFeatureFlags),
-    ...normalizeFeatureFlags(bootstrapFeatureFlags),
-    // Only override with environment variables if explicitly set
-    ...(import.meta.env.VITE_ENABLE_CRM !== undefined && { crm_enabled: import.meta.env.VITE_ENABLE_CRM !== 'false' }),
-    ...(import.meta.env.VITE_ENABLE_LMS_BRIDGE !== undefined && { lms_bridge_enabled: import.meta.env.VITE_ENABLE_LMS_BRIDGE === 'true' }),
-    ...(import.meta.env.VITE_ENABLE_TRIAL_LESSONS !== undefined && { trial_lessons_enabled: import.meta.env.VITE_ENABLE_TRIAL_LESSONS === 'true' }),
-    ...(import.meta.env.VITE_ENABLE_RETENTION !== undefined && { retention_enabled: import.meta.env.VITE_ENABLE_RETENTION === 'true' }),
-    ...(import.meta.env.VITE_ENABLE_TELEGRAM !== undefined && { telegram_notifications_enabled: import.meta.env.VITE_ENABLE_TELEGRAM === 'true' }),
-    ...(import.meta.env.VITE_ENABLE_ADVANCED_REPORTS !== undefined && { advanced_reports_enabled: import.meta.env.VITE_ENABLE_ADVANCED_REPORTS === 'true' }),
-  });
+  const fallbackFeatureFlags = useMemo(
+    () => buildFallbackFeatureFlags(initialFeatureFlags, bootstrapFeatureFlags),
+    [bootstrapFeatureFlags, initialFeatureFlags],
+  );
+  const [featureFlags, setFeatureFlags] = useState<FeatureFlags>(fallbackFeatureFlags);
   const [allowedFeatures, setAllowedFeatures] = useState<Partial<Record<keyof FeatureFlags, boolean>>>();
   const [sources, setSources] = useState<Partial<Record<keyof FeatureFlags, 'global' | 'plan' | 'override'>>>();
   const [isLoading, setIsLoading] = useState(true); // Start as loading to prevent UI flicker
 
   useEffect(() => {
-    if (!bootstrapFeatureFlags) return;
-
-    setFeatureFlags((current) => normalizeFeatureFlags({
-      ...current,
-      ...bootstrapFeatureFlags,
-    }));
-  }, [bootstrapFeatureFlags]);
+    setFeatureFlags(fallbackFeatureFlags);
+  }, [fallbackFeatureFlags]);
 
   const loadFeatureFlags = useCallback(async () => {
     setIsLoading(true);
@@ -102,24 +105,27 @@ export function FeatureFlagProvider({
       setAllowedFeatures(response.allowedFeatures);
       setSources(response.sources);
     } catch (error) {
-      console.error('Failed to load feature flags from backend, using conservative fallback:', error);
-      setFeatureFlags(normalizeFeatureFlags(bootstrapFeatureFlags));
+      console.error('Failed to load feature flags from backend, using fail-closed fallback:', error);
+      setFeatureFlags(fallbackFeatureFlags);
       setAllowedFeatures(undefined);
       setSources(undefined);
     } finally {
       setIsLoading(false);
     }
-  }, [bootstrapFeatureFlags]);
+  }, [fallbackFeatureFlags]);
 
   // Only load feature flags when user is authenticated
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, tenantId } = useAuth();
   useEffect(() => {
     if (isAuthenticated) {
       loadFeatureFlags();
     } else {
+      setFeatureFlags(fallbackFeatureFlags);
+      setAllowedFeatures(undefined);
+      setSources(undefined);
       setIsLoading(false);
     }
-  }, [isAuthenticated, loadFeatureFlags]);
+  }, [fallbackFeatureFlags, isAuthenticated, loadFeatureFlags, tenantId]);
 
   const isFeatureEnabled = (flag: keyof FeatureFlags): boolean => {
     return featureFlags[flag] ?? false;
