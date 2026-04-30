@@ -132,7 +132,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
-      <div className="flex h-14 items-center gap-2 px-4 border-b border-sidebar-border">
+      <div className="flex h-16 items-center gap-3 px-4 border-b border-sidebar-border">
         {tenantBranding.logoUrl ? (
           <img src={tenantBranding.logoUrl} alt={brandingName} className="h-8 w-8 rounded-lg object-cover" />
         ) : (
@@ -147,13 +147,13 @@ export function AppSidebar() {
         )}
       </div>
 
-      <SidebarContent className="px-2 py-2">
+      <SidebarContent className="px-3 py-4 group-data-[collapsible=icon]:px-2">
         <NavSection label="Негизги" items={visibleMainNav} collapsed={collapsed} onNavigate={handleNavigate} />
         <NavSection label="Операциялар" items={visibleOperationsNav} collapsed={collapsed} onNavigate={handleNavigate} />
         <NavSection label="Система" items={visibleSystemNav} collapsed={collapsed} onNavigate={handleNavigate} />
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border p-3">
+      <SidebarFooter className="border-t border-sidebar-border p-4">
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sidebar-accent text-sidebar-accent-foreground text-xs font-semibold">
             {user?.fullName?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || 'U'}

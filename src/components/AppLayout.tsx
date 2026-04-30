@@ -153,12 +153,6 @@ export function AppLayout() {
                   </BreadcrumbList>
                 </Breadcrumb>
               )}
-              <div className="hidden xl:block min-w-0">
-                <p className="truncate text-sm font-semibold">{tenantBranding.displayName}</p>
-                {tenantBranding.primaryDomain && (
-                  <p className="truncate text-xs text-muted-foreground">{tenantBranding.primaryDomain}</p>
-                )}
-              </div>
             </div>
             <div className="flex items-center gap-2">
               <Button
