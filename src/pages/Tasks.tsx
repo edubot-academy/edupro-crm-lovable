@@ -28,6 +28,7 @@ export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [totalItems, setTotalItems] = useState(0);
   const [statusFilter, setStatusFilter] = useState('all');
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
@@ -57,6 +58,7 @@ export default function TasksPage() {
 
   const fetchTasks = () => {
     setIsLoading(true);
+    setLoadError(null);
     tasksApi.list({ search, workflowStatus: statusFilter === 'all' ? undefined : statusFilter })
       .then((res) => {
         setTasks(res.items);
@@ -65,6 +67,12 @@ export default function TasksPage() {
       .catch(() => {
         setTasks([]);
         setTotalItems(0);
+        setLoadError('Интернет байланышын текшерип, кайра аракет кылыңыз');
+        toast({
+          title: 'Тизмени жүктөө мүмкүн болгон жок',
+          description: 'Интернет байланышын текшерип, кайра аракет кылыңыз',
+          variant: 'destructive',
+        });
       })
       .finally(() => setIsLoading(false));
   };
@@ -270,7 +278,7 @@ export default function TasksPage() {
               disabled={isUpdatingTaskId === task.id}
             >
               <CheckCircle className="mr-2 h-4 w-4" />
-              Белгилөө
+              Аткарылды деп белгилөө
             </Button>
           ) : <span />}
           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(task); }}>
@@ -291,9 +299,11 @@ export default function TasksPage() {
         columns={columns}
         data={filtered}
         isLoading={isLoading}
+        errorMessage={loadError || undefined}
+        onRetry={fetchTasks}
         searchValue={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Тапшырма издөө..."
+        searchPlaceholder="Тапшырманы издөө..."
         headerActions={headerActions}
         activeFilters={activeFilters}
         totalItems={totalItems}

@@ -47,6 +47,7 @@ export default function DealsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [updatingDealId, setUpdatingDealId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Deal | null>(null);
@@ -92,6 +93,7 @@ export default function DealsPage() {
 
   const fetchDeals = () => {
     setIsLoading(true);
+    setLoadError(null);
     dealsApi.list({ search })
       .then((res) => {
         setDeals(res.items);
@@ -100,6 +102,12 @@ export default function DealsPage() {
       .catch(() => {
         setDeals([]);
         setTotalItems(0);
+        setLoadError('Интернет байланышын текшерип, кайра аракет кылыңыз');
+        toast({
+          title: 'Тизмени жүктөө мүмкүн болгон жок',
+          description: 'Интернет байланышын текшерип, кайра аракет кылыңыз',
+          variant: 'destructive',
+        });
       })
       .finally(() => setIsLoading(false));
   };
@@ -381,6 +389,8 @@ export default function DealsPage() {
         columns={columns}
         data={deals}
         isLoading={isLoading}
+        errorMessage={loadError || undefined}
+        onRetry={fetchDeals}
         searchValue={search}
         onSearchChange={setSearch}
         searchPlaceholder="Келишим издөө..."

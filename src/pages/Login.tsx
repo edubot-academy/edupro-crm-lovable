@@ -45,8 +45,8 @@ export default function LoginPage() {
 
       if (!loginTenantId) {
         toast({
-          title: 'Тенант контексти табылган жок',
-          description: 'Туура тенант доменин ачыңыз. Local development үчүн `VITE_DEV_TENANT_ID` же `?tenantId=` колдонуңуз.',
+          title: 'Уюм аныкталган жок',
+          description: 'Туура уюмдун дарегин ачып, кайра аракет кылыңыз.',
           variant: 'destructive',
         });
         return;
@@ -172,10 +172,10 @@ export default function LoginPage() {
                 </div>
               )}
 
-              {isLocalDevelopment && !developmentTenantId && (
+              {import.meta.env.DEV && isLocalDevelopment && !developmentTenantId && (
                 <div className="flex items-start gap-2 p-3 rounded-md bg-muted/60 text-sm text-muted-foreground">
                   <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                  <span>Local development үчүн `VITE_DEV_TENANT_ID` же `?tenantId=` керек.</span>
+                  <span>Өнүктүрүү режими үчүн уюм ID'си көрсөтүлүшү керек.</span>
                 </div>
               )}
 

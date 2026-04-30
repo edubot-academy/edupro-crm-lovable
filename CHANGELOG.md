@@ -117,6 +117,28 @@ Version bumps are classified by delivery scale; see `VERSIONING.md`.
 - Tenant config API config types changed from `Record<string, any>` to `Record<string, unknown>`
 - Leads page header actions now align items to end instead of center
 - Leads page added custom date range inputs to header actions when custom date filter is selected
+- Error messages library: Changed "Request ID" to "Сурам коду" in Kyrgyz
+- Error messages library: Improved error descriptions for LMS group, deal, and lead selection errors
+- Contacts page: Added loadError state with error handling and toast notifications
+- Contacts page: Changed "Деталдар" button to "Карточканы ачуу"
+- Deals page: Added loadError state with error handling and toast notifications
+- Leads page: Changed fallback lead status labels from English to Kyrgyz (Жаңы, Байланыш түзүлдү, Кызыкты, Жооп жок, Жабылды)
+- Login page: Changed "Тенант" to "Уюм" in error messages for better localization
+- Login page: Improved error descriptions for missing tenant context
+- NotFound page: Changed English text to Kyrgyz (404 page)
+- Reports page: Changed "Утулган келишимдер" to "Ийгиликтүү келишимдер"
+- Reports page: Changed "CSV Экспорт" to "CSV жүктөп алуу"
+- Reports page: Changed "Сыноо сабак конверсиясы" to "Сыноо сабагынын конверсиясы"
+- Settings page: Changed "Тенант конфигурациясы" to "Уюм жөндөөлөрү"
+- Settings page: Changed currency names to Kyrgyz (АКШ доллары, Евро, Орус рубли)
+- Settings page: Changed language names to Kyrgyz (Орусча, Англисче)
+- Tasks page: Added loadError state with error handling and toast notifications
+- Tasks page: Changed search placeholder to "Тапшырманы издөө..."
+- TrialLessons page: Added loadError state with error handling and toast notifications
+- TrialLessons page: Changed "Сыноо сабак" to "Сыноо сабагы" in various labels
+- Users page: Simplified superadmin creation error message
+- Users page: Simplified admin role permission error message
+- Users page: Changed invite link labels to Kyrgyz
 - TenantResolveResponse type now only includes pre-login branding fields (removed supportEmail, supportPhone, planCode, features, modules)
 - TenantContext now prioritizes bootstrap data over public tenant resolve for authenticated users
 - TenantContext only calls public tenant resolve when user is not authenticated

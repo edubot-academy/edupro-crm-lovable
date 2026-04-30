@@ -67,14 +67,14 @@ export default function UsersPage() {
 
     // Additional security validation: prevent role escalation
     if (form.role === 'superadmin') {
-      toast({ title: 'Коопсуздук бузуу: Tenant CRMде superadmin колдонуучуларын түзүү мүмкүн эмес', description: 'Платформа колдонуучулары Platform Admin интерфейси аркылуу түзүлүшү керек.', variant: 'destructive' });
+      toast({ title: 'Бул ролду бул жерден кошууга болбойт', description: 'Бул роль уюм ичиндеги колдонуучулар үчүн жеткиликтүү эмес.', variant: 'destructive' });
       return;
     }
 
     // Validate that current user has permission to create this role
     const currentUserRole = user?.role;
     if (currentUserRole !== 'admin' && form.role === 'admin') {
-      toast({ title: 'Уруксат жок: Бул админ колдонуучуларын түзүүгө гана админ уруксаттуу', variant: 'destructive' });
+      toast({ title: 'Уруксат жок', description: 'Админ ролундагы колдонуучуну кошууга админ гана укуктуу.', variant: 'destructive' });
       return;
     }
 
@@ -222,17 +222,17 @@ export default function UsersPage() {
             <div className="rounded-md bg-muted/60 p-3 text-sm">
               <p className="font-medium">{inviteInfo?.email}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Колдонуучу аккаунтту `accept invite` аркылуу бүтүрүшү керек.
+                Колдонуучу каттоону чакыруу шилтемеси аркылуу аякташы керек.
               </p>
             </div>
             {inviteInfo?.inviteUrl ? (
               <div className="space-y-2">
-                <Label>Бөлүшүлүү чакыруу шилтемеси</Label>
+                <Label>Колдонуучуга жөнөтүлө турган шилтеме</Label>
                 <Textarea value={inviteInfo.inviteUrl} readOnly rows={3} />
               </div>
             ) : (
               <div className="rounded-md border border-warning/30 bg-warning/10 p-3 text-sm text-warning-foreground">
-                Жоопто чакыруу шилтемеси келген жок. Email аркылуу чакырууну кайра жөнөтө аласың.
+                Чакыруу шилтемеси келген жок. Чакырууну кайра жөнөтүп көрүңүз.
               </div>
             )}
           </div>

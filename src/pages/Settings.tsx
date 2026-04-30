@@ -111,7 +111,7 @@ export default function SettingsPage() {
         },
       });
       setIsEditingTenantConfig(false);
-      toast({ title: 'Тенант конфигурациясы ийгиликтүү сакталды' });
+      toast({ title: 'Уюм жөндөөлөрү сакталды' });
     } catch (error) {
       console.error('Failed to save tenant config:', error);
       toast({
@@ -200,7 +200,7 @@ export default function SettingsPage() {
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <CardTitle className="text-base flex items-center gap-2">
             <Globe className="h-4 w-4" />
-            Тенант конфигурациясы
+            Уюм жөндөөлөрү
           </CardTitle>
           {!isEditingTenantConfig && (
             <Button variant="outline" onClick={() => setIsEditingTenantConfig(true)}>
@@ -219,9 +219,9 @@ export default function SettingsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="KGS">KGS - Кыргыз сом</SelectItem>
-                  <SelectItem value="USD">USD - US Dollar</SelectItem>
-                  <SelectItem value="EUR">EUR - Euro</SelectItem>
-                  <SelectItem value="RUB">RUB - Russian Ruble</SelectItem>
+                  <SelectItem value="USD">USD - АКШ доллары</SelectItem>
+                  <SelectItem value="EUR">EUR - Евро</SelectItem>
+                  <SelectItem value="RUB">RUB - Орус рубли</SelectItem>
                 </SelectContent>
               </Select>
             ) : (
@@ -259,8 +259,8 @@ export default function SettingsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ky">Кыргызча</SelectItem>
-                  <SelectItem value="ru">Русский</SelectItem>
-                  <SelectItem value="en">English</SelectItem>
+                  <SelectItem value="ru">Орусча</SelectItem>
+                  <SelectItem value="en">Англисче</SelectItem>
                 </SelectContent>
               </Select>
             ) : (
@@ -348,10 +348,10 @@ export default function SettingsPage() {
           <CardTitle className="text-base flex items-center gap-2">
             <ToggleLeft className="h-4 w-4" />
             Мүмкүнчүлүктөр
-            <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">Тенант конфигурациясы</span>
+            <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">Уюм жөндөөлөрү</span>
           </CardTitle>
           <p className="text-xs text-muted-foreground mt-1">
-            Бул мүмкүнчүлүктөр сиздин тенант конфигурациясыңыз үчүн.
+            Бул мүмкүнчүлүктөр сиздин уюм жөндөөлөрүңүзгө жараша көрсөтүлөт.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">

@@ -27,6 +27,7 @@ export default function TrialLessonsPage() {
   const [trials, setTrials] = useState<TrialLesson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [totalItems, setTotalItems] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<TrialLesson | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -44,6 +45,7 @@ export default function TrialLessonsPage() {
 
   const fetchTrials = () => {
     setIsLoading(true);
+    setLoadError(null);
     trialLessonsApi.list({ search })
       .then((res) => {
         setTrials(res.items);
@@ -52,6 +54,12 @@ export default function TrialLessonsPage() {
       .catch(() => {
         setTrials([]);
         setTotalItems(0);
+        setLoadError('Интернет байланышын текшерип, кайра аракет кылыңыз');
+        toast({
+          title: 'Тизмени жүктөө мүмкүн болгон жок',
+          description: 'Интернет байланышын текшерип, кайра аракет кылыңыз',
+          variant: 'destructive',
+        });
       })
       .finally(() => setIsLoading(false));
   };
@@ -98,12 +106,12 @@ export default function TrialLessonsPage() {
         scheduledAt: form.scheduledAt,
         notes: form.notes || undefined,
       });
-      toast({ title: 'Сыноо сабак ийгиликтүү кошулду' });
+      toast({ title: 'Сыноо сабагы ийгиликтүү кошулду' });
       setShowCreate(false);
       setForm(emptyForm);
       fetchTrials();
     } catch (error) {
-      const friendly = getFriendlyError(error, { fallbackTitle: 'Сыноо сабакты сактоо ишке ашкан жок' });
+      const friendly = getFriendlyError(error, { fallbackTitle: 'Сыноо сабагын сактоо ишке ашкан жок' });
       toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
       setIsCreating(false);
@@ -192,17 +200,19 @@ export default function TrialLessonsPage() {
         columns={columns}
         data={trials}
         isLoading={isLoading}
+        errorMessage={loadError || undefined}
+        onRetry={fetchTrials}
         searchValue={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Сыноо сабак издөө..."
+        searchPlaceholder="Сыноо сабагын издөө..."
         activeFilters={activeFilters}
         totalItems={totalItems}
-        totalItemsLabel="сыноо сабак"
+        totalItemsLabel="сыноо сабагы"
         stickyHeader
         renderMobileCard={renderMobileCard}
         mobileBoardColumns={mobileBoardColumns}
         getMobileBoardColumnId={(trial) => trial.result}
-        mobileBoardEmptyMessage="Бул тилкеде сыноо сабак жок"
+        mobileBoardEmptyMessage="Бул тилкеде сыноо сабагы жок"
       />
 
       {/* Create Dialog */}

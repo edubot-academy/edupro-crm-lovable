@@ -69,11 +69,11 @@ export default function LeadsPage() {
     }
     // Fallback to hardcoded statuses
     return [
-      { value: 'new', label: 'New' },
-      { value: 'contacted', label: 'Contacted' },
-      { value: 'interested', label: 'Interested' },
-      { value: 'no_response', label: 'No Response' },
-      { value: 'lost', label: 'Lost' },
+      { value: 'new', label: 'Жаңы' },
+      { value: 'contacted', label: 'Байланыш түзүлдү' },
+      { value: 'interested', label: 'Кызыкты' },
+      { value: 'no_response', label: 'Жооп жок' },
+      { value: 'lost', label: 'Жабылды' },
     ];
   }, [tenantConfig.leadStatuses]);
   const [dateFilter, setDateFilter] = useState<string>(() => getSearchParam('date', 'all'));

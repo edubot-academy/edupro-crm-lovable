@@ -55,7 +55,7 @@ function stringifyDetails(details: unknown): string | undefined {
 
 function withRequestId(description: string | undefined, requestId?: string): string | undefined {
   if (!requestId) return description;
-  return description ? `${description} [Request ID: ${requestId}]` : `Request ID: ${requestId}`;
+  return description ? `${description} [Сурам коду: ${requestId}]` : `Сурам коду: ${requestId}`;
 }
 
 export function getFriendlyError(error: unknown, options: FriendlyErrorOptions): FriendlyErrorResult {
@@ -91,7 +91,7 @@ export function getFriendlyError(error: unknown, options: FriendlyErrorOptions):
   if (combined.includes('group id') || combined.includes('groupid') || combined.includes('lmsgroupid') || combined.includes('group is required') || combined.includes('cohort')) {
     return {
       title: 'Топ тандоо керек',
-      description: withRequestId('Бул операция үчүн LMS тобу керек. Алгач курс үчүн ылайыктуу топту тандаңыз же deal ичиндеги топту толуктаңыз.', error.requestId),
+      description: withRequestId('Бул аракет үчүн LMS тобу керек. Алгач ылайыктуу топту тандаңыз же келишимдеги топ маалыматын толуктаңыз.', error.requestId),
     };
   }
 
@@ -105,7 +105,7 @@ export function getFriendlyError(error: unknown, options: FriendlyErrorOptions):
   if (combined.includes('deal id') || combined.includes('dealid')) {
     return {
       title: 'Келишимди тандаңыз',
-      description: withRequestId('Бул аракет deal менен байланыштуу. Алгач келишимди тандаңыз.', error.requestId),
+      description: withRequestId('Бул аракет үчүн келишим тандалышы керек.', error.requestId),
     };
   }
 
@@ -119,7 +119,7 @@ export function getFriendlyError(error: unknown, options: FriendlyErrorOptions):
   if (combined.includes('lead id') || combined.includes('leadid')) {
     return {
       title: 'Лидди тандаңыз',
-      description: withRequestId('Бул аракет үчүн CRM лид керек.', error.requestId),
+      description: withRequestId('Бул аракет үчүн лид тандалышы керек.', error.requestId),
     };
   }
 

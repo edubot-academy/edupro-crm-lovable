@@ -28,6 +28,7 @@ export default function ContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [totalItems, setTotalItems] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -53,6 +54,7 @@ export default function ContactsPage() {
 
   const fetchContacts = () => {
     setIsLoading(true);
+    setLoadError(null);
     contactApi.list({ search })
       .then((res) => {
         setContacts(res.items);
@@ -61,6 +63,12 @@ export default function ContactsPage() {
       .catch(() => {
         setContacts([]);
         setTotalItems(0);
+        setLoadError('Интернет байланышын текшерип, кайра аракет кылыңыз');
+        toast({
+          title: 'Тизмени жүктөө мүмкүн болгон жок',
+          description: 'Интернет байланышын текшерип, кайра аракет кылыңыз',
+          variant: 'destructive',
+        });
       })
       .finally(() => setIsLoading(false));
   };
@@ -171,7 +179,7 @@ export default function ContactsPage() {
           }}
           aria-label={`${contact.fullName} маалыматын ачуу`}
         >
-          Деталдар
+          Карточканы ачуу
         </Button>
         {contact.notes && <p className="rounded-md bg-muted/60 p-2 text-xs text-muted-foreground line-clamp-3">{contact.notes}</p>}
       </CardContent>
@@ -194,7 +202,7 @@ export default function ContactsPage() {
           setShowCreate(true);
         }}><Plus className="mr-2 h-4 w-4" />{ky.contacts.newContact}</Button>}
       />
-      <DataTable columns={columns} data={contacts} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Байланыш издөө..." activeFilters={activeFilters} totalItems={totalItems} totalItemsLabel="байланыш" stickyHeader onRowClick={(c) => navigate(`/contacts/${c.id}`)} renderMobileCard={renderMobileCard} />
+      <DataTable columns={columns} data={contacts} isLoading={isLoading} errorMessage={loadError || undefined} onRetry={fetchContacts} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Байланыш издөө..." activeFilters={activeFilters} totalItems={totalItems} totalItemsLabel="байланыш" stickyHeader onRowClick={(c) => navigate(`/contacts/${c.id}`)} renderMobileCard={renderMobileCard} />
 
       <Dialog open={showCreate} onOpenChange={(open) => {
         setShowCreate(open);

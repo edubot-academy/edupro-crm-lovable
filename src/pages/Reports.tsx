@@ -80,7 +80,7 @@ function exportCSV(stats: DashboardStats, isLmsEnabled: boolean) {
     rows.push(`Сыноодон сатуу %,${stats.trialToSaleConversion}`);
   }
   rows.push(`Төлөм күтүлүүдө,${stats.paymentPendingCount}`);
-  rows.push(`Утулган келишимдер,${stats.wonDeals}`);
+  rows.push(`Ийгиликтүү келишимдер,${stats.wonDeals}`);
   rows.push(`Ачык тобокелдик,${stats.openRetentionCases}`);
   rows.push('');
   rows.push('Булак,Саны');
@@ -267,7 +267,7 @@ export default function ReportsPage() {
               <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Жаңыртуу
             </Button>
             <Button variant="outline" size="sm" onClick={() => exportCSV(stats, isLmsBridgeEnabled)}>
-              <Download className="mr-1.5 h-3.5 w-3.5" /> CSV Экспорт
+              <Download className="mr-1.5 h-3.5 w-3.5" /> CSV жүктөп алуу
             </Button>
           </div>
         }
@@ -540,7 +540,7 @@ export default function ReportsPage() {
             {/* Trial Conversion Radial */}
             <Card className="shadow-card border-border/50">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">Сыноо сабак конверсиясы</CardTitle>
+                <CardTitle className="text-sm font-semibold">Сыноо сабагынын конверсиясы</CardTitle>
                 <p className="text-xs text-muted-foreground">Сыноодон катталганга өтүү пайызы</p>
               </CardHeader>
               <CardContent className="flex flex-col items-center justify-center">
