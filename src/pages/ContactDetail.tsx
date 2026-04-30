@@ -1,28 +1,36 @@
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/PageShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ky } from '@/lib/i18n';
-import { ArrowLeft, Phone, Mail, User, Link2, Loader2, BookOpen, Activity, Workflow, Calendar } from 'lucide-react';
-import { contactApi } from '@/api/modules';
+import { contactApi, bridgeApi } from '@/api/modules';
 import type { Contact } from '@/types';
+import type { ContactWithStudentMapping } from '@/types/bridge';
+import { User, Phone, Mail, Link2, BookOpen, Workflow, GraduationCap, Pencil, Trash2, Copy, Loader2, ArrowLeft, Calendar, Activity } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRolePermissions } from '@/hooks/use-role-permissions';
+import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
+import { ContactStudentMapping } from '@/components/lms/ContactStudentMapping';
 import { useCreateStudentOnboardingLink, useLmsIntegrationHistory, useLmsStudentSummary } from '@/hooks/use-lms';
 import { ScheduleTimelineEventDialog } from '@/components/ScheduleTimelineEventDialog';
 import { ScheduledTimelineEventsCard } from '@/components/ScheduledTimelineEventsCard';
-import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 
 export default function ContactDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { canViewLmsTechnicalFields, canViewStudentSummary, canViewIntegrationHistory } = useRolePermissions();
+  const { isLmsBridgeEnabled } = useLmsBridge();
   const [contact, setContact] = useState<Contact | null>(null);
+  const [bridgeData, setBridgeData] = useState<ContactWithStudentMapping | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
@@ -49,19 +57,33 @@ export default function ContactDetailPage() {
       .finally(() => setIsLoading(false));
   }, [id]);
 
+  useEffect(() => {
+    if (!contact || !isLmsBridgeEnabled) {
+      setBridgeData(null);
+      return;
+    }
+    bridgeApi.getContactBridgeData(contact.id)
+      .then((data) => setBridgeData(data))
+      .catch(() => setBridgeData(null));
+  }, [contact, isLmsBridgeEnabled]);
+
   const {
     data: studentSummary,
     isLoading: lmsLoading,
     isError: lmsError,
-  } = useLmsStudentSummary(contact?.lmsStudentId || undefined);
+  } = useLmsStudentSummary(
+    isLmsBridgeEnabled && canViewStudentSummary() ? (bridgeData?.lmsStudentId || undefined) : undefined
+  );
   const {
     data: historyData,
     isLoading: historyLoading,
-  } = useLmsIntegrationHistory({
-    crmContactId: contact?.id,
-    lmsStudentId: contact?.lmsStudentId,
-    limit: 5,
-  });
+  } = useLmsIntegrationHistory(
+    isLmsBridgeEnabled && canViewLmsTechnicalFields() ? {
+      crmContactId: contact?.id,
+      lmsStudentId: bridgeData?.lmsStudentId,
+      limit: 5,
+    } : undefined,
+  );
   const createOnboardingLinkMutation = useCreateStudentOnboardingLink();
 
   useEffect(() => {
@@ -112,10 +134,10 @@ export default function ContactDetailPage() {
   };
 
   const handleCreateOnboardingLink = () => {
-    if (!contact?.lmsStudentId) return;
+    if (!bridgeData?.lmsStudentId) return;
 
     createOnboardingLinkMutation.mutate(
-      { studentId: contact.lmsStudentId },
+      { studentId: bridgeData.lmsStudentId },
       {
         onSuccess: async (response) => {
           const setupLink = response.onboarding?.setupLink || null;
@@ -186,11 +208,17 @@ export default function ContactDetailPage() {
               <InfoRow icon={User} label={ky.common.name} value={contact.fullName} />
               <InfoRow icon={Phone} label={ky.common.phone} value={contact.phone} />
               <InfoRow icon={Mail} label={ky.common.email} value={contact.email} />
-              <InfoRow icon={Link2} label={ky.contacts.lmsId} value={contact.lmsStudentId || '—'} />
-              <InfoRow icon={Link2} label={ky.contacts.externalId} value={contact.externalStudentId || '—'} />
             </div>
           </CardContent>
         </Card>
+
+        {isLmsBridgeEnabled && canViewLmsTechnicalFields() && bridgeData && (
+          <ContactStudentMapping
+            lmsStudentId={bridgeData.lmsStudentId}
+            externalStudentId={bridgeData.externalStudentId}
+            contactId={contact.id}
+          />
+        )}
 
         <div className="space-y-4">
           <Card className="shadow-card border-border/50">
@@ -200,13 +228,13 @@ export default function ContactDetailPage() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-card border-border/50">
-            <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-start sm:justify-between">
-              <CardTitle className="text-base flex items-center gap-2 leading-tight">
-                <BookOpen className="h-4 w-4" />
-                {ky.contacts.lmsInfoTitle}
-              </CardTitle>
-              {contact.lmsStudentId && (
+          {isLmsBridgeEnabled && canViewStudentSummary() && bridgeData?.lmsStudentId && (
+            <Card className="shadow-card border-border/50">
+              <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-start sm:justify-between">
+                <CardTitle className="text-base flex items-center gap-2 leading-tight">
+                  <BookOpen className="h-4 w-4" />
+                  {ky.contacts.lmsInfoTitle}
+                </CardTitle>
                 <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
                   <Button
                     variant="outline"
@@ -217,154 +245,146 @@ export default function ContactDetailPage() {
                   >
                     {createOnboardingLinkMutation.isPending ? 'Түзүлүүдө...' : ky.contacts.newLmsLink}
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate(`/enrollments?studentId=${encodeURIComponent(contact.lmsStudentId || '')}`)}
-                    className="w-full sm:w-auto"
-                  >
-                    {ky.contacts.lmsEnrollment}
-                  </Button>
                 </div>
-              )}
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {onboardingLink && (
-                <div className="rounded-md border bg-muted/40 p-3 space-y-2">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium">Жаңы LMS кирүү шилтемеси</p>
-                      <p className="mt-1 break-all text-xs text-muted-foreground">{onboardingLink}</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {onboardingLink && (
+                  <div className="rounded-md border bg-muted/40 p-3 space-y-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium">Жаңы LMS кирүү шилтемеси</p>
+                        <p className="mt-1 break-all text-xs text-muted-foreground">{onboardingLink}</p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCopyOnboardingLink}
+                        className="w-full sm:w-auto"
+                      >
+                        Шилтемени көчүрүү
+                      </Button>
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCopyOnboardingLink}
-                      className="w-full sm:w-auto"
-                    >
-                      Шилтемени көчүрүү
-                    </Button>
                   </div>
-                </div>
-              )}
+                )}
 
-              {!contact.lmsStudentId ? (
-                <p className="text-sm text-muted-foreground">LMS студент байланышы жок.</p>
-              ) : lmsLoading ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  LMS маалыматы жүктөлүүдө...
-                </div>
-              ) : lmsError || !studentSummary ? (
-                <p className="text-sm text-muted-foreground">LMS маалыматын алуу мүмкүн болбоду.</p>
-              ) : (
-                <>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">{studentSummary.fullName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      LMS ID: {studentSummary.studentId}
-                    </p>
-                    {studentSummary.phone && (
-                      <p className="text-xs text-muted-foreground">{studentSummary.phone}</p>
-                    )}
-                    {studentSummary.email && (
-                      <p className="text-xs text-muted-foreground">{studentSummary.email}</p>
-                    )}
+                {lmsLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    LMS маалыматы жүктөлүүдө...
                   </div>
+                ) : lmsError || !studentSummary ? (
+                  <p className="text-sm text-muted-foreground">LMS маалыматын алуу мүмкүн болбоду.</p>
+                ) : (
+                  <>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">{studentSummary.fullName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        LMS ID: {studentSummary.studentId}
+                      </p>
+                      {studentSummary.phone && (
+                        <p className="text-xs text-muted-foreground">{studentSummary.phone}</p>
+                      )}
+                      {studentSummary.email && (
+                        <p className="text-xs text-muted-foreground">{studentSummary.email}</p>
+                      )}
+                    </div>
 
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Каттоолор</p>
-                    {studentSummary.enrollments?.length ? (
-                      studentSummary.enrollments.map((enrollment) => (
-                        <div key={enrollment.enrollmentId} className="rounded-md border p-3 space-y-2">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div>
-                              <p className="text-sm font-medium">{enrollment.courseName || enrollment.courseId}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {enrollment.groupName || enrollment.groupId || 'Топсуз каттоо'}
-                              </p>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Каттоолор</p>
+                      {studentSummary.enrollments?.length ? (
+                        studentSummary.enrollments.map((enrollment) => (
+                          <div key={enrollment.enrollmentId} className="rounded-md border p-3 space-y-2">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div>
+                                <p className="text-sm font-medium">{enrollment.courseName || enrollment.courseId}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {enrollment.groupName || enrollment.groupId || 'Топсуз каттоо'}
+                                </p>
+                              </div>
+                              <EnrollmentStatusBadge status={enrollment.status} />
                             </div>
-                            <EnrollmentStatusBadge status={enrollment.status} />
+                            <p className="text-xs text-muted-foreground">
+                              Каттоо ID: {enrollment.enrollmentId}
+                            </p>
                           </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Каттоолор табылган жок.</p>
+                      )}
+                    </div>
+
+                    {studentSummary.academic && (
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium flex items-center gap-2">
+                          <Activity className="h-4 w-4" />
+                          Академиялык көрүнүш
+                        </p>
+                        <div className="grid gap-2 text-sm sm:grid-cols-2">
+                          <Metric label="Катышуу" value={studentSummary.academic.attendanceRate} />
+                          <Metric label="Үй тапшырма" value={studentSummary.academic.homeworkCompletionRate} />
+                          <Metric label="Тест катышуу" value={studentSummary.academic.quizParticipationRate} />
+                          <Metric label="Жалпы прогресс" value={studentSummary.academic.progressPercent} />
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {isLmsBridgeEnabled && canViewIntegrationHistory() && bridgeData?.lmsStudentId && (
+            <Card className="shadow-card border-border/50">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Workflow className="h-4 w-4" />
+                  LMS окуялары
+                </CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`/enrollments?crmContactId=${contact.id}${bridgeData?.lmsStudentId ? `&studentId=${encodeURIComponent(bridgeData.lmsStudentId)}` : ''}`)}
+                >
+                  Толук тарых
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {historyLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    LMS окуялары жүктөлүүдө...
+                  </div>
+                ) : !historyData?.data?.length ? (
+                  <p className="text-sm text-muted-foreground">LMS окуялары табылган жок.</p>
+                ) : (
+                  historyData.data.map((item) => (
+                    <div key={item.id} className="rounded-md border p-3 space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-medium">
+                            {item.source === 'outbound' ? 'CRM → LMS' : 'LMS → CRM'}
+                          </p>
                           <p className="text-xs text-muted-foreground">
-                            Каттоо ID: {enrollment.enrollmentId}
+                            {item.endpoint || '—'} • {formatDateTime(item.createdAt)}
                           </p>
                         </div>
-                      ))
-                    ) : (
-                      <p className="text-sm text-muted-foreground">Каттоолор табылган жок.</p>
-                    )}
-                  </div>
-
-                  {studentSummary.academic && (
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium flex items-center gap-2">
-                        <Activity className="h-4 w-4" />
-                        Академиялык көрүнүш
+                        <HistoryStatusBadge status={item.status} />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {item.message || 'Интеграция окуясы'}
                       </p>
-                      <div className="grid gap-2 text-sm sm:grid-cols-2">
-                        <Metric label="Катышуу" value={studentSummary.academic.attendanceRate} />
-                        <Metric label="Үй тапшырма" value={studentSummary.academic.homeworkCompletionRate} />
-                        <Metric label="Тест катышуу" value={studentSummary.academic.quizParticipationRate} />
-                        <Metric label="Жалпы прогресс" value={studentSummary.academic.progressPercent} />
+                      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                        {item.enrollmentStatus ? <span>Статус: {item.enrollmentStatus}</span> : null}
+                        {item.requestId ? <span>Request ID: {item.requestId}</span> : null}
+                        {item.eventId ? <span>Event ID: {item.eventId}</span> : null}
                       </div>
                     </div>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-card border-border/50">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Workflow className="h-4 w-4" />
-                LMS окуялары
-              </CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate(`/enrollments?crmContactId=${contact.id}${contact.lmsStudentId ? `&studentId=${encodeURIComponent(contact.lmsStudentId)}` : ''}`)}
-              >
-                Толук тарых
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {historyLoading ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  LMS окуялары жүктөлүүдө...
-                </div>
-              ) : !historyData?.items?.length ? (
-                <p className="text-sm text-muted-foreground">LMS окуялары табылган жок.</p>
-              ) : (
-                historyData.items.map((item) => (
-                  <div key={item.id} className="rounded-md border p-3 space-y-2">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-medium">
-                          {item.source === 'outbound' ? 'CRM → LMS' : 'LMS → CRM'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {item.endpoint || '—'} • {formatDateTime(item.createdAt)}
-                        </p>
-                      </div>
-                      <HistoryStatusBadge status={item.status} />
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {item.message || 'Интеграция окуясы'}
-                    </p>
-                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                      {item.enrollmentStatus ? <span>Статус: {item.enrollmentStatus}</span> : null}
-                      {item.requestId ? <span>Request ID: {item.requestId}</span> : null}
-                      {item.eventId ? <span>Event ID: {item.eventId}</span> : null}
-                    </div>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           <ScheduledTimelineEventsCard
             contactId={contact.id}

@@ -3,7 +3,6 @@ import type {
   DealPipelineStage,
   DealStage,
   Lead,
-  LeadQualificationStatus,
   LeadStatus,
   Task,
   TaskStatus,
@@ -12,37 +11,24 @@ import type {
   PaymentStatus,
 } from '@/types';
 
-export function getLeadQualificationStatus(lead: Pick<Lead, 'status' | 'qualificationStatus'>): LeadQualificationStatus {
-  if (lead.qualificationStatus) return lead.qualificationStatus;
-
-  switch (lead.status) {
-    case 'contacted':
-      return 'contacted';
-    case 'interested':
-    case 'trial_scheduled':
-    case 'trial_completed':
-    case 'offer_sent':
-    case 'negotiation':
-    case 'payment_pending':
-    case 'won':
-      return 'qualified';
-    case 'lost':
-      return 'disqualified';
-    case 'new':
-    default:
-      return 'new';
-  }
-}
-
-export function getDealPipelineStage(deal: Pick<Deal, 'stage' | 'pipelineStage'>): DealPipelineStage {
+export function getDealPipelineStage(
+  deal: Pick<Deal, 'stage' | 'pipelineStage'>,
+  tenantStages?: Array<{ key: string; label: string }>
+): DealPipelineStage {
   if (deal.pipelineStage) return deal.pipelineStage;
 
+  // If tenant stages are configured, check if the deal's stage matches any tenant stage key
+  if (tenantStages && tenantStages.length > 0) {
+    const matchedTenantStage = tenantStages.find(s => s.key === deal.stage);
+    if (matchedTenantStage) {
+      return matchedTenantStage.key as DealPipelineStage;
+    }
+  }
+
+  // Fallback to hardcoded mapping
   switch (deal.stage) {
     case 'contacted':
       return 'consultation';
-    case 'trial_booked':
-    case 'trial_completed':
-      return 'trial';
     case 'offer_sent':
     case 'negotiation':
       return 'negotiation';
@@ -78,28 +64,22 @@ export function getPaymentWorkflowStatus(payment: Pick<Payment, 'status' | 'paym
   return payment.paymentStatus || payment.status;
 }
 
-export function mapQualificationToLeadStatus(status: LeadQualificationStatus): LeadStatus {
-  switch (status) {
-    case 'contacted':
-      return 'contacted';
-    case 'qualified':
-      return 'interested';
-    case 'disqualified':
-      return 'lost';
-    case 'no_response':
-      return 'new';
-    case 'new':
-    default:
-      return 'new';
+export function mapPipelineToDealStage(
+  stage: DealPipelineStage,
+  tenantStages?: Array<{ key: string; label: string }>
+): DealStage {
+  // If tenant stages are configured, check if the pipeline stage matches any tenant stage key
+  if (tenantStages && tenantStages.length > 0) {
+    const matchedTenantStage = tenantStages.find(s => s.key === stage);
+    if (matchedTenantStage) {
+      return matchedTenantStage.key as DealStage;
+    }
   }
-}
 
-export function mapPipelineToDealStage(stage: DealPipelineStage): DealStage {
+  // Fallback to hardcoded mapping
   switch (stage) {
     case 'consultation':
       return 'contacted';
-    case 'trial':
-      return 'trial_booked';
     case 'negotiation':
       return 'negotiation';
     case 'payment_pending':

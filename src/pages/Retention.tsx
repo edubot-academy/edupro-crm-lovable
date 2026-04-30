@@ -7,11 +7,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { ky } from '@/lib/i18n';
+import { formatDate } from '@/lib/formatting';
 import type { RetentionCase } from '@/types';
+import type { RetentionCaseWithLmsData } from '@/types/bridge';
 import { retentionApi } from '@/api/modules';
 import { Phone, ArrowUpCircle, CheckCircle, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
+import { useRolePermissions } from '@/hooks/use-role-permissions';
 
 const caseStatusVariant = (s: string) => {
   switch (s) { case 'open': return 'destructive' as const; case 'contacted': return 'warning' as const; case 'monitoring': return 'info' as const; case 'resolved': return 'success' as const; case 'escalated': return 'info' as const; default: return 'default' as const; }
@@ -49,14 +52,43 @@ export default function RetentionPage() {
     setIsDeleting(true);
     try {
       await retentionApi.delete(deleteTarget.id);
-      toast({ title: ky.retention.deleteSuccess });
+      toast({ title: 'Учур ийгиликтүү өчүрүлдү' });
       setDeleteTarget(null);
       fetchCases();
-    } catch (error) {
-      const friendly = getFriendlyError(error, { fallbackTitle: ky.retention.deleteError });
-      toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
+    } catch {
+      toast({ title: 'Өчүрүү ишке ашкан жок', variant: 'destructive' });
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleContact = async (id: number) => {
+    try {
+      await retentionApi.contact(id);
+      toast({ title: 'Статус "Байланышталды" деп белгиледи' });
+      fetchCases();
+    } catch {
+      toast({ title: 'Статус өзгөртүү ишке ашкан жок', variant: 'destructive' });
+    }
+  };
+
+  const handleResolve = async (id: number) => {
+    try {
+      await retentionApi.resolve(id);
+      toast({ title: 'Учур ийгиликтүү чечилди' });
+      fetchCases();
+    } catch {
+      toast({ title: 'Чечүү ишке ашкан жок', variant: 'destructive' });
+    }
+  };
+
+  const handleEscalate = async (id: number) => {
+    try {
+      await retentionApi.escalate(id);
+      toast({ title: 'Учур ийгиликтүү жогорулатылды' });
+      fetchCases();
+    } catch {
+      toast({ title: 'Жогорулатуу ишке ашкан жок', variant: 'destructive' });
     }
   };
 
@@ -105,27 +137,30 @@ export default function RetentionPage() {
   );
 
   const columns: Column<RetentionCase>[] = [
-    { key: 'summary', header: ky.retention.summary, render: (c) => (
-      <div>
-        <span className="font-medium">{c.summary || '—'}</span>
-        <p className="text-xs text-muted-foreground">{c.lmsCourseId} • {c.lmsGroupId}</p>
-      </div>
-    )},
+    {
+      key: 'summary', header: ky.retention.summary, render: (c) => (
+        <div>
+          <span className="font-medium">{c.summary || '—'}</span>
+        </div>
+      )
+    },
     { key: 'issueType', header: ky.retention.issueType, render: (c) => <span className="text-sm">{ky.issueType[c.issueType]}</span> },
     { key: 'severity', header: ky.retention.severity, render: (c) => <StatusBadge variant={getRiskSeverityVariant(c.severity)} dot>{ky.riskSeverity[c.severity]}</StatusBadge> },
-    { key: 'lastActivityAt', header: ky.retention.lastActivity, render: (c) => c.lastActivityAt ? new Date(c.lastActivityAt).toLocaleDateString('ky-KG') : '—', className: 'hidden md:table-cell' },
+    { key: 'lastActivityAt', header: ky.retention.lastActivity, render: (c) => c.lastActivityAt ? formatDate(c.lastActivityAt) : '—', className: 'hidden md:table-cell' },
     { key: 'assignedTo', header: ky.common.manager, render: (c) => c.assignedTo?.fullName || '—', className: 'hidden lg:table-cell' },
     { key: 'status', header: ky.common.status, render: (c) => <StatusBadge variant={caseStatusVariant(c.status)} dot>{caseStatusLabel[c.status]}</StatusBadge> },
-    { key: 'actions', header: ky.common.actions, render: (c) => (
-      <div className="flex items-center gap-1">
-        <Button variant="ghost" size="sm" className="h-7 text-xs" title={ky.retention.contactStudent} aria-label={`${c.summary || 'Учур'}: ${ky.retention.contactStudent.toLowerCase()}`}><Phone className="h-3.5 w-3.5" /></Button>
-        {c.status === 'open' && <Button variant="ghost" size="sm" className="h-7 text-xs text-success" title={ky.retention.resolve} aria-label={`${c.summary || 'Учур'}: ${ky.retention.resolve.toLowerCase()}`}><CheckCircle className="h-3.5 w-3.5" /></Button>}
-        {(c.status === 'open' || c.status === 'contacted') && <Button variant="ghost" size="sm" className="h-7 text-xs text-warning" title={ky.retention.escalate} aria-label={`${c.summary || 'Учур'}: ${ky.retention.escalate.toLowerCase()}`}><ArrowUpCircle className="h-3.5 w-3.5" /></Button>}
-        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(c); }} aria-label={`${ky.common.delete} ${c.summary || 'учур'}`}>
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
-      </div>
-    )},
+    {
+      key: 'actions', header: ky.common.actions, render: (c) => (
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" className="h-7 text-xs" title={ky.retention.contactStudent} aria-label={`${c.summary || 'Учур'}: ${ky.retention.contactStudent.toLowerCase()}`} onClick={() => handleContact(c.id)}><Phone className="h-3.5 w-3.5" /></Button>
+          {c.status === 'open' && <Button variant="ghost" size="sm" className="h-7 text-xs text-success" title={ky.retention.resolve} aria-label={`${c.summary || 'Учур'}: ${ky.retention.resolve.toLowerCase()}`} onClick={() => handleResolve(c.id)}><CheckCircle className="h-3.5 w-3.5" /></Button>}
+          {(c.status === 'open' || c.status === 'contacted') && <Button variant="ghost" size="sm" className="h-7 text-xs text-warning" title={ky.retention.escalate} aria-label={`${c.summary || 'Учур'}: ${ky.retention.escalate.toLowerCase()}`} onClick={() => handleEscalate(c.id)}><ArrowUpCircle className="h-3.5 w-3.5" /></Button>}
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(c); }} aria-label={`${ky.common.delete} ${c.summary || 'учур'}`}>
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )
+    },
   ];
 
   const renderMobileCard = (retentionCase: RetentionCase) => (
@@ -145,13 +180,15 @@ export default function RetentionPage() {
           </div>
           <div className="rounded-md bg-muted/60 p-2">
             <p className="text-xs text-muted-foreground">{ky.retention.lastActivity}</p>
-            <p className="font-medium">{retentionCase.lastActivityAt ? new Date(retentionCase.lastActivityAt).toLocaleDateString('ky-KG') : '—'}</p>
+            <p className="font-medium">{retentionCase.lastActivityAt ? formatDate(retentionCase.lastActivityAt) : '—'}</p>
           </div>
         </div>
         <div className="flex items-center justify-between">
           <div className="text-xs text-muted-foreground">{retentionCase.assignedTo?.fullName || 'Менеджер жок'}</div>
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title={ky.retention.contactStudent} onClick={(e) => e.stopPropagation()}><Phone className="h-3.5 w-3.5" /></Button>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title={ky.retention.contactStudent} onClick={(e) => { e.stopPropagation(); handleContact(retentionCase.id); }}><Phone className="h-3.5 w-3.5" /></Button>
+            {retentionCase.status === 'open' && <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-success" title={ky.retention.resolve} onClick={(e) => { e.stopPropagation(); handleResolve(retentionCase.id); }}><CheckCircle className="h-3.5 w-3.5" /></Button>}
+            {(retentionCase.status === 'open' || retentionCase.status === 'contacted') && <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-warning" title={ky.retention.escalate} onClick={(e) => { e.stopPropagation(); handleEscalate(retentionCase.id); }}><ArrowUpCircle className="h-3.5 w-3.5" /></Button>}
             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(retentionCase); }}>
               <Trash2 className="h-4 w-4" />
             </Button>

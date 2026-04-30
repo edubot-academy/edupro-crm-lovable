@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
 import { useApproveEnrollment, useEnrollmentHistory, usePendingEnrollments } from '@/hooks/use-enrollments';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRolePermissions } from '@/hooks/use-role-permissions';
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
 import { Calendar, CheckCircle, Clock, Copy, Loader2, Mail, Phone, RefreshCw, FileText } from 'lucide-react';
@@ -56,8 +57,10 @@ interface EnrollmentHistoryItem {
 
 export default function EnrollmentsPage() {
   const [searchParams] = useSearchParams();
-  const { user } = useAuth();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { canAccessAdminPanel } = useRolePermissions();
+  const isApprovalAdmin = canAccessAdminPanel();
   const [activeTab, setActiveTab] = useState('pending');
   const [selectedEnrollment, setSelectedEnrollment] = useState<PendingEnrollment | null>(null);
   const [approvalNotes, setApprovalNotes] = useState('');
@@ -69,10 +72,10 @@ export default function EnrollmentsPage() {
   const initialStudentId = searchParams.get('studentId') || undefined;
   const initialHistoryFilters = {
     crmContactId: searchParams.get('crmContactId') || undefined,
+    crmDealId: searchParams.get('crmDealId') || undefined,
     lmsStudentId: searchParams.get('studentId') || undefined,
     lmsEnrollmentId: searchParams.get('enrollmentId') || undefined,
   };
-  const isApprovalAdmin = user?.role === 'admin' || user?.role === 'superadmin';
 
   const coursesQuery = useLmsCourses();
   const groupsQuery = useLmsGroups();

@@ -11,10 +11,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Card, CardContent } from '@/components/ui/card';
 import { ky } from '@/lib/i18n';
 import { contactApi } from '@/api/modules';
+import { formatDate } from '@/lib/formatting';
 import type { Contact } from '@/types';
-import { Plus, Trash2, Loader2, Mail, Phone, IdCard, GraduationCap } from 'lucide-react';
+import { Plus, Trash2, Loader2, Mail, Phone, IdCard, GraduationCap, Pencil } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
+import { useRolePermissions } from '@/hooks/use-role-permissions';
 
 const emptyForm = { fullName: '', phone: '', email: '', notes: '' };
 
@@ -22,9 +24,11 @@ export default function ContactsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
+  const { canViewLmsTechnicalFields } = useRolePermissions();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [totalItems, setTotalItems] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -50,6 +54,7 @@ export default function ContactsPage() {
 
   const fetchContacts = () => {
     setIsLoading(true);
+    setLoadError(null);
     contactApi.list({ search })
       .then((res) => {
         setContacts(res.items);
@@ -58,6 +63,12 @@ export default function ContactsPage() {
       .catch(() => {
         setContacts([]);
         setTotalItems(0);
+        setLoadError('Интернет байланышын текшерип, кайра аракет кылыңыз');
+        toast({
+          title: 'Тизмени жүктөө мүмкүн болгон жок',
+          description: 'Интернет байланышын текшерип, кайра аракет кылыңыз',
+          variant: 'destructive',
+        });
       })
       .finally(() => setIsLoading(false));
   };
@@ -108,7 +119,6 @@ export default function ContactsPage() {
     { key: 'fullName', header: ky.common.name, render: (c) => <span className="font-medium">{c.fullName}</span> },
     { key: 'phone', header: ky.common.phone },
     { key: 'email', header: ky.common.email, className: 'hidden md:table-cell' },
-    { key: 'lmsStudentId', header: ky.contacts.lmsId, render: (c) => <span className="text-xs font-mono text-muted-foreground">{c.lmsStudentId || '—'}</span> },
     { key: 'notes', header: ky.common.notes, render: (c) => <span className="text-sm text-muted-foreground truncate max-w-[200px] block">{c.notes || '—'}</span>, className: 'hidden lg:table-cell' },
     {
       key: 'actions', header: '', render: (c) => (
@@ -119,17 +129,26 @@ export default function ContactsPage() {
             className="h-8 w-8"
             onClick={(e) => {
               e.stopPropagation();
-              navigate(`/enrollments?crmContactId=${c.id}${c.lmsStudentId ? `&studentId=${encodeURIComponent(c.lmsStudentId)}` : ''}`);
+              navigate(`/contacts/${c.id}`);
             }}
-            aria-label={`${c.fullName} үчүн LMS каттоону ачуу`}
+            aria-label={`${c.fullName} маалыматын ачуу`}
           >
-            <GraduationCap className="h-4 w-4" />
+            <Pencil className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(c); }} aria-label={`${ky.common.delete} ${c.fullName}`}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-destructive hover:text-destructive"
+            onClick={(e) => {
+              e.stopPropagation();
+              setDeleteTarget(c);
+            }}
+            aria-label={`${c.fullName} өчүрүү`}
+          >
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
-      ),
+      )
     },
   ];
 
@@ -140,7 +159,7 @@ export default function ContactsPage() {
           <div className="min-w-0">
             <p className="truncate font-semibold">{contact.fullName}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {new Date(contact.createdAt).toLocaleDateString('ky-KG')}
+              {formatDate(contact.createdAt)}
             </p>
           </div>
           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(contact); }} aria-label={`${ky.common.delete} ${contact.fullName}`}>
@@ -150,19 +169,17 @@ export default function ContactsPage() {
         <div className="space-y-2 text-sm text-muted-foreground">
           <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5" /><span>{contact.phone}</span></div>
           {contact.email && <div className="flex items-center gap-2"><Mail className="h-3.5 w-3.5" /><span className="truncate">{contact.email}</span></div>}
-          <div className="flex items-center gap-2"><IdCard className="h-3.5 w-3.5" /><span>{contact.lmsStudentId || ky.contacts.noLmsId}</span></div>
         </div>
         <Button
           variant="outline"
           size="sm"
           onClick={(e) => {
             e.stopPropagation();
-            navigate(`/enrollments?crmContactId=${contact.id}${contact.lmsStudentId ? `&studentId=${encodeURIComponent(contact.lmsStudentId)}` : ''}`);
+            navigate(`/contacts/${contact.id}`);
           }}
-          aria-label={`${contact.fullName} үчүн LMS каттоону ачуу`}
+          aria-label={`${contact.fullName} маалыматын ачуу`}
         >
-          <GraduationCap className="mr-2 h-4 w-4" />
-          LMS
+          Карточканы ачуу
         </Button>
         {contact.notes && <p className="rounded-md bg-muted/60 p-2 text-xs text-muted-foreground line-clamp-3">{contact.notes}</p>}
       </CardContent>
@@ -185,7 +202,7 @@ export default function ContactsPage() {
           setShowCreate(true);
         }}><Plus className="mr-2 h-4 w-4" />{ky.contacts.newContact}</Button>}
       />
-      <DataTable columns={columns} data={contacts} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Байланыш издөө..." activeFilters={activeFilters} totalItems={totalItems} totalItemsLabel="байланыш" stickyHeader onRowClick={(c) => navigate(`/contacts/${c.id}`)} renderMobileCard={renderMobileCard} />
+      <DataTable columns={columns} data={contacts} isLoading={isLoading} errorMessage={loadError || undefined} onRetry={fetchContacts} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Байланыш издөө..." activeFilters={activeFilters} totalItems={totalItems} totalItemsLabel="байланыш" stickyHeader onRowClick={(c) => navigate(`/contacts/${c.id}`)} renderMobileCard={renderMobileCard} />
 
       <Dialog open={showCreate} onOpenChange={(open) => {
         setShowCreate(open);

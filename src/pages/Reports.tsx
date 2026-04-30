@@ -11,8 +11,11 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { ky } from '@/lib/i18n';
 import { reportsApi } from '@/api/modules';
-import type { DashboardStats, DashboardStatsQueryParams } from '@/types';
+import type { DashboardStats, DashboardStatsQueryParams, CrmDashboardStats, EducationDashboardStats } from '@/types';
 import { DateRangeFilter } from '@/components/DateRangeFilter';
+import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
+import { useTenantConfig } from '@/components/core/TenantConfigProvider';
+import { useFeatureFlags } from '@/components/core/FeatureFlagProvider';
 import {
   Users, UserPlus, TrendingUp, Target, CreditCard, Trophy,
   AlertTriangle, Download, RefreshCw, GraduationCap,
@@ -30,16 +33,19 @@ const COLORS = [
   'hsl(140, 60%, 45%)', 'hsl(30, 80%, 55%)',
 ];
 
-const emptyStats: DashboardStats = {
+const emptyCrmStats: CrmDashboardStats = {
   totalLeads: 0,
   newLeads: 0,
   conversionRate: 0,
-  trialToSaleConversion: 0,
   paymentPendingCount: 0,
   wonDeals: 0,
   openRetentionCases: 0,
   leadsBySource: [],
   managerPerformance: [],
+};
+
+const emptyEducationStats: EducationDashboardStats = {
+  trialToSaleConversion: 0,
   popularCourses: [],
 };
 
@@ -64,15 +70,17 @@ const emptyRevenueReports = {
 };
 
 // CSV export helper
-function exportCSV(stats: DashboardStats) {
+function exportCSV(stats: DashboardStats, isLmsEnabled: boolean) {
   const rows: string[] = [];
   rows.push('Метрика,Маани');
   rows.push(`Жалпы лидтер,${stats.totalLeads}`);
   rows.push(`Жаңы лидтер,${stats.newLeads}`);
   rows.push(`Конверсия %,${stats.conversionRate}`);
-  rows.push(`Сыноодон сатуу %,${stats.trialToSaleConversion}`);
+  if (isLmsEnabled) {
+    rows.push(`Сыноодон сатуу %,${stats.trialToSaleConversion}`);
+  }
   rows.push(`Төлөм күтүлүүдө,${stats.paymentPendingCount}`);
-  rows.push(`Утулган келишимдер,${stats.wonDeals}`);
+  rows.push(`Ийгиликтүү келишимдер,${stats.wonDeals}`);
   rows.push(`Ачык тобокелдик,${stats.openRetentionCases}`);
   rows.push('');
   rows.push('Булак,Саны');
@@ -80,9 +88,11 @@ function exportCSV(stats: DashboardStats) {
   rows.push('');
   rows.push('Менеджер,Лидтер,Келишимдер,Конверсия %');
   stats.managerPerformance.forEach((m) => rows.push(`${m.manager},${m.leads},${m.deals},${m.conversion}`));
-  rows.push('');
-  rows.push('Курс,Каттоолор');
-  stats.popularCourses.forEach((c) => rows.push(`${c.course},${c.enrollments}`));
+  if (isLmsEnabled) {
+    rows.push('');
+    rows.push('Курс,Каттоолор');
+    stats.popularCourses.forEach((c) => rows.push(`${c.course},${c.enrollments}`));
+  }
 
   const blob = new Blob(['\uFEFF' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -94,9 +104,12 @@ function exportCSV(stats: DashboardStats) {
 }
 
 export default function ReportsPage() {
+  const { isLmsBridgeEnabled } = useLmsBridge();
+  const { tenantConfig } = useTenantConfig();
+  const { isFeatureEnabled } = useFeatureFlags();
   const [searchParams, setSearchParams] = useSearchParams();
   const getSearchParam = (key: string, fallback = '') => searchParams.get(key) ?? fallback;
-  const [stats, setStats] = useState<DashboardStats>(emptyStats);
+  const [stats, setStats] = useState<DashboardStats>({ ...emptyCrmStats, ...emptyEducationStats });
   const [paymentReports, setPaymentReports] = useState(emptyPaymentReports);
   const [revenueReports, setRevenueReports] = useState(emptyRevenueReports);
   const [isLoading, setIsLoading] = useState(true);
@@ -106,7 +119,7 @@ export default function ReportsPage() {
   const [customToDate, setCustomToDate] = useState<string>(() => getSearchParam('to'));
   const [sourceFilter, setSourceFilter] = useState(() => getSearchParam('source', 'all'));
   const [managerFilter, setManagerFilter] = useState(() => getSearchParam('manager', 'all'));
-  const [courseFilter, setCourseFilter] = useState(() => getSearchParam('course', 'all'));
+  const [courseFilter, setCourseFilter] = useState(() => isLmsBridgeEnabled ? getSearchParam('course', 'all') : 'all');
 
   const fetchStats = useCallback(() => {
     setIsLoading(true);
@@ -133,7 +146,7 @@ export default function ReportsPage() {
     }
     if (sourceFilter !== 'all') params.source = sourceFilter;
     if (managerFilter !== 'all') params.managerId = managerFilter;
-    if (courseFilter !== 'all') params.courseId = courseFilter;
+    if (isLmsBridgeEnabled && courseFilter !== 'all') params.courseId = courseFilter;
 
     Promise.all([
       reportsApi.getStats(params),
@@ -146,13 +159,13 @@ export default function ReportsPage() {
         setRevenueReports(revenueData);
       })
       .catch(() => {
-        setStats(emptyStats);
+        setStats({ ...emptyCrmStats, ...emptyEducationStats });
         setPaymentReports(emptyPaymentReports);
         setRevenueReports(emptyRevenueReports);
         setError('Отчет маалыматтарын жүктөө мүмкүн болгон жок. Кийинчерээк кайра аракет кылыңыз.');
       })
       .finally(() => setIsLoading(false));
-  }, [dateFilter, customFromDate, customToDate, sourceFilter, managerFilter, courseFilter]);
+  }, [dateFilter, customFromDate, customToDate, sourceFilter, managerFilter, courseFilter, isLmsBridgeEnabled]);
 
   useEffect(() => { fetchStats(); }, [fetchStats]);
 
@@ -162,7 +175,7 @@ export default function ReportsPage() {
     const nextTo = searchParams.get('to') ?? '';
     const nextSource = searchParams.get('source') ?? 'all';
     const nextManager = searchParams.get('manager') ?? 'all';
-    const nextCourse = searchParams.get('course') ?? 'all';
+    const nextCourse = isLmsBridgeEnabled ? (searchParams.get('course') ?? 'all') : 'all';
 
     if (nextDate !== dateFilter) setDateFilter(nextDate);
     if (nextFrom !== customFromDate) setCustomFromDate(nextFrom);
@@ -170,7 +183,7 @@ export default function ReportsPage() {
     if (nextSource !== sourceFilter) setSourceFilter(nextSource);
     if (nextManager !== managerFilter) setManagerFilter(nextManager);
     if (nextCourse !== courseFilter) setCourseFilter(nextCourse);
-  }, [searchParams]);
+  }, [searchParams, isLmsBridgeEnabled]);
 
   useEffect(() => {
     setSearchParams((current) => {
@@ -191,12 +204,12 @@ export default function ReportsPage() {
       if (managerFilter !== 'all') next.set('manager', managerFilter);
       else next.delete('manager');
 
-      if (courseFilter !== 'all') next.set('course', courseFilter);
+      if (isLmsBridgeEnabled && courseFilter !== 'all') next.set('course', courseFilter);
       else next.delete('course');
 
       return next.toString() === current.toString() ? current : next;
     }, { replace: true });
-  }, [dateFilter, customFromDate, customToDate, sourceFilter, managerFilter, courseFilter, setSearchParams]);
+  }, [dateFilter, customFromDate, customToDate, sourceFilter, managerFilter, courseFilter, setSearchParams, isLmsBridgeEnabled]);
 
   // Filtered data for client-side filtering
   const filteredSources = sourceFilter === 'all'
@@ -253,8 +266,8 @@ export default function ReportsPage() {
             <Button variant="outline" size="sm" onClick={fetchStats}>
               <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Жаңыртуу
             </Button>
-            <Button variant="outline" size="sm" onClick={() => exportCSV(stats)}>
-              <Download className="mr-1.5 h-3.5 w-3.5" /> CSV Экспорт
+            <Button variant="outline" size="sm" onClick={() => exportCSV(stats, isLmsBridgeEnabled)}>
+              <Download className="mr-1.5 h-3.5 w-3.5" /> CSV жүктөп алуу
             </Button>
           </div>
         }
@@ -291,14 +304,16 @@ export default function ReportsPage() {
                 {stats.managerPerformance.map((m) => <SelectItem key={m.manager} value={m.manager}>{m.manager}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={courseFilter} onValueChange={setCourseFilter}>
-              <SelectTrigger className="h-9 w-full text-xs sm:w-[150px]"><SelectValue placeholder="Курс" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Бардык курстар</SelectItem>
-                {stats.popularCourses.map((c) => <SelectItem key={c.course} value={c.course}>{c.course}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            {(dateFilter !== 'all' || customFromDate || customToDate || sourceFilter !== 'all' || managerFilter !== 'all' || courseFilter !== 'all') && (
+            {isLmsBridgeEnabled && (
+              <Select value={courseFilter} onValueChange={setCourseFilter}>
+                <SelectTrigger className="h-9 w-full text-xs sm:w-[150px]"><SelectValue placeholder="Курс" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Бардык курстар</SelectItem>
+                  {stats.popularCourses.map((c) => <SelectItem key={c.course} value={c.course}>{c.course}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+            {(dateFilter !== 'all' || customFromDate || customToDate || sourceFilter !== 'all' || managerFilter !== 'all' || (isLmsBridgeEnabled && courseFilter !== 'all')) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -321,12 +336,16 @@ export default function ReportsPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="flex w-full min-w-max items-center justify-start gap-1 overflow-x-auto rounded-lg p-1 lg:inline-grid lg:w-auto lg:grid-cols-5">
+        <TabsList className={`flex w-full min-w-max items-center justify-start gap-1 overflow-x-auto rounded-lg p-1 lg:inline-grid lg:w-auto ${isLmsBridgeEnabled ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} ${isFeatureEnabled('retention_enabled') ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
           <TabsTrigger value="overview" className="text-xs gap-1.5"><BarChart3 className="h-3.5 w-3.5" />Жалпы</TabsTrigger>
           <TabsTrigger value="sales" className="text-xs gap-1.5"><TrendingUp className="h-3.5 w-3.5" />Сатуу</TabsTrigger>
-          <TabsTrigger value="courses" className="text-xs gap-1.5"><GraduationCap className="h-3.5 w-3.5" />Курстар</TabsTrigger>
+          {isLmsBridgeEnabled && (
+            <TabsTrigger value="courses" className="text-xs gap-1.5"><GraduationCap className="h-3.5 w-3.5" />Курстар</TabsTrigger>
+          )}
           <TabsTrigger value="payments" className="text-xs gap-1.5"><DollarSign className="h-3.5 w-3.5" />Төлөмдөр</TabsTrigger>
-          <TabsTrigger value="retention" className="text-xs gap-1.5"><Activity className="h-3.5 w-3.5" />Тобокелдик</TabsTrigger>
+          {isFeatureEnabled('retention_enabled') && (
+            <TabsTrigger value="retention" className="text-xs gap-1.5"><Activity className="h-3.5 w-3.5" />Тобокелдик</TabsTrigger>
+          )}
         </TabsList>
 
         {/* ===== OVERVIEW TAB ===== */}
@@ -339,9 +358,13 @@ export default function ReportsPage() {
             <StatCard title={ky.dashboard.wonDeals} value={stats.wonDeals} icon={Trophy} variant="success" />
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <StatCard title={ky.dashboard.trialConversion} value={`${stats.trialToSaleConversion}%`} icon={Target} variant="success" />
+            {isLmsBridgeEnabled && (
+              <StatCard title={ky.dashboard.trialConversion} value={`${stats.trialToSaleConversion}%`} icon={Target} variant="success" />
+            )}
             <StatCard title={ky.dashboard.paymentPending} value={stats.paymentPendingCount} icon={CreditCard} variant="warning" />
-            <StatCard title={ky.dashboard.openRetention} value={stats.openRetentionCases} icon={AlertTriangle} variant="destructive" />
+            {isFeatureEnabled('retention_enabled') && (
+              <StatCard title={ky.dashboard.openRetention} value={stats.openRetentionCases} icon={AlertTriangle} variant="destructive" />
+            )}
           </div>
 
           {/* Leads by Source — Pie + Bar */}
@@ -517,7 +540,7 @@ export default function ReportsPage() {
             {/* Trial Conversion Radial */}
             <Card className="shadow-card border-border/50">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">Сыноо сабак конверсиясы</CardTitle>
+                <CardTitle className="text-sm font-semibold">Сыноо сабагынын конверсиясы</CardTitle>
                 <p className="text-xs text-muted-foreground">Сыноодон катталганга өтүү пайызы</p>
               </CardHeader>
               <CardContent className="flex flex-col items-center justify-center">
@@ -577,16 +600,16 @@ export default function ReportsPage() {
           {/* Payment Summary Cards */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard title="Жалпы төлөмдөр" value={paymentReports.totalCount} icon={CreditCard} variant="primary" />
-            <StatCard title="Жалпы сумма" value={`${paymentReports.totalAmount.toLocaleString()} сом`} icon={DollarSign} variant="success" />
+            <StatCard title="Жалпы сумма" value={`${paymentReports.totalAmount.toLocaleString()} ${tenantConfig.currency}`} icon={DollarSign} variant="success" />
             <StatCard title="Ырасталган" value={paymentReports.byStatus.confirmed.count} icon={Trophy} variant="success" />
             <StatCard title="Күтүлүүдө" value={paymentReports.byStatus.submitted.count} icon={AlertTriangle} variant="warning" />
           </div>
 
           {/* Revenue Stats */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <StatCard title="Жалпы киреше" value={`${revenueReports.totalRevenue.toLocaleString()} сом`} icon={DollarSign} variant="success" />
+            <StatCard title="Жалпы киреше" value={`${revenueReports.totalRevenue.toLocaleString()} ${tenantConfig.currency}`} icon={DollarSign} variant="success" />
             <StatCard title="Төлөмдөр саны" value={revenueReports.paymentCount} icon={CreditCard} variant="info" />
-            <StatCard title="Орточо төлөм" value={`${revenueReports.averagePayment.toLocaleString()} сом`} icon={TrendingUp} variant="info" />
+            <StatCard title="Орточо төлөм" value={`${revenueReports.averagePayment.toLocaleString()} ${tenantConfig.currency}`} icon={TrendingUp} variant="info" />
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
@@ -606,7 +629,7 @@ export default function ReportsPage() {
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(v) => v.slice(5)} />
                       <YAxis tick={{ fontSize: 10 }} />
-                      <Tooltip formatter={(v: number) => `${v.toLocaleString()} сом`} />
+                      <Tooltip formatter={(v: number) => `${v.toLocaleString()} ${tenantConfig.currency}`} />
                       <Line type="monotone" dataKey="amount" stroke="hsl(167, 65%, 44%)" strokeWidth={2} dot={false} name="Кише" />
                     </LineChart>
                   </ResponsiveContainer>
@@ -667,7 +690,7 @@ export default function ReportsPage() {
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="method" tick={{ fontSize: 10 }} />
                       <YAxis tick={{ fontSize: 10 }} />
-                      <Tooltip formatter={(v: number, name: string) => [name === 'amount' ? `${v.toLocaleString()} сом` : `${v} шт`, name === 'amount' ? 'Сумма' : 'Саны']} />
+                      <Tooltip formatter={(v: number, name: string) => [name === 'amount' ? `${v.toLocaleString()} ${tenantConfig.currency}` : `${v} шт`, name === 'amount' ? 'Сумма' : 'Саны']} />
                       <Legend />
                       <Bar dataKey="count" fill="hsl(220, 70%, 50%)" radius={[4, 4, 0, 0]} name="Саны" />
                       <Bar dataKey="amount" fill="hsl(167, 65%, 44%)" radius={[4, 4, 0, 0]} name="Сумма" />
@@ -689,7 +712,7 @@ export default function ReportsPage() {
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis type="number" tick={{ fontSize: 10 }} />
                       <YAxis type="category" dataKey="course" width={100} tick={{ fontSize: 10 }} />
-                      <Tooltip formatter={(v: number) => `${v.toLocaleString()} сом`} />
+                      <Tooltip formatter={(v: number) => `${v.toLocaleString()} ${tenantConfig.currency}`} />
                       <Bar dataKey="amount" fill="hsl(200, 80%, 50%)" radius={[0, 4, 4, 0]} name="Кише" />
                     </BarChart>
                   </ResponsiveContainer>
@@ -719,9 +742,9 @@ export default function ReportsPage() {
                       <tr key={m.manager} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
                         <td className="py-2.5 px-3 font-medium">{m.manager}</td>
                         <td className="py-2.5 px-3 text-right">{m.count}</td>
-                        <td className="py-2.5 px-3 text-right font-medium">{m.amount.toLocaleString()} сом</td>
+                        <td className="py-2.5 px-3 text-right font-medium">{m.amount.toLocaleString()} {tenantConfig.currency}</td>
                         <td className="py-2.5 px-3 text-right text-muted-foreground">
-                          {m.count > 0 ? (m.amount / m.count).toFixed(0) : 0} сом
+                          {m.count > 0 ? (m.amount / m.count).toFixed(0) : 0} {tenantConfig.currency}
                         </td>
                       </tr>
                     ))}
@@ -733,64 +756,66 @@ export default function ReportsPage() {
         </TabsContent>
 
         {/* ===== RETENTION TAB ===== */}
-        <TabsContent value="retention" className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <StatCard title={ky.dashboard.openRetention} value={stats.openRetentionCases} icon={AlertTriangle} variant="destructive" />
-            <StatCard title={ky.dashboard.paymentPending} value={stats.paymentPendingCount} icon={CreditCard} variant="warning" />
-            <StatCard title="Конверсия" value={`${stats.conversionRate}%`} icon={TrendingUp} variant="success" />
-          </div>
+        {isFeatureEnabled('retention_enabled') && (
+          <TabsContent value="retention" className="space-y-6">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <StatCard title={ky.dashboard.openRetention} value={stats.openRetentionCases} icon={AlertTriangle} variant="destructive" />
+              <StatCard title={ky.dashboard.paymentPending} value={stats.paymentPendingCount} icon={CreditCard} variant="warning" />
+              <StatCard title="Конверсия" value={`${stats.conversionRate}%`} icon={TrendingUp} variant="success" />
+            </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Retention Overview */}
-            <Card className="shadow-card border-border/50">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">Тобокелдик сводкасы</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  {[
-                    { label: 'Ачык учурлар', value: stats.openRetentionCases, color: 'bg-destructive' },
-                    { label: 'Төлөм күтүлүүдө', value: stats.paymentPendingCount, color: 'bg-warning' },
-                    { label: 'Жаңы лидтер (иштетилбеген)', value: stats.newLeads, color: 'bg-info' },
-                  ].map((item) => (
-                    <div key={item.label} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className={cn('h-2.5 w-2.5 rounded-full', item.color)} />
-                        <span className="text-sm">{item.label}</span>
+            <div className="grid gap-6 lg:grid-cols-2">
+              {/* Retention Overview */}
+              <Card className="shadow-card border-border/50">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold">Тобокелдик сводкасы</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    {[
+                      { label: 'Ачык учурлар', value: stats.openRetentionCases, color: 'bg-destructive' },
+                      { label: 'Төлөм күтүлүүдө', value: stats.paymentPendingCount, color: 'bg-warning' },
+                      { label: 'Жаңы лидтер (иштетилбеген)', value: stats.newLeads, color: 'bg-info' },
+                    ].map((item) => (
+                      <div key={item.label} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className={cn('h-2.5 w-2.5 rounded-full', item.color)} />
+                          <span className="text-sm">{item.label}</span>
+                        </div>
+                        <span className="text-sm font-semibold">{item.value}</span>
                       </div>
-                      <span className="text-sm font-semibold">{item.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
 
-            {/* Payment Status */}
-            <Card className="shadow-card border-border/50">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold">Төлөм аналитикасы</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  {[
-                    { label: 'Ырасталган келишимдер', value: stats.wonDeals, pct: stats.totalLeads ? ((stats.wonDeals / stats.totalLeads) * 100).toFixed(1) : '0' },
-                    { label: 'Күтүлүүдө', value: stats.paymentPendingCount, pct: stats.totalLeads ? ((stats.paymentPendingCount / stats.totalLeads) * 100).toFixed(1) : '0' },
-                  ].map((item) => (
-                    <div key={item.label}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm">{item.label}</span>
-                        <span className="text-sm font-medium">{item.value} ({item.pct}%)</span>
+              {/* Payment Status */}
+              <Card className="shadow-card border-border/50">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold">Төлөм аналитикасы</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    {[
+                      { label: 'Ырасталган келишимдер', value: stats.wonDeals, pct: stats.totalLeads ? ((stats.wonDeals / stats.totalLeads) * 100).toFixed(1) : '0' },
+                      { label: 'Күтүлүүдө', value: stats.paymentPendingCount, pct: stats.totalLeads ? ((stats.paymentPendingCount / stats.totalLeads) * 100).toFixed(1) : '0' },
+                    ].map((item) => (
+                      <div key={item.label} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">{item.label}</span>
+                          <span className="text-sm font-medium">{item.value} ({item.pct}%)</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-muted overflow-hidden">
+                          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${item.pct}%` }} />
+                        </div>
                       </div>
-                      <div className="h-2 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${item.pct}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

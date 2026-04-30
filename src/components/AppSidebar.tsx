@@ -1,12 +1,15 @@
 import {
   LayoutDashboard, Users, UserCheck, Handshake, GitBranch,
   GraduationCap, CreditCard, CheckSquare, MessageSquare,
-  AlertTriangle, BarChart3, Bell, Settings, UserCog, LogOut, BookOpen, Database,
+  AlertTriangle, BarChart3, Bell, Settings, UserCog, LogOut, BookOpen,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRolePermissions } from '@/hooks/use-role-permissions';
+import { useFeatureFlags } from '@/components/core/FeatureFlagProvider';
 import { ky } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
+import { useTenantBranding } from '@/hooks/use-tenant-branding';
 import {
   Sidebar,
   SidebarContent,
@@ -43,10 +46,6 @@ const systemNav = [
   { title: ky.nav.notifications, url: '/notifications', icon: Bell },
   { title: ky.nav.users, url: '/users', icon: UserCog },
   { title: ky.nav.settings, url: '/settings', icon: Settings },
-];
-
-const legacyNav = [
-  { title: ky.nav.legacyContacts, url: '/legacy-contacts', icon: Database },
 ];
 
 function NavSection({
@@ -93,9 +92,40 @@ export function AppSidebar() {
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === 'collapsed';
   const { user, logout } = useAuth();
-  const isSystemAdmin = user?.role === 'admin' || user?.role === 'superadmin';
-  const isSuperAdmin = user?.role === 'superadmin';
-  const visibleSystemNav = systemNav.filter((item) => !['/users', '/reports', '/settings'].includes(item.url) || isSystemAdmin);
+  const tenantBranding = useTenantBranding();
+  const { canViewLmsTechnicalFields, canViewRetentionCases, canManageUsers, canManageSettings, canAccessAdminPanel } = useRolePermissions();
+  const { isFeatureEnabled } = useFeatureFlags();
+
+  const brandingName = tenantBranding.displayName;
+  const firstChar = brandingName.charAt(0) || 'E';
+
+  // Filter mainNav based on LMS permissions and feature flags
+  const visibleMainNav = mainNav.filter((item) => {
+    if (item.url === '/courses' && !canViewLmsTechnicalFields()) return false;
+    if (item.url === '/courses' && !isFeatureEnabled('lms_bridge_enabled')) return false;
+    if (item.url === '/trial-lessons' && !isFeatureEnabled('trial_lessons_enabled')) return false;
+    return true;
+  });
+
+  // Filter operationsNav based on permissions and feature flags
+  const visibleOperationsNav = operationsNav.filter((item) => {
+    if (item.url === '/payments' && !isFeatureEnabled('payments_enabled')) return false;
+    if (item.url === '/enrollments' && !canViewLmsTechnicalFields()) return false;
+    if (item.url === '/enrollments' && !isFeatureEnabled('lms_bridge_enabled')) return false;
+    if (item.url === '/retention' && !canViewRetentionCases()) return false;
+    if (item.url === '/retention' && !isFeatureEnabled('retention_enabled')) return false;
+    return true;
+  });
+
+  // Filter systemNav based on admin permissions and feature flags
+  const visibleSystemNav = systemNav.filter((item) => {
+    if (item.url === '/users' && !canManageUsers()) return false;
+    if (item.url === '/reports' && !canAccessAdminPanel()) return false;
+    if (item.url === '/reports' && !isFeatureEnabled('advanced_reports_enabled')) return false;
+    if (item.url === '/settings' && !canManageSettings()) return false;
+    return true;
+  });
+
   const handleNavigate = () => {
     if (isMobile) setOpenMobile(false);
   };
@@ -103,20 +133,23 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r-0">
       <div className="flex h-14 items-center gap-2 px-4 border-b border-sidebar-border">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground font-bold text-sm">
-          E
-        </div>
+        {tenantBranding.logoUrl ? (
+          <img src={tenantBranding.logoUrl} alt={brandingName} className="h-8 w-8 rounded-lg object-cover" />
+        ) : (
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground font-bold text-sm">
+            {firstChar}
+          </div>
+        )}
         {!collapsed && (
           <span className="font-bold text-sidebar-accent-foreground tracking-tight">
-            EduPro CRM
+            {brandingName}
           </span>
         )}
       </div>
 
       <SidebarContent className="px-2 py-2">
-        <NavSection label="Негизги" items={mainNav} collapsed={collapsed} onNavigate={handleNavigate} />
-        <NavSection label="Операциялар" items={operationsNav} collapsed={collapsed} onNavigate={handleNavigate} />
-        {isSuperAdmin && <NavSection label={ky.nav.legacyData} items={legacyNav} collapsed={collapsed} onNavigate={handleNavigate} />}
+        <NavSection label="Негизги" items={visibleMainNav} collapsed={collapsed} onNavigate={handleNavigate} />
+        <NavSection label="Операциялар" items={visibleOperationsNav} collapsed={collapsed} onNavigate={handleNavigate} />
         <NavSection label="Система" items={visibleSystemNav} collapsed={collapsed} onNavigate={handleNavigate} />
       </SidebarContent>
 

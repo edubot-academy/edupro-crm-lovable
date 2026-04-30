@@ -7,6 +7,7 @@ import type {
 } from '@/types/lms';
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
+import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
 
 function invalidateLmsQueries(queryClient: ReturnType<typeof useQueryClient>) {
   return Promise.all([
@@ -25,31 +26,35 @@ function formatLmsError(err: unknown, fallback: string) {
 // ==================== QUERIES (with retry) ====================
 
 export function useLmsCourses(params?: LmsCourseListParams) {
+  const { isLmsBridgeEnabled } = useLmsBridge();
   return useQuery({
     queryKey: ['lms-courses', params],
     queryFn: () => lmsApi.getCourses({ limit: 100, ...params }),
     retry: 2,
     staleTime: 60_000,
+    enabled: isLmsBridgeEnabled,
   });
 }
 
 export function useLmsGroups(params?: LmsGroupListParams) {
+  const { isLmsBridgeEnabled } = useLmsBridge();
   return useQuery({
     queryKey: ['lms-groups', params],
     queryFn: () => lmsApi.getGroups(params),
     retry: 2,
     staleTime: 60_000,
-    enabled: !!params?.courseId,
+    enabled: isLmsBridgeEnabled && !!params?.courseId,
   });
 }
 
 export function useLmsStudentSummary(studentId: string | undefined) {
+  const { isLmsBridgeEnabled } = useLmsBridge();
   return useQuery({
     queryKey: ['lms-student-summary', studentId],
     queryFn: () => lmsApi.getStudentSummary(studentId!),
     retry: 2,
     staleTime: 30_000,
-    enabled: !!studentId,
+    enabled: isLmsBridgeEnabled && !!studentId,
   });
 }
 
@@ -67,12 +72,13 @@ export function useCreateStudentOnboardingLink() {
 }
 
 export function useLmsIntegrationHistory(params?: Record<string, string | number | undefined>) {
+  const { isLmsBridgeEnabled } = useLmsBridge();
   return useQuery({
     queryKey: ['lms-integration-history', params],
     queryFn: () => lmsAdminApi.history(params),
     retry: 2,
     staleTime: 15_000,
-    enabled: !!params && Object.values(params).some((value) => value !== undefined && value !== null && value !== ''),
+    enabled: isLmsBridgeEnabled && !!params && Object.values(params).some((value) => value !== undefined && value !== null && value !== ''),
   });
 }
 

@@ -6,6 +6,276 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Version bumps are classified by delivery scale; see `VERSIONING.md`.
 
+## [2.0.0] - 2026-04-30
+
+### Breaking Changes
+- **Major architectural shift**: Application is now a tenant-only CRM frontend, no longer a combined platform/tenant system
+- Removed platform admin routes (`/platform`) and PlatformAdminPage component (platform operations moved to separate application)
+- Removed legacy contact routes (`/legacy-contacts`, `/legacy-contacts/:id`) and related components
+- Removed superadmin role from tenant CRM (platform-only role, managed in separate platform admin)
+- Removed platform admin login mode toggle from Login page
+- Companies API endpoint removed from tenant CRM (no longer used in tenant context)
+- Legacy contacts API endpoint removed from tenant CRM
+- Global feature flag management removed from tenant CRM (now managed in platform admin)
+- This release requires operators to use the separate platform admin application for platform-level operations
+
+### Added
+- New backend feature flags: payments_enabled, whatsapp_integration_enabled, custom_roles_enabled, custom_domain_enabled to FeatureFlag type and FeatureFlags interface
+- Route guard for /payments using ModuleGuard with payments_enabled feature flag
+- Sidebar filter for payments navigation item based on payments_enabled flag
+- Module mappings in tenant-bootstrap for new modules (payments, whatsapp, custom_roles, custom_domain)
+- Kyrgyz translations for security error messages in Users.tsx (superadmin creation prevention, admin role permission)
+- Kyrgyz translations for UI labels in Users.tsx (invite link label, warning message)
+- Auth bootstrap API method (authApi.bootstrap) for authenticated tenant data loading
+- Bootstrap data state in AuthContext with loadBootstrapData function called after login and token refresh
+- use-tenant-branding hook for centralized tenant branding access
+- tenant-bootstrap.ts library with normalizeTenantBootstrap function for safe tenant data merging
+- Role permission hook for centralized CRM, LMS, admin, and retention visibility checks
+- Workflow docs for sales, assistant, and manager daily operations
+- LMS bridge enablement mechanism using React Context with `LmsBridgeProvider` and `useLmsBridge` hook
+- Phase 4 feature flag system: `FeatureFlagProvider` with `useFeatureFlags` hook for module-level feature control
+- Phase 4 feature flag types: `FeatureFlag` type and `FeatureFlags` interface with _enabled suffix (crm_enabled, lms_bridge_enabled, trial_lessons_enabled, retention_enabled, telegram_notifications_enabled, advanced_reports_enabled)
+- Sync metadata fields to bridge types: `syncStatus` and `lastSyncedAt` to `LeadWithCourseInterest`, `ContactWithStudentMapping`, `DealWithCourseMapping`, and `DealPaymentSummaryWithBridge`
+- Enrollment sync fields to `PaymentWithEnrollment`: `enrollmentRequestId`, `syncError`, `syncMetadata`
+- Bridge type imports to API modules: `ContactWithStudentMapping`, `LeadWithCourseInterest`, `DealWithCourseMapping`, `PaymentWithEnrollment`
+- Status API methods to tenant-config client: `getStatuses`, `createStatus`, `updateStatus`, `deleteStatus`
+- `TenantStatusResponse` interface for status API responses
+- `StatusConfig` interface to types for status configuration
+- `leadStatuses` and `dealStatuses` to `TenantConfig` type
+- Status loading in `TenantConfigProvider` on mount
+- `leadStatusOptions` in Leads.tsx using tenant config with fallback to hardcoded i18n data
+- `leadStatusOptions` in LeadDetail.tsx using tenant config with fallback to hardcoded i18n data
+- `pipelineStageOptions` in Deals.tsx using tenant config with fallback to hardcoded i18n data
+- Phase 4 environment variables: VITE_ENABLE_CRM, VITE_ENABLE_TRIAL_LESSONS, VITE_ENABLE_RETENTION, VITE_ENABLE_TELEGRAM, VITE_ENABLE_ADVANCED_REPORTS
+- Phase 4 tenant configuration system: `TenantConfigProvider` with `useTenantConfig` hook for tenant-specific settings
+- Phase 4 tenant configuration types: `TenantConfig`, `BrandingConfig`, `NotificationChannel`, `PipelineStageConfig`, `RoleConfig`, `TenantLeadSource` interfaces
+- Phase 4 Settings UI: tenant configuration section with currency, timezone, and language selectors
+- Phase 4 Settings UI: branding configuration section with company name and primary color picker
+- Phase 4 Settings UI: lead sources display section showing configured lead sources with names
+- Phase 4 Settings UI: payment methods display section showing configured payment methods
+- Phase 4 Settings UI: feature flags section with toggle switches for all feature flags
+- Phase 4 API client: `tenantConfigApi` for tenant configuration endpoints (config, roles, stages, lead sources, notification channels)
+- Phase 4 API client: `featureFlagApi` for feature flag endpoints (tenant flags, global flags)
+- Phase 4 backend integration: `FeatureFlagProvider` now loads flags from backend API on mount
+- Phase 4 backend integration: `TenantConfigProvider` now loads config from backend API on mount
+- Phase 4 backend integration: tenant config updates are persisted to backend API
+- Phase 4 backend: `FeatureFlagController` with GET/POST /tenant and GET/PUT /global endpoints
+- Phase 4 backend: `FeatureFlagService.getAllGlobalFlags()` method for retrieving all global flags
+- Phase 4 backend: Fixed `TenantConfig` entity column mappings (company_name, logo_url, primary_color)
+- Phase 4 backend: Fixed status filter contract in `TenantConfigController` (changed @Param to @Query)
+- Phase 4 documentation: Phase 4 contract document defining tenant context, flag precedence, API contracts
+- Phase 4 documentation: Phase 4 audit document identifying backend and frontend issues
+- Phase 4 documentation: Phase 4 completion gates document defining acceptance criteria
+- App.tsx: Integrated `FeatureFlagProvider` and `TenantConfigProvider` into the provider hierarchy
+- App.tsx: `LmsBridgeProvider` now receives `enableLmsBridge` from feature flags instead of hardcoded value
+- AppSidebar.tsx: Navigation items now filtered by feature flags (courses, enrollments, trial-lessons, retention, reports)
+- AppSidebar.tsx: Added `useFeatureFlags` hook to check feature enablement before rendering navigation items
+- Settings.tsx: Added feature flag toggle switches for all feature flags with backend persistence
+- Settings.tsx: Added tenant configuration UI for currency, timezone, language, company name, and primary color
+- Settings.tsx: Added lead sources and payment methods display sections from tenant config
+- Settings.tsx: Integrated `useFeatureFlags` and `useTenantConfig` hooks for managing settings
+- types/index.ts: Added `FeatureFlag` type and `FeatureFlags` interface for feature flag system
+- types/index.ts: Added `TenantConfig`, `BrandingConfig`, `NotificationChannel`, `PipelineStageConfig`, `RoleConfig`, `TenantLeadSource` interfaces
+- Bridge data presence requirement to ContactDetail.tsx integration history panel (requires bridgeData.lmsStudentId)
+- Bridge data presence requirement to DealDetail.tsx integration history panel (requires contactBridgeData.lmsStudentId)
+- types/index.ts: Added LMS bridge field documentation comments to Lead, Contact, Deal, and Payment types
+- src/api/feature-flag.ts: New API client for feature flag management (getTenantFlags, setTenantFlag, getGlobalFlags, setGlobalFlag)
+- src/api/tenant-config.ts: New API client for tenant configuration (config, roles, stages, lead sources, notification channels)
+- src/components/core/FeatureFlagProvider.tsx: New provider for feature flag context with backend integration
+- src/components/core/TenantConfigProvider.tsx: New provider for tenant configuration context with backend integration
+- src/api/tenant-config.ts: New API client for tenant configuration with full CRUD for config, lead sources, roles, pipeline stages, statuses, notification channels, and payment methods, with x-company-id header support
+- src/lib/jwt.ts: New JWT utility with decodeJwt and isTokenExpired functions, tenantId in JwtPayload interface
+- src/lib/i18n.ts: Added educationLeadStatus and educationDealStatus for LMS bridge-specific statuses
+- src/pages/Settings.tsx: Added comprehensive tenant configuration UI with currency, timezone, language, company name, and primary color selectors, feature flag toggle switches with backend persistence, lead sources and payment methods display sections
+- src/pages/Leads.tsx: Added tenant-configured lead sources and lead statuses with fallback to hardcoded i18n data
+- src/pages/LeadDetail.tsx: Added tenant-configured lead sources and lead statuses with fallback to hardcoded i18n data
+- src/pages/Pipeline.tsx: Added tenant-configured pipeline stages with fallback to hardcoded stages, currency formatting using tenantConfig.currency
+- src/pages/Payments.tsx: Added currency formatting using tenantConfig.currency
+- PHASE_1_4_FINAL_COMPLETION_PLAN.md: Comprehensive completion plan for Phases 1-4 with blockers, exit criteria, and progress tracking
+- FINAL_RECONCILED_BLOCKER_VERDICT.md: Reconciled audit verdict comparing two completion audits with final must-fix list
+- PHASE_1_4_COMPLETION_BACKLOG.md: Task backlog for remaining Phase 1-4 completion work
+- CURRENT_STATE_IMPLEMENTATION_REPORT_CODEX.md: Current state implementation report documenting platformization progress
+
+### Changed
+- ModuleGuard now displays Kyrgyz message "Бул мүмкүнчүлүк сиздин тарифиңизде жеткиликтүү эмес" instead of redirecting when feature is disabled
+- ModuleGuard now waits for both feature flags and permissions to load before showing content
+- AuthContext loadBootstrapData now accepts optional tenantIdOverride parameter for platform admin bootstrap data loading
+- AuthContext now passes tenantIdOverride to bootstrap API during token refresh and login for platform admin support
+- Role permissions hook now checks custom_roles_enabled feature flag before using tenant-configured permissions
+- Role permissions hook now preserves legacy hardcoded permissions when custom_roles_enabled is false
+- Role permissions hook now exposes isLoading and isUsingTenantPermissions states
+- FeatureFlagProvider refactored with getEnvironmentFeatureFlags and buildFallbackFeatureFlags helper functions
+- FeatureFlagProvider now resets to fallback flags when user is not authenticated
+- FeatureFlagProvider error message changed from "conservative fallback" to "fail-closed fallback"
+- FeatureFlagProvider now depends on tenantId in addition to isAuthenticated for loading flags
+- TenantConfigProvider now uses useMemo for initialTenantConfig to prevent unnecessary recalculations
+- TenantConfigProvider now resets to initial config when user is not authenticated
+- TenantConfigProvider now depends on tenantId in addition to isAuthenticated for loading config
+- IntegrationHistoryPanel moved permission check after data fetch to avoid premature null returns
+- StudentSummaryPanel added getApiErrorDetails helper function for safer error extraction
+- StudentSummaryPanel improved error handling with type-safe error message and requestId extraction
+- Command component removed CommandDialogProps interface, now uses DialogProps directly
+- Textarea component type definition changed from interface to type alias
+- Tailwind config now uses ES module import for tailwindcss-animate instead of CommonJS require
+- App.tsx added Suspense wrapper around Routes with RouteLoadingState fallback for lazy-loaded routes
+- Auth API bootstrap method now accepts optional tenantId parameter for platform admin support
+- Auth API login method tenantId parameter changed from `string | null` to `string`
+- Feature flag API added isApiError type guard for safer error type checking
+- Feature flag API setTenantFlag error handling improved with proper type checking and details extraction
+- Feature flag API error types changed from `any` to `unknown` for type safety
+- Tenant config API added TenantConfigUpdatePayload interface with branding support
+- Tenant config API role permissions type changed from `Record<string, any>` to `Record<string, boolean>`
+- Tenant config API config types changed from `Record<string, any>` to `Record<string, unknown>`
+- Leads page header actions now align items to end instead of center
+- Leads page added custom date range inputs to header actions when custom date filter is selected
+- Error messages library: Changed "Request ID" to "Сурам коду" in Kyrgyz
+- Error messages library: Improved error descriptions for LMS group, deal, and lead selection errors
+- Contacts page: Added loadError state with error handling and toast notifications
+- Contacts page: Changed "Деталдар" button to "Карточканы ачуу"
+- Deals page: Added loadError state with error handling and toast notifications
+- Leads page: Changed fallback lead status labels from English to Kyrgyz (Жаңы, Байланыш түзүлдү, Кызыкты, Жооп жок, Жабылды)
+- Login page: Changed "Тенант" to "Уюм" in error messages for better localization
+- Login page: Improved error descriptions for missing tenant context
+- NotFound page: Changed English text to Kyrgyz (404 page)
+- Reports page: Changed "Утулган келишимдер" to "Ийгиликтүү келишимдер"
+- Reports page: Changed "CSV Экспорт" to "CSV жүктөп алуу"
+- Reports page: Changed "Сыноо сабак конверсиясы" to "Сыноо сабагынын конверсиясы"
+- Settings page: Changed "Тенант конфигурациясы" to "Уюм жөндөөлөрү"
+- Settings page: Changed currency names to Kyrgyz (АКШ доллары, Евро, Орус рубли)
+- Settings page: Changed language names to Kyrgyz (Орусча, Англисче)
+- Tasks page: Added loadError state with error handling and toast notifications
+- Tasks page: Changed search placeholder to "Тапшырманы издөө..."
+- TrialLessons page: Added loadError state with error handling and toast notifications
+- TrialLessons page: Changed "Сыноо сабак" to "Сыноо сабагы" in various labels
+- Users page: Simplified superadmin creation error message
+- Users page: Simplified admin role permission error message
+- Users page: Changed invite link labels to Kyrgyz
+- TenantResolveResponse type now only includes pre-login branding fields (removed supportEmail, supportPhone, planCode, features, modules)
+- TenantContext now prioritizes bootstrap data over public tenant resolve for authenticated users
+- TenantContext only calls public tenant resolve when user is not authenticated
+- AuthContext now loads bootstrap data after login and token refresh
+- AuthContext clears bootstrap data on logout
+- API client now uses separate providers for auth tenant ID and resolved tenant ID with fallback logic
+- API client now throws Kyrgyz error when tenant-scoped API is called without tenant ID
+- API client LMS requests now use conditional X-Company-Id header instead of default company ID
+- AppLayout now uses useTenantBranding hook for consistent tenant branding access
+- ContactDetail.tsx fixed integration history data access (historyData.items → historyData.data)
+- ForgotPassword.tsx now imports ky i18n for localization
+- Login.tsx now uses useTenantBranding hook for consistent branding access
+- Login.tsx removed hidden tenant ID input for dev mode
+- Login.tsx now shows local development warning when VITE_DEV_TENANT_ID is not set
+- Login.tsx login button disabled when local development tenant ID is missing
+- Settings.tsx feature flag source checks updated from 'platform' to 'global' or 'plan'
+- Kyrgyz login title changed from "EduPro CRM" to "Аккаунтка кирүү"
+- Kyrgyz login subtitle updated to "CRM системаңызга кирүү үчүн маалыматтарыңызды жазыңыз"
+- Kyrgyz tenant domain error updated to "Уюм табылган жок. Доменди текшерип, кайра аракет кылыңыз."
+- LmsBridgeProvider now uses feature flags internally instead of accepting enableLmsBridge prop
+- App.tsx removed enableLmsBridge prop from LmsBridgeProvider
+- src/api/modules.ts removed explicit /api/ prefixes from endpoints for consistent API prefix handling
+- src/api/client.ts now uses centralized validateAndSanitizeTenantId function for X-Company-Id header sanitization
+- src/api/auth.ts login function accepts optional tenantId parameter
+- src/contexts/AuthContext.tsx login function accepts optional tenantId parameter
+- src/pages/Login.tsx uses i18n keys for forgot password and help instead of hardcoded Kyrgyz text
+- src/pages/Login.tsx added hidden tenant ID input field for localhost/dev mode (functional via dev tools)
+- src/components/AppSidebar.tsx: Branding now uses tenant-resolve endpoint data with fallback chain (brandingName → name → 'Edubot CRM')
+- src/components/AppSidebar.tsx: Sidebar icon character now dynamic based on branding name with empty string guard
+- src/pages/Login.tsx: Branding now uses tenant-resolve endpoint data with fallback chain (brandingName → name → 'Edubot CRM')
+- src/pages/Login.tsx: Desktop and mobile login icons now dynamic based on branding name with empty string guard
+- Phase 2.3 CRM-LMS decoupling: bridge components (LeadCourseInterest, ContactStudentMapping, DealCourseMapping) now check LMS bridge flag in addition to permissions
+- Phase 2.3 CRM-LMS decoupling: removed unused LMS course/group hooks from Leads.tsx
+- Phase 2.3 CRM-LMS decoupling: LMS enrollment buttons in Leads and Deals tables now conditional on LMS bridge flag
+- Phase 2.3 CRM-LMS decoupling: removed LMS field IDs from enrollment navigation params (courseId, groupId, studentId)
+- Phase 2.4 CRM-LMS decoupling: removed @deprecated annotations from type definitions, replaced with clear documentation that these are LMS bridge fields
+- LMS bridge enablement is now controlled by `VITE_ENABLE_LMS_BRIDGE` instead of a hardcoded app-level flag
+- Deal creation no longer sends contact IDs as fake `leadId` values
+- Phase 4 modularization: navigation items now filtered by feature flags in addition to permissions
+- Phase 4 modularization: courses, enrollments, trial-lessons, retention, and reports pages now respect feature flags
+- Phase 4 modularization: Settings page now displays current feature flag status (read-only, controlled by environment variables)
+- Bridge types documentation: Updated to reflect that types represent bridge-only enrichment payloads from dedicated bridge endpoints, not extensions of CRM types
+- Bridge types structure: Removed inheritance from CRM types (`Lead`, `Contact`, `Deal`, `Payment`) to align with explicit bridge boundary model
+- Bridge API client methods: Updated to use formal bridge types instead of inline type definitions
+- `bridgeApi.getContactBridgeData`: Now returns `ContactWithStudentMapping` type
+- `bridgeApi.getLeadBridgeData`: Now returns `LeadWithCourseInterest` type
+- `bridgeApi.getDealBridgeData`: Now returns `DealWithCourseMapping` type
+- `bridgeApi.updateDealLmsMapping`: Now returns `DealWithCourseMapping` type
+- `bridgeApi.getPaymentBridgeData`: Now returns `PaymentWithEnrollment` type
+- Leads.tsx: Status dropdown now uses tenant-configured statuses instead of hardcoded i18n data
+- LeadDetail.tsx: Status dropdown now uses tenant-configured statuses instead of hardcoded i18n data
+- Deals.tsx: Pipeline stage dropdown now uses tenant-configured stages instead of hardcoded i18n data
+- Deals.tsx: Mobile board columns now use tenant-configured pipeline stages
+- Reports.tsx: Currency formatting now uses `tenantConfig.currency` instead of hardcoded "сом"
+- Deals.tsx: Currency formatting now uses `tenantConfig.currency` instead of hardcoded "сом"
+- Pipeline.tsx: Currency formatting now uses `tenantConfig.currency` instead of hardcoded "сом"
+- Payments.tsx: Currency formatting now uses `tenantConfig.currency` instead of hardcoded "сом"
+
+### Removed
+- docs/PHASE_2_ARCHITECTURE.md: Superseded by PHASE_1_4_FINAL_COMPLETION_PLAN.md
+- docs/PHASE_2_MIGRATION.md: Superseded by PHASE_1_4_FINAL_COMPLETION_PLAN.md
+- Platform admin routes: Removed /platform route and PlatformAdminPage component (platform operations moved to separate application)
+- Legacy contact routes: Removed /legacy-contacts and /legacy-contacts/:id routes and related components (LegacyContactsPage, LegacyContactDetailPage)
+- src/api/modules.ts: Removed companiesApi (companies endpoint no longer used in tenant CRM)
+- src/api/modules.ts: Removed legacyContactsApi (legacy contacts endpoint no longer used in tenant CRM)
+- src/api/feature-flag.ts: Removed getGlobalFlags and setGlobalFlag methods (global flags managed in platform admin)
+- src/pages/Login.tsx: Removed platform admin login mode toggle (tenant-only CRM)
+- src/lib/i18n.ts: Removed superadmin translation key (superadmin is platform-only role)
+- src/components/AppSidebar.tsx: Removed legacy navigation section and Database icon import
+- src/components/AppLayout.tsx: Removed legacy-contacts from breadcrumb label map
+
+### Fixed
+- Type mismatch in feature-flag.ts warning comments (removed flags not in FeatureFlagKey type: payments_enabled, whatsapp_integration_enabled, custom_roles_enabled, custom_domain_enabled)
+- Inconsistent /api/ prefix on approve endpoint in modules.ts (line 87)
+- Dashboard now uses split `getCrmStats` and `getEducationStats` endpoints instead of legacy combined `getStats`, properly decoupling CRM from LMS data
+- Reports page now uses the original `reportsApi.getStats` endpoint instead of dashboard endpoints to preserve report-specific backend behavior
+- Reports course filter now ignores URL params when LMS bridge is disabled, preventing hidden filters from bookmarked URLs
+- Reports CSV export now conditionally includes LMS-only data (trial conversion, course rows) based on LMS bridge flag
+- Reports trial conversion KPI card is hidden when LMS bridge is disabled
+- LMS bridge is now truly optional - CRM UI keeps working with empty LMS stats when education endpoint fails, instead of failing the entire page
+- Bridge type synchronization: Frontend bridge types now include all sync metadata fields present in backend DTOs, eliminating need for inline type workarounds in components
+- LMS-only fields, IDs, history panels, and enrollment actions are now hidden from non-admin roles across list and detail views
+- Tenant-config endpoint route shadowing: Moved `/statuses`, `/sources`, and `/pipeline-stages` routes before `/:id` routes in lead and deal controllers (backend)
+- Bridge API security: Added role-based access control to all bridge endpoints, restricting access to MANAGER, ADMIN, and SUPERADMIN roles (backend)
+- Manager lead assignment flow no longer regresses after permission centralization
+- Legacy migration navigation is again restricted to superadmin only
+- Deal enrollment navigation now points to the reachable `/enrollments` route
+- Payment warnings and deal labels no longer expose LMS-only context to unauthorized roles
+- ContactDetail.tsx now uses canViewStudentSummary() instead of canViewLmsTechnicalFields() for student summary, allowing managers to see student summary data as intended
+- DealCourseMapping.tsx enrollment navigation now uses crmDealId query param instead of dealId, matching EnrollmentForm expectations
+- EnrollmentsPage now seeds initialHistoryFilters with crmDealId for deal context, enabling proper prefiltering from deal detail "Толук тарых" navigation
+- Removed references to setManagersLoading in Leads.tsx (removed with LMS hooks)
+- LMS integration history panels now only render when bridge data is present, preventing empty UI sections in CRM-only mode
+- Removed references to courses variable in Leads.tsx (removed with LMS hooks)
+- FeatureFlagProvider now uses conservative defaults (trial_lessons_enabled, telegram_notifications_enabled, advanced_reports_enabled default to false)
+- FeatureFlagProvider environment variable override logic now only applies when explicitly set (using conditional spread instead of direct assignment)
+- IntegrationHistoryPanel now correctly accesses `data?.data` instead of `data?.items` for integration history items
+- LmsIntegrationHistoryResponse interface changed `items` property to `data` to match actual API response structure
+- RetentionCase interface now includes LMS fields (lmsStudentId, lmsEnrollmentId, lmsCourseId, lmsGroupId) extracted from metrics by backend
+- Frontend retention API contract no longer leaks LMS fields (lmsCourseId, lmsGroupId) for CRM-only mode
+- Dashboard backend now zeroes retention stats when LMS bridge is off (openRetentionCases conditional on lms_bridge_enabled)
+- Dashboard page conditionalized the retention priority item/stat based on isLmsBridgeEnabled flag
+- Reports page retention stat card now conditional on isLmsBridgeEnabled flag
+- Reports page retention tab trigger now conditional on isLmsBridgeEnabled flag
+- Reports page retention tab content now conditional on isLmsBridgeEnabled flag
+- Payment config authority improved: DTO method is now string, entity method is now string, runtime validates against tenant config
+- Feature flags and tenant config loading: Fixed JSON parse errors by making providers only load data when user is authenticated
+- React context error: Fixed "useAuth must be used within AuthProvider" error in AppContent by adding proper useAuth hook usage
+- API client header injection: Removed localStorage dependency from tenant-config and feature-flag API clients, now using automatic X-Company-Id header from AuthContext
+- Tenant config type fixes: Fixed type mismatches in TenantConfigProvider for mapped data structures (leadSources, pipelineStages, statuses, paymentMethods)
+- Frontend feature gating: Updated Reports.tsx to gate retention tab by retention_enabled feature flag instead of lms_bridge_enabled
+- Frontend feature gating: Updated Dashboard.tsx to gate retention priority item and stat card by retention_enabled feature flag
+- Frontend feature gating: Updated Settings.tsx to remove telegram_notifications_enabled toggle and notification settings card section
+- Frontend cleanup: Removed misleading CRM_ONLY_MODE_FLAGS and CRM_LMS_BUNDLE_MODE_FLAGS from FeatureFlagProvider.tsx
+- TenantConfigProvider defaults: Changed default tenantId from 'default' to '' and companyName from 'EduPro CRM' to '' for proper tenant resolution
+- Login auto-detect: Changed loginTenantId from undefined to '' for proper auto-detect flow
+- docs/backend/DEPRECATED_ENDPOINTS.md: New documentation tracking deprecated API endpoints and migration status
+- src/api/client.ts: Added 30-second request timeout with AbortController to prevent hanging requests
+- src/api/client.ts: Added X-Company-Id header sanitization to prevent injection attacks (alphanumeric, hyphens, underscores only, max 50 chars)
+- src/api/feature-flag.ts: Added temporary fallback to legacy endpoint /feature-flag/tenant when new /feature-flags/tenant fails
+- src/api/feature-flag.ts: Added TODO comments for removing legacy endpoint fallback after staging verification
+- src/api/feature-flag.ts: Added development-mode console.warn when fallback is triggered
+- src/pages/Login.tsx: Added tenant ID validation (alphanumeric, hyphens, underscores only, max 50 chars)
+- src/pages/Users.tsx: Added client-side role validation to prevent superadmin creation
+- src/pages/Users.tsx: Added permission check: only admins can create other admin users
+
 ## [1.7.0] - 2026-04-24
 
 ### Added

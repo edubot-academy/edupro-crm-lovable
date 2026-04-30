@@ -8,12 +8,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Send } from 'lucide-react';
-import { useLmsCourses, useLmsGroups, useLmsStudentSummary } from '@/hooks/use-lms';
+import { useLmsCourses, useLmsGroups, useLmsStudentSummary, useCreateStudentOnboardingLink } from '@/hooks/use-lms';
 import { useCreateManagedEnrollment } from '@/hooks/use-enrollments';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRolePermissions } from '@/hooks/use-role-permissions';
 import { useToast } from '@/hooks/use-toast';
-import { contactApi, dealsApi, leadsApi, lmsApi } from '@/api/modules';
+import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
+import { contactApi, dealsApi, leadsApi, lmsApi, bridgeApi } from '@/api/modules';
 import type { Contact, Deal, Lead } from '@/types';
+import type { ContactWithStudentMapping, DealWithCourseMapping } from '@/types/bridge';
 import type { LmsCourseType, LmsEnrollmentResponse } from '@/types/lms';
 import { getFriendlyError } from '@/lib/error-messages';
 import { formatLmsDate, getCourseSalesSummary, getLmsGroupAvailability, getSeatsLeft } from '@/lib/lms-availability';
@@ -33,6 +36,8 @@ const courseTypeBadgeClass: Record<LmsCourseType, string> = {
 export function EnrollmentForm() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
+  const { canManageUsers } = useRolePermissions();
+  const { isLmsBridgeEnabled } = useLmsBridge();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [leadsLoading, setLeadsLoading] = useState(false);
@@ -47,6 +52,8 @@ export function EnrollmentForm() {
   const [notes, setNotes] = useState('');
   const [groupError, setGroupError] = useState('');
   const [linkedContact, setLinkedContact] = useState<Contact | null>(null);
+  const [contactBridgeData, setContactBridgeData] = useState<ContactWithStudentMapping | null>(null);
+  const [dealBridgeData, setDealBridgeData] = useState<DealWithCourseMapping | null>(null);
   const idempotencyRef = useRef<{ signature: string; key: string } | null>(null);
   const [submitError, setSubmitError] = useState('');
   const [onboardingInfo, setOnboardingInfo] = useState<LmsEnrollmentResponse['onboarding'] | null>(null);
@@ -84,7 +91,45 @@ export function EnrollmentForm() {
   const prefillLeadId = searchParams.get('crmLeadId') || '';
   const prefillDealId = searchParams.get('crmDealId') || '';
 
-  const lmsStudentId = linkedContact?.lmsStudentId || selectedDeal?.contact?.lmsStudentId || undefined;
+  useEffect(() => {
+    if (!linkedContact || !isLmsBridgeEnabled) {
+      setContactBridgeData(null);
+      return;
+    }
+    bridgeApi.getContactBridgeData(linkedContact.id)
+      .then((data) => setContactBridgeData(data))
+      .catch(() => setContactBridgeData(null));
+  }, [linkedContact, isLmsBridgeEnabled]);
+
+  useEffect(() => {
+    if (!selectedDeal || !isLmsBridgeEnabled) {
+      setDealBridgeData(null);
+      // Clear prefill fields immediately to prevent stale data
+      setCourseId('');
+      setGroupId('');
+      return;
+    }
+    // Clear prefill fields immediately when deal changes
+    setCourseId('');
+    setGroupId('');
+    bridgeApi.getDealBridgeData(selectedDeal.id)
+      .then((data) => setDealBridgeData(data))
+      .catch(() => setDealBridgeData(null));
+  }, [selectedDeal, isLmsBridgeEnabled]);
+
+  // Apply course/group prefill from dealBridgeData when it becomes available
+  useEffect(() => {
+    if (!dealId || !dealBridgeData) return;
+    // Only prefill if the fields are not already set by user
+    if (dealBridgeData.lmsCourseId && !courseId) {
+      setCourseId(dealBridgeData.lmsCourseId);
+    }
+    if (dealBridgeData.lmsGroupId && !groupId) {
+      setGroupId(dealBridgeData.lmsGroupId);
+    }
+  }, [dealId, dealBridgeData, courseId, groupId]);
+
+  const lmsStudentId = contactBridgeData?.lmsStudentId || undefined;
   const { data: existingStudentSummary } = useLmsStudentSummary(lmsStudentId);
   const createManagedEnrollment = useCreateManagedEnrollment();
 
@@ -162,11 +207,11 @@ export function EnrollmentForm() {
     const deal = deals.find((item) => String(item.id) === prefillDealId);
     if (!deal) return;
     setDealId((current) => (current === String(deal.id) ? current : String(deal.id)));
-    if (deal.lmsCourseId) {
-      setCourseId((current) => current || deal.lmsCourseId || '');
+    if (dealBridgeData?.lmsCourseId) {
+      setCourseId((current) => current || dealBridgeData.lmsCourseId || '');
     }
-    if (deal.lmsGroupId) {
-      setGroupId((current) => current || deal.lmsGroupId || '');
+    if (dealBridgeData?.lmsGroupId) {
+      setGroupId((current) => current || dealBridgeData.lmsGroupId || '');
     }
     if (deal.leadId) {
       setLeadId((current) => current || String(deal.leadId));
@@ -181,7 +226,7 @@ export function EnrollmentForm() {
       phone: linkedLead?.phone || '',
       email: deal.contact?.email || linkedLead?.email || '',
     });
-  }, [deals, leads, prefillDealId]);
+  }, [deals, leads, prefillDealId, dealBridgeData]);
 
   const handleCourseChange = (value: string) => {
     setCourseId(value);
@@ -219,14 +264,9 @@ export function EnrollmentForm() {
     const deal = deals.find((item) => String(item.id) === value);
     setDealId(value);
     if (!deal) return;
-    if (deal.lmsCourseId) {
-      setCourseId(deal.lmsCourseId);
-    }
-    if (deal.lmsGroupId) {
-      setGroupId(deal.lmsGroupId);
-    } else {
-      setGroupId('');
-    }
+    // Clear both course and group when deal changes; they will be repopulated by the effect when dealBridgeData loads
+    setCourseId('');
+    setGroupId('');
     const linkedLead = deal.leadId
       ? leads.find((item) => item.id === deal.leadId)
       : undefined;
@@ -269,7 +309,7 @@ export function EnrollmentForm() {
   const lmsEmailLooksPlaceholder = (existingStudentSummary?.email || '').trim().toLowerCase().endsWith('@placeholder.local');
   const crmEmailLooksReal = !!studentEmail.trim() && !studentEmail.trim().toLowerCase().endsWith('@placeholder.local');
   const canRecreatePlaceholderAccount =
-    (user?.role === 'admin' || user?.role === 'superadmin') &&
+    canManageUsers() &&
     !!matchingExistingEnrollment &&
     lmsEmailLooksPlaceholder &&
     crmEmailLooksReal;
@@ -472,7 +512,7 @@ export function EnrollmentForm() {
                 <SelectTrigger className={groupError ? 'border-destructive' : ''}>
                   <SelectValue placeholder={
                     groupsLoading ? 'Жүктөлүүдө...' :
-                    groups.length === 0 ? 'Топтор жок' : 'Топ тандаңыз'
+                      groups.length === 0 ? 'Топтор жок' : 'Топ тандаңыз'
                   } />
                 </SelectTrigger>
                 <SelectContent>
@@ -528,7 +568,7 @@ export function EnrollmentForm() {
             <Label>CRM Лид *</Label>
             <Select value={leadId || '__none__'} onValueChange={handleLeadChange} disabled={leadsLoading}>
               <SelectTrigger>
-                <SelectValue placeholder={leadsLoading ? 'Жүктөлүүдө...' : 'Алгач CRM лидди тандаңыз'} />
+                <SelectValue placeholder={leadsLoading ? 'Жүктөлүүдө...' : 'Лидди тандаңыз'} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none__">Тандалган эмес</SelectItem>
@@ -540,29 +580,29 @@ export function EnrollmentForm() {
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Лид тандалганда студенттин аты, телефону жана email талаалары автоматтык толот.
+              Лидди тандасаңыз, студенттин маалыматтары автоматтык толот.
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label>Келишим ID (милдеттүү эмес)</Label>
+            <Label>Келишим (милдеттүү эмес)</Label>
             <Select value={dealId || '__none__'} onValueChange={handleDealChange} disabled={dealsLoading}>
               <SelectTrigger>
-                <SelectValue placeholder={dealsLoading ? 'Жүктөлүүдө...' : 'Келишим тандаңыз'} />
+                <SelectValue placeholder={dealsLoading ? 'Жүктөлүүдө...' : 'Келишимди тандаңыз'} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none__">Тандалган эмес</SelectItem>
                 {deals.map((deal) => (
                   <SelectItem key={deal.id} value={String(deal.id)}>
-                    #{deal.id} {deal.contact?.fullName ? `• ${deal.contact.fullName}` : ''} {deal.courseNameSnapshot ? `• ${deal.courseNameSnapshot}` : ''}
+                    #{deal.id} {deal.contact?.fullName ? `• ${deal.contact.fullName}` : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             {selectedDeal && (
               <p className="text-xs text-muted-foreground">
-                Курс: {selectedDeal.courseNameSnapshot || selectedDeal.lmsCourseId || '—'}
-                {selectedDeal.groupNameSnapshot ? ` • Топ: ${selectedDeal.groupNameSnapshot}` : ''}
+                Курс: {dealBridgeData?.courseNameSnapshot || dealBridgeData?.lmsCourseId || '—'}
+                {dealBridgeData?.groupNameSnapshot ? ` • Топ: ${dealBridgeData.groupNameSnapshot}` : ''}
               </p>
             )}
           </div>
@@ -594,7 +634,7 @@ export function EnrollmentForm() {
                 disabled={!leadId}
               />
             </div>
-          <div className="space-y-2">
+            <div className="space-y-2">
               <Label>Email *</Label>
               <Input
                 type="email"

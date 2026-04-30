@@ -28,11 +28,16 @@ export const ky = {
     email: 'Электрондук почта',
     password: 'Сырсөз',
     loginButton: 'Системага кирүү',
-    loginTitle: 'EduPro CRM',
-    loginSubtitle: 'Билим берүү борборлору үчүн CRM системасы',
+    loginTitle: 'Аккаунтка кирүү',
+    loginSubtitle: 'CRM системаңызга кирүү үчүн маалыматтарыңызды жазыңыз',
     emailPlaceholder: 'email@example.com',
     passwordPlaceholder: 'Сырсөзүңүздү киргизиңиз',
     loginError: 'Кирүү учурунда ката кетти',
+    tenantDomainNotFound: 'Уюм табылган жок. Доменди текшерип, кайра аракет кылыңыз.',
+    tenantNotActive: 'Бул тенант учурда активдүү эмес',
+    crmAccessDenied: 'CRMге кирүү мүмкүн эмес',
+    forgotPassword: 'Сырсөзүңүздү унутуңузбу?',
+    help: 'Жардам',
   },
   // Common
   common: {
@@ -115,19 +120,27 @@ export const ky = {
     website: 'Веб-сайт',
     phone_call: 'Телефон чалуу',
     referral: 'Сунуштоо',
+    other: 'Башка',
   },
-  // Lead statuses
+  // Lead statuses (CRM-native)
   leadStatus: {
     new: 'Жаңы',
     contacted: 'Байланышылды',
     interested: 'Кызыкты',
-    trial_scheduled: 'Сыноо пландалды',
-    trial_completed: 'Сыноо аяктады',
+    qualified: 'Квалификацияланган',
     offer_sent: 'Сунуш жиберилди',
     negotiation: 'Сүйлөшүү',
-    payment_pending: 'Төлөм күтүлүүдө',
+    payment_pending: 'Төлөм күтүүдө',
     won: 'Ийгиликтүү',
-    lost: 'Жоголду',
+    lost: 'Ийгиликсиз',
+  },
+  // Education-specific lead statuses (used only when LMS bridge is enabled)
+  // These correspond to EducationLeadStatus in @/types/bridge
+  educationLeadStatus: {
+    trial_scheduled: 'Сыноо пландалды',
+    trial_completed: 'Сыноо аяктады',
+    trial_passed: 'Сыноо өттү',
+    trial_failed: 'Сыноо ийгиликсиз',
   },
   leadQualificationStatus: {
     new: 'Жаңы',
@@ -159,22 +172,26 @@ export const ky = {
     deleteSuccess: 'Келишим ийгиликтүү өчүрүлдү',
     deleteError: 'Келишимди өчүрүүдө ката кетти',
   },
-  // Deal stages
+  // Deal stages (CRM-native)
   dealStage: {
     new_lead: 'Жаңы лид',
     contacted: 'Байланышылды',
-    trial_booked: 'Сыноо жазылды',
-    trial_completed: 'Сыноо аяктады',
+    qualified: 'Квалификацияланган',
     offer_sent: 'Сунуш жиберилди',
     negotiation: 'Сүйлөшүү',
     payment_pending: 'Төлөм күтүлүүдө',
     won: 'Ийгиликтүү',
     lost: 'Жоголду',
   },
+  // Education-specific deal stages (used only when LMS bridge is enabled)
+  // These correspond to EducationDealStage in @/types/bridge
+  educationDealStage: {
+    trial_booked: 'Сыноо жазылды',
+    trial_completed: 'Сыноо аяктады',
+  },
   dealPipelineStage: {
     new: 'Жаңы',
     consultation: 'Консультация',
-    trial: 'Сыноо',
     negotiation: 'Сүйлөшүү',
     payment_pending: 'Төлөм күтүлүүдө',
     won: 'Ийгиликтүү',
@@ -308,7 +325,6 @@ export const ky = {
     assistant: 'Жардамчы',
     manager: 'Менеджер',
     admin: 'Админ',
-    superadmin: 'Башкы Админ',
   } as Record<string, string>,
   // Reports
   reports: {

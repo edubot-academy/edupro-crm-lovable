@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Search, Workflow } from 'lucide-react';
 import { useLmsIntegrationHistory } from '@/hooks/use-lms';
+import { useRolePermissions } from '@/hooks/use-role-permissions';
 
 const statusVariant = (status?: string | null) => {
   if (status === 'success' || status === 'received' || status === 'active') return 'default' as const;
@@ -22,6 +23,9 @@ const formatDateTime = (value?: string | null) => {
 };
 
 export function IntegrationHistoryPanel({ initialFilters }: { initialFilters?: Record<string, string | number | undefined> }) {
+  const { canViewIntegrationHistory } = useRolePermissions();
+  const canViewHistory = canViewIntegrationHistory();
+
   const [filters, setFilters] = useState({
     crmLeadId: '',
     crmContactId: '',
@@ -69,7 +73,11 @@ export function IntegrationHistoryPanel({ initialFilters }: { initialFilters?: R
     }
   };
 
-  const items = data?.items || [];
+  const items = data?.data || [];
+
+  if (!canViewHistory) {
+    return null;
+  }
 
   return (
     <Card>

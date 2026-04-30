@@ -21,6 +21,111 @@ export interface SelectOption {
   label: string;
 }
 
+// ==================== FEATURE FLAGS ====================
+export type FeatureFlag =
+  | 'crm_enabled'
+  | 'lms_bridge_enabled'
+  | 'trial_lessons_enabled'
+  | 'retention_enabled'
+  | 'telegram_notifications_enabled'
+  | 'advanced_reports_enabled'
+  | 'payments_enabled'
+  | 'whatsapp_integration_enabled'
+  | 'custom_roles_enabled'
+  | 'custom_domain_enabled';
+
+export interface FeatureFlags {
+  crm_enabled: boolean;
+  lms_bridge_enabled: boolean;
+  trial_lessons_enabled: boolean;
+  retention_enabled: boolean;
+  telegram_notifications_enabled: boolean;
+  advanced_reports_enabled: boolean;
+  payments_enabled: boolean;
+  whatsapp_integration_enabled: boolean;
+  custom_roles_enabled: boolean;
+  custom_domain_enabled: boolean;
+}
+
+// ==================== TENANT CONFIGURATION ====================
+export interface TenantConfig {
+  id?: number;
+  tenantId: string;
+  language: string;
+  currency: string;
+  timezone: string;
+  companyName?: string | null;
+  logoUrl?: string | null;
+  primaryColor?: string | null;
+  branding?: BrandingConfig;
+  leadSources: TenantLeadSource[];
+  paymentMethods: TenantPaymentMethod[];
+  notificationChannels: NotificationChannel[];
+  pipelineStages: PipelineStageConfig[];
+  leadStatuses: StatusConfig[];
+  dealStatuses: StatusConfig[];
+  roles: RoleConfig[];
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface TenantPaymentMethod {
+  id?: number;
+  tenantId: string;
+  methodKey: string;
+  methodName: string;
+  methodType: 'card' | 'qr' | 'bank' | 'manual' | 'other';
+  config?: Record<string, unknown>;
+  enabled: boolean;
+  displayOrder: number;
+}
+
+export interface TenantLeadSource {
+  id?: number;
+  tenantId: string;
+  sourceKey: string;
+  sourceName: string;
+  isDefault?: boolean;
+}
+
+export interface BrandingConfig {
+  logoUrl?: string | null;
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
+  accentColor?: string | null;
+  companyName?: string | null;
+}
+
+export interface NotificationChannel {
+  id: string;
+  type: 'email' | 'telegram' | 'sms' | 'whatsapp';
+  enabled: boolean;
+  config?: Record<string, unknown>;
+}
+
+export interface PipelineStageConfig {
+  id: string;
+  key: string;
+  label: string;
+  order: number;
+  color?: string;
+}
+
+export interface StatusConfig {
+  id: string;
+  key: string;
+  label: string;
+  order: number;
+  entityType: string;
+}
+
+export interface RoleConfig {
+  id: string;
+  key: string;
+  label: string;
+  permissions: Record<string, boolean>;
+}
+
 // ==================== AUTH ====================
 export type UserRole = 'sales' | 'assistant' | 'manager' | 'admin' | 'superadmin';
 
@@ -89,21 +194,15 @@ export interface AssignableUser {
 }
 
 // ==================== LEADS ====================
-export type LeadSource = 'instagram' | 'telegram' | 'whatsapp' | 'website' | 'phone_call' | 'referral';
+export type LeadSource = 'instagram' | 'telegram' | 'whatsapp' | 'website' | 'phone_call' | 'referral' | 'other';
 
-export type LeadStatus =
-  | 'new'
-  | 'contacted'
-  | 'interested'
-  | 'trial_scheduled'
-  | 'trial_completed'
-  | 'offer_sent'
-  | 'negotiation'
-  | 'payment_pending'
-  | 'won'
-  | 'lost';
-
-export type LeadQualificationStatus = 'new' | 'contacted' | 'qualified' | 'disqualified' | 'no_response';
+/**
+ * CRM-native lead statuses
+ * These are generic CRM statuses that apply to any business type
+ * Education-specific trial statuses should be handled in the education layer or tenant-configured stages
+ * Changed to string type to support tenant-configured statuses
+ */
+export type LeadStatus = string;
 
 export interface Lead {
   id: number;
@@ -112,10 +211,7 @@ export interface Lead {
   email: string;
   source: LeadSource;
   status: LeadStatus;
-  qualificationStatus?: LeadQualificationStatus;
   contactId?: number | null;
-  interestedCourseId?: string;
-  interestedGroupId?: string;
   notes?: string;
   tags?: string[];
   assignedManager?: { id: number; fullName: string };
@@ -135,8 +231,6 @@ export interface Contact {
   email: string;
   source?: ContactSource;
   sourceProvider?: string;
-  externalStudentId?: string;
-  lmsStudentId?: string;
   notes?: string;
   status?: string;
   company?: CompanyRef;
@@ -152,11 +246,15 @@ export interface ContactNote {
 }
 
 // ==================== DEALS ====================
+/**
+ * CRM-native deal stages
+ * These are generic CRM stages that apply to any business type
+ * Education-specific trial stages should be handled in the education layer or tenant-configured stages
+ */
 export type DealStage =
   | 'new_lead'
   | 'contacted'
-  | 'trial_booked'
-  | 'trial_completed'
+  | 'qualified'
   | 'offer_sent'
   | 'negotiation'
   | 'payment_pending'
@@ -180,14 +278,9 @@ export interface Deal {
   currency: string;
   contactId?: number;
   leadId?: number | null;
-  lmsCourseId?: string;
-  lmsGroupId?: string;
-  courseType?: import('@/types/lms').LmsCourseType;
-  courseNameSnapshot?: string;
-  groupNameSnapshot?: string;
   notes?: string;
   lead?: { id: number; fullName: string };
-  contact?: { id: number; fullName: string; email?: string; lmsStudentId?: string };
+  contact?: { id: number; fullName: string; email?: string };
   company?: CompanyRef;
   createdAt: string;
   updatedAt: string;
@@ -225,16 +318,10 @@ export interface Payment {
   dealId?: number;
   leadId?: number | null;
   contactId?: number | null;
-  lmsEnrollmentId?: string;
   paidAt?: string;
   user?: { id: number; fullName: string };
   deal?: {
     id: number;
-    lmsCourseId?: string;
-    lmsGroupId?: string;
-    courseType?: import('@/types/lms').LmsCourseType;
-    courseNameSnapshot?: string;
-    groupNameSnapshot?: string;
     contact?: { id: number; fullName: string; email?: string };
   };
   contact?: { id: number; fullName: string; email?: string };
@@ -300,10 +387,6 @@ export interface RetentionCase {
   leadId?: number;
   contactId?: number;
   dealId?: number;
-  lmsStudentId?: string;
-  lmsEnrollmentId?: string;
-  lmsCourseId?: string;
-  lmsGroupId?: string;
   issueType: IssueType;
   severity: RiskSeverity;
   status: RetentionCaseStatus;
@@ -346,18 +429,27 @@ export interface UnreadNotificationsResponse {
 }
 
 // ==================== REPORTS ====================
-export interface DashboardStats {
+
+// CRM-only dashboard stats
+export interface CrmDashboardStats {
   totalLeads: number;
   newLeads: number;
   conversionRate: number;
-  trialToSaleConversion: number;
   paymentPendingCount: number;
   wonDeals: number;
   openRetentionCases: number;
   leadsBySource: { source: string; count: number }[];
   managerPerformance: { manager: string; leads: number; deals: number; conversion: number }[];
+}
+
+// Education/LMS-specific dashboard stats
+export interface EducationDashboardStats {
+  trialToSaleConversion: number;
   popularCourses: { course: string; enrollments: number }[];
 }
+
+// Combined dashboard stats (for backward compatibility)
+export interface DashboardStats extends CrmDashboardStats, EducationDashboardStats { }
 
 export interface DashboardStatsQueryParams {
   from?: string;
@@ -401,7 +493,6 @@ export interface FunnelReport {
     source?: string;
     managerId?: number;
     courseId?: string;
-    courseType?: import('@/types/lms').LmsCourseType;
   };
   stages: FunnelStageReport[];
   dropOffs: FunnelDropOff[];

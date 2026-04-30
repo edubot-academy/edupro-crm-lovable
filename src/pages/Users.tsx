@@ -40,7 +40,12 @@ export default function UsersPage() {
   const [isResendingInvite, setIsResendingInvite] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<SystemUser | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const creatableRoles = Object.entries(ky.userRole).filter(([role]) => user?.role === 'superadmin' || role !== 'superadmin');
+
+  // Tenant users only - exclude SUPERADMIN from tenant CRM
+  // Platform users (superadmin) must be created through Platform Admin
+  const creatableRoles = Object.entries(ky.userRole).filter(([role]) =>
+    role !== 'superadmin' // SUPERADMIN is platform-only, not tenant-creatable
+  );
 
   const resetCreateForm = () => {
     setForm(emptyForm);
@@ -59,6 +64,20 @@ export default function UsersPage() {
 
   const handleCreate = async () => {
     if (!form.fullName || !form.email || !form.role) return;
+
+    // Additional security validation: prevent role escalation
+    if (form.role === 'superadmin') {
+      toast({ title: 'Бул ролду бул жерден кошууга болбойт', description: 'Бул роль уюм ичиндеги колдонуучулар үчүн жеткиликтүү эмес.', variant: 'destructive' });
+      return;
+    }
+
+    // Validate that current user has permission to create this role
+    const currentUserRole = user?.role;
+    if (currentUserRole !== 'admin' && form.role === 'admin') {
+      toast({ title: 'Уруксат жок', description: 'Админ ролундагы колдонуучуну кошууга админ гана укуктуу.', variant: 'destructive' });
+      return;
+    }
+
     setIsCreating(true);
     try {
       const createdUser = await usersApi.create(form) as CreatedUserResponse;
@@ -203,17 +222,17 @@ export default function UsersPage() {
             <div className="rounded-md bg-muted/60 p-3 text-sm">
               <p className="font-medium">{inviteInfo?.email}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Колдонуучу аккаунтту `accept invite` аркылуу бүтүрүшү керек.
+                Колдонуучу каттоону чакыруу шилтемеси аркылуу аякташы керек.
               </p>
             </div>
             {inviteInfo?.inviteUrl ? (
               <div className="space-y-2">
-                <Label>Shareable invite link</Label>
+                <Label>Колдонуучуга жөнөтүлө турган шилтеме</Label>
                 <Textarea value={inviteInfo.inviteUrl} readOnly rows={3} />
               </div>
             ) : (
               <div className="rounded-md border border-warning/30 bg-warning/10 p-3 text-sm text-warning-foreground">
-                Create жоопто invite link келген жок. Email аркылуу чакырууну кайра жөнөтө аласың.
+                Чакыруу шилтемеси келген жок. Чакырууну кайра жөнөтүп көрүңүз.
               </div>
             )}
           </div>

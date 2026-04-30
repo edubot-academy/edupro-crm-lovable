@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/PageShell';
 import { DataTable, type Column } from '@/components/DataTable';
@@ -12,6 +12,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ky } from '@/lib/i18n';
 import { contactApi, dealsApi, tasksApi } from '@/api/modules';
 import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
+import { useRolePermissions } from '@/hooks/use-role-permissions';
+import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
+import { useTenantConfig } from '@/components/core/TenantConfigProvider';
 import type { Contact, Deal, DealPipelineStage } from '@/types';
 import { getDealPipelineStage, mapPipelineToDealStage } from '@/lib/crm-status';
 import type { LmsCourseType } from '@/types/lms';
@@ -26,11 +29,6 @@ const emptyForm = {
   amount: '',
   currency: 'KGS',
   pipelineStage: 'new' as DealPipelineStage,
-  courseType: 'offline' as LmsCourseType,
-  courseNameSnapshot: '',
-  groupNameSnapshot: '',
-  lmsCourseId: '',
-  lmsGroupId: '',
   notes: '',
   initialTaskTitle: '',
   initialTaskDescription: '',
@@ -41,11 +39,15 @@ export default function DealsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
+  const { canViewLmsTechnicalFields } = useRolePermissions();
+  const { isLmsBridgeEnabled } = useLmsBridge();
+  const { tenantConfig } = useTenantConfig();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [updatingDealId, setUpdatingDealId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Deal | null>(null);
@@ -53,18 +55,24 @@ export default function DealsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState(emptyForm);
-  const { data: coursesData, isLoading: coursesLoading } = useLmsCourses({ isActive: 'true' });
-  const courses = coursesData?.items ?? [];
-  const selectedCourse = courses.find((course) => course.id === form.lmsCourseId);
-  const needsGroup = !!selectedCourse && selectedCourse.courseType !== 'video';
-  const { data: groupsData, isLoading: groupsLoading } = useLmsGroups(
-    needsGroup ? { courseId: form.lmsCourseId } : undefined,
-  );
-  const groups = groupsData?.items ?? [];
-  const selectedGroup = groups.find((group) => group.id === form.lmsGroupId);
   const prefillCourseId = searchParams.get('courseId') || '';
   const prefillGroupId = searchParams.get('groupId') || '';
   const shouldOpenCreate = searchParams.get('create') === '1';
+
+  // Use tenant-configured pipeline stages if available, otherwise use hardcoded stages
+  const pipelineStageOptions = useMemo(() => {
+    if (tenantConfig.pipelineStages && tenantConfig.pipelineStages.length > 0) {
+      return tenantConfig.pipelineStages.map(stage => ({
+        value: stage.key,
+        label: stage.label,
+      }));
+    }
+    // Fallback to hardcoded stages
+    return Object.entries(ky.dealPipelineStage).map(([value, label]) => ({
+      value,
+      label,
+    }));
+  }, [tenantConfig.pipelineStages]);
 
   const clearPrefillParams = () => {
     setSearchParams((current) => {
@@ -85,6 +93,7 @@ export default function DealsPage() {
 
   const fetchDeals = () => {
     setIsLoading(true);
+    setLoadError(null);
     dealsApi.list({ search })
       .then((res) => {
         setDeals(res.items);
@@ -93,6 +102,12 @@ export default function DealsPage() {
       .catch(() => {
         setDeals([]);
         setTotalItems(0);
+        setLoadError('Интернет байланышын текшерип, кайра аракет кылыңыз');
+        toast({
+          title: 'Тизмени жүктөө мүмкүн болгон жок',
+          description: 'Интернет байланышын текшерип, кайра аракет кылыңыз',
+          variant: 'destructive',
+        });
       })
       .finally(() => setIsLoading(false));
   };
@@ -113,57 +128,8 @@ export default function DealsPage() {
     setShowCreate(true);
   }, [shouldOpenCreate]);
 
-  useEffect(() => {
-    if (!showCreate || !courses.length || !prefillCourseId) return;
-    const course = courses.find((item) => item.id === prefillCourseId);
-    if (!course) return;
-    setForm((prev) => {
-      if (prev.lmsCourseId === course.id) return prev;
-      return {
-        ...prev,
-        lmsCourseId: course.id,
-        courseNameSnapshot: course.name || '',
-        courseType: course.courseType || 'offline',
-        lmsGroupId: '',
-        groupNameSnapshot: '',
-      };
-    });
-  }, [showCreate, courses, prefillCourseId]);
-
-  useEffect(() => {
-    if (!showCreate || !prefillGroupId || !groups.length) return;
-    const group = groups.find((item) => item.id === prefillGroupId);
-    if (!group) return;
-    setForm((prev) => ({
-      ...prev,
-      lmsGroupId: group.id,
-      groupNameSnapshot: group.name || '',
-    }));
-  }, [showCreate, groups, prefillGroupId]);
-
   const handleContactChange = (value: string) => {
     setForm((prev) => ({ ...prev, contactId: value }));
-  };
-
-  const handleCourseChange = (value: string) => {
-    const course = courses.find((item) => item.id === value);
-    setForm((prev) => ({
-      ...prev,
-      lmsCourseId: value,
-      courseNameSnapshot: course?.name || '',
-      courseType: course?.courseType || 'offline',
-      lmsGroupId: '',
-      groupNameSnapshot: '',
-    }));
-  };
-
-  const handleGroupChange = (value: string) => {
-    const group = groups.find((item) => item.id === value);
-    setForm((prev) => ({
-      ...prev,
-      lmsGroupId: value,
-      groupNameSnapshot: group?.name || '',
-    }));
   };
 
   const handleCreate = async () => {
@@ -175,16 +141,11 @@ export default function DealsPage() {
         amount: Number(form.amount),
         currency: form.currency,
         pipelineStage: form.pipelineStage,
-        courseType: form.courseType,
-        courseNameSnapshot: form.courseNameSnapshot || undefined,
-        groupNameSnapshot: form.groupNameSnapshot || undefined,
-        lmsCourseId: form.lmsCourseId || undefined,
-        lmsGroupId: form.lmsGroupId || undefined,
         notes: form.notes || undefined,
       });
       await tasksApi.create({
         title: form.initialTaskTitle.trim(),
-        description: form.initialTaskDescription || `Келишим боюнча кийинки кадам: ${form.courseNameSnapshot || 'деталдарды тактоо'}`,
+        description: form.initialTaskDescription || 'Келишим боюнча кийинки кадам',
         dueAt: form.initialTaskDueAt || undefined,
         contactId: Number(form.contactId),
         dealId: deal.id,
@@ -223,7 +184,7 @@ export default function DealsPage() {
     try {
       const updatedDeal = await dealsApi.update(deal.id, {
         pipelineStage,
-        stage: mapPipelineToDealStage(pipelineStage),
+        stage: mapPipelineToDealStage(pipelineStage, tenantConfig.pipelineStages),
       });
       setDeals((current) => current.map((item) => (item.id === deal.id ? updatedDeal : item)));
       toast({ title: 'Келишимдин этабы жаңыртылды' });
@@ -236,54 +197,62 @@ export default function DealsPage() {
   };
 
   const getDealQuickActions = (deal: Deal): Array<{ value: DealPipelineStage; label: string }> => {
-    const stage = getDealPipelineStage(deal);
+    const stage = getDealPipelineStage(deal, tenantConfig.pipelineStages);
+    const stages = tenantConfig.pipelineStages || [];
+    const currentStage = stages.find(s => s.key === stage);
 
-    switch (stage) {
-      case 'new':
-        return [
-          { value: 'consultation', label: 'Консультация' },
-          { value: 'lost', label: 'Жоголду' },
-        ];
-      case 'consultation':
-        return [
-          { value: 'trial', label: 'Сыноого өткөрүү' },
-          { value: 'negotiation', label: 'Сунушка өтүү' },
-        ];
-      case 'trial':
-        return [
-          { value: 'negotiation', label: 'Сүйлөшүүгө өтүү' },
-          { value: 'lost', label: 'Жоголду' },
-        ];
-      case 'negotiation':
-        return [
-          { value: 'payment_pending', label: 'Төлөм күтүү' },
-          { value: 'won', label: 'Жабылды' },
-        ];
-      case 'payment_pending':
-        return [
-          { value: 'won', label: 'Төлөндү' },
-          { value: 'negotiation', label: 'Кайра сүйлөшүү' },
-        ];
-      case 'lost':
-        return [
-          { value: 'consultation', label: 'Кайра ачуу' },
-        ];
-      default:
-        return [];
+    if (!currentStage) {
+      return [];
     }
+
+    const actions: Array<{ value: DealPipelineStage; label: string }> = [];
+
+    // Find next stage in order
+    const nextStage = stages
+      .filter(s => s.order > currentStage.order)
+      .sort((a, b) => a.order - b.order)[0];
+
+    if (nextStage) {
+      actions.push({ value: nextStage.key as DealPipelineStage, label: nextStage.label });
+    }
+
+    // Add "lost" option from any non-lost stage
+    if (stage !== 'lost') {
+      const lostStage = stages.find(s => s.key === 'lost');
+      if (lostStage) {
+        actions.push({ value: 'lost', label: lostStage.label });
+      }
+    }
+
+    // Add previous stage option (to allow going back)
+    const previousStage = stages
+      .filter(s => s.order < currentStage.order)
+      .sort((a, b) => b.order - a.order)[0];
+
+    if (previousStage && stage !== 'lost') {
+      actions.push({ value: previousStage.key as DealPipelineStage, label: `Кайра: ${previousStage.label}` });
+    }
+
+    // Special case: if current is lost, allow reopening to first stage
+    if (stage === 'lost') {
+      const firstStage = stages.sort((a, b) => a.order - b.order)[0];
+      if (firstStage) {
+        actions.push({ value: firstStage.key as DealPipelineStage, label: `Кайра ачуу: ${firstStage.label}` });
+      }
+    }
+
+    return actions;
   };
 
   const columns: Column<Deal>[] = [
     { key: 'contact', header: 'Студент', render: (d) => <span className="font-medium">{d.contact?.fullName || '—'}</span> },
-    { key: 'courseNameSnapshot', header: ky.deals.course, render: (d) => d.courseNameSnapshot || '—' },
-    { key: 'groupNameSnapshot', header: ky.deals.group, render: (d) => d.groupNameSnapshot || '—' },
-    { key: 'amount', header: ky.deals.amount, render: (d) => <span className="font-medium">{d.amount.toLocaleString()} {d.currency || 'сом'}</span> },
-    { key: 'stage', header: ky.deals.stage, render: (d) => { const stage = getDealPipelineStage(d); return <StatusBadge variant={getLeadStatusVariant(stage)} dot>{ky.dealPipelineStage[stage]}</StatusBadge>; } },
+    { key: 'amount', header: ky.deals.amount, render: (d) => <span className="font-medium">{d.amount.toLocaleString()} {tenantConfig.currency}</span> },
+    { key: 'stage', header: ky.deals.stage, render: (d) => { const stage = getDealPipelineStage(d, tenantConfig.pipelineStages); return <StatusBadge variant={getLeadStatusVariant(stage)} dot>{pipelineStageOptions.find(opt => opt.value === stage)?.label || ky.dealPipelineStage[stage]}</StatusBadge>; } },
     {
       key: 'actions', header: '', render: (d) => (
         <div className="flex items-center justify-end gap-1">
           <Select
-            value={getDealPipelineStage(d)}
+            value={getDealPipelineStage(d, tenantConfig.pipelineStages)}
             onValueChange={(value) => handlePipelineChange(d, value as DealPipelineStage)}
             disabled={updatingDealId === d.id}
           >
@@ -295,23 +264,25 @@ export default function DealsPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {Object.entries(ky.dealPipelineStage).map(([value, label]) => (
+              {pipelineStageOptions.map(({ value, label }) => (
                 <SelectItem key={value} value={value}>{label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/enrollments?crmDealId=${d.id}${d.contact?.lmsStudentId ? `&studentId=${encodeURIComponent(d.contact.lmsStudentId)}` : ''}`);
-            }}
-            aria-label={`${d.contact?.fullName || 'Келишим'} үчүн LMS каттоону ачуу`}
-          >
-            <GraduationCap className="h-4 w-4" />
-          </Button>
+          {isLmsBridgeEnabled && canViewLmsTechnicalFields() && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/enrollments?crmDealId=${d.id}`);
+              }}
+              aria-label={`${d.contact?.fullName || 'Келишим'} үчүн LMS каттоону ачуу`}
+            >
+              <GraduationCap className="h-4 w-4" />
+            </Button>
+          )}
           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(d); }} aria-label={`${ky.common.delete} ${d.contact?.fullName || 'келишим'}`}>
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -319,7 +290,7 @@ export default function DealsPage() {
       ),
     },
   ];
-  const mobileBoardColumns = Object.entries(ky.dealPipelineStage).map(([value, label]) => ({ id: value, title: label }));
+  const mobileBoardColumns = pipelineStageOptions.map(({ value, label }) => ({ id: value, title: label }));
   const activeFilters = search.trim()
     ? [{
       key: 'search',
@@ -332,17 +303,17 @@ export default function DealsPage() {
       <div className="hidden items-center gap-2 text-xs text-muted-foreground xl:flex">
         <span className="rounded-full bg-secondary px-2.5 py-1">{totalItems} келишим</span>
         <span className="rounded-full bg-secondary px-2.5 py-1">
-          {deals.filter((deal) => getDealPipelineStage(deal) === 'payment_pending').length} төлөм күтөт
+          {deals.filter((deal) => getDealPipelineStage(deal, tenantConfig.pipelineStages) === 'payment_pending').length} төлөм күтөт
         </span>
         <span className="rounded-full bg-secondary px-2.5 py-1">
-          {deals.filter((deal) => getDealPipelineStage(deal) === 'won').length} ийгиликтүү
+          {deals.filter((deal) => getDealPipelineStage(deal, tenantConfig.pipelineStages) === 'won').length} ийгиликтүү
         </span>
       </div>
     </div>
   );
 
   const renderMobileCard = (deal: Deal) => {
-    const stage = getDealPipelineStage(deal);
+    const stage = getDealPipelineStage(deal, tenantConfig.pipelineStages);
     const quickActions = getDealQuickActions(deal);
 
     return (
@@ -350,16 +321,14 @@ export default function DealsPage() {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="truncate font-semibold">{deal.contact?.fullName || '—'}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{deal.courseNameSnapshot || 'Курс жок'}</p>
           </div>
           <StatusBadge variant={getLeadStatusVariant(stage)} dot>
-            {ky.dealPipelineStage[stage]}
+            {pipelineStageOptions.find(opt => opt.value === stage)?.label || ky.dealPipelineStage[stage]}
           </StatusBadge>
         </div>
 
         <div className="mt-3 space-y-2 text-sm text-muted-foreground">
-          <p>{deal.groupNameSnapshot || 'Топ жок'}</p>
-          <p className="font-medium text-foreground">{deal.amount.toLocaleString()} {deal.currency || 'сом'}</p>
+          <p className="font-medium text-foreground">{deal.amount.toLocaleString()} {tenantConfig.currency}</p>
           <p>{deal.notes || 'Кошумча эскертүү жок'}</p>
         </div>
 
@@ -375,18 +344,6 @@ export default function DealsPage() {
             {ky.common.view}
           </Button>
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate(`/enrollments?crmDealId=${deal.id}${deal.contact?.lmsStudentId ? `&studentId=${encodeURIComponent(deal.contact.lmsStudentId)}` : ''}`);
-              }}
-              aria-label="LMS"
-            >
-              <GraduationCap className="h-4 w-4" />
-            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -432,6 +389,8 @@ export default function DealsPage() {
         columns={columns}
         data={deals}
         isLoading={isLoading}
+        errorMessage={loadError || undefined}
+        onRetry={fetchDeals}
         searchValue={search}
         onSearchChange={setSearch}
         searchPlaceholder="Келишим издөө..."
@@ -443,7 +402,7 @@ export default function DealsPage() {
         onRowClick={(deal) => navigate(`/deals/${deal.id}`)}
         renderMobileCard={renderMobileCard}
         mobileBoardColumns={mobileBoardColumns}
-        getMobileBoardColumnId={(deal) => getDealPipelineStage(deal)}
+        getMobileBoardColumnId={(deal) => getDealPipelineStage(deal, tenantConfig.pipelineStages)}
         mobileBoardEmptyMessage="Бул этапта келишим жок"
       />
 
@@ -474,71 +433,6 @@ export default function DealsPage() {
               <div className="space-y-2">
                 <Label>{ky.deals.amount} *</Label>
                 <Input value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="15000" type="number" />
-              </div>
-              <div className="space-y-2">
-                <Label>{ky.deals.course}</Label>
-                <Select value={form.lmsCourseId} onValueChange={handleCourseChange} disabled={coursesLoading}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {courses.map((course) => (
-                      <SelectItem key={course.id} value={course.id}>
-                        {course.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {selectedCourse && (
-                  <p className="text-xs text-muted-foreground">
-                    {getCourseSalesSummary(selectedCourse).join(' • ') || 'Маалымат жок'}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label>Курс түрү</Label>
-                <Input value={form.courseType === 'online_live' ? 'Онлайн түз эфир' : form.courseType === 'video' ? 'Видео' : 'Оффлайн'} readOnly />
-              </div>
-              <div className="space-y-2">
-                <Label>{ky.deals.group}</Label>
-                <Select value={form.lmsGroupId || '__none__'} onValueChange={(value) => handleGroupChange(value === '__none__' ? '' : value)} disabled={!needsGroup || groupsLoading}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={!needsGroup ? 'Талап кылынбайт' : groupsLoading ? 'Жүктөлүүдө...' : 'Топ тандаңыз'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {!needsGroup && <SelectItem value="__none__">Талап кылынбайт</SelectItem>}
-                    {groups.map((group) => (
-                      <SelectItem key={group.id} value={group.id}>
-                        {group.name} {group.teacherName ? `• ${group.teacherName}` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {selectedGroup && (
-                  <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium text-foreground">{selectedGroup.name}</span>
-                      <Badge variant={getLmsGroupAvailability(selectedGroup).tone}>
-                        {getLmsGroupAvailability(selectedGroup).label}
-                      </Badge>
-                    </div>
-                    <p>
-                      {selectedGroup.startDate ? `Башталышы: ${formatLmsDate(selectedGroup.startDate)}` : 'Башталышы: такталган эмес'}
-                      {selectedGroup.schedule ? ` • График: ${selectedGroup.schedule}` : ''}
-                    </p>
-                    <p>
-                      {selectedGroup.teacherName ? `Мугалим: ${selectedGroup.teacherName}` : 'Мугалим: дайындала элек'}
-                      {selectedGroup.capacity != null ? ` • Орун: ${selectedGroup.currentStudentCount ?? 0}/${selectedGroup.capacity}` : ''}
-                      {getSeatsLeft(selectedGroup) != null ? ` • Бош орун: ${getSeatsLeft(selectedGroup)}` : ''}
-                    </p>
-                  </div>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label>LMS Курс ID</Label>
-                <Input value={form.lmsCourseId} readOnly placeholder="Авто" />
-              </div>
-              <div className="space-y-2">
-                <Label>LMS Топ ID</Label>
-                <Input value={form.lmsGroupId || '—'} readOnly placeholder="Авто" />
               </div>
               <div className="space-y-2">
                 <Label>{ky.deals.currency}</Label>

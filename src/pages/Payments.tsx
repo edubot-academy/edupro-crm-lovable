@@ -12,17 +12,25 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { ky } from '@/lib/i18n';
 import { getPaymentWorkflowStatus } from '@/lib/crm-status';
+import { formatDate } from '@/lib/formatting';
 import type { Deal, Payment } from '@/types';
-import { dealsApi, paymentsApi } from '@/api/modules';
+import type { DealWithCourseMapping } from '@/types/bridge';
+import { dealsApi, paymentsApi, bridgeApi } from '@/api/modules';
 import { Plus, CheckCircle, Loader2 } from 'lucide-react';
 import { getFriendlyError } from '@/lib/error-messages';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRolePermissions } from '@/hooks/use-role-permissions';
+import { useTenantConfig } from '@/components/core/TenantConfigProvider';
+import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
 
-const emptyForm = { dealId: '', amount: '', kind: 'regular' as Payment['kind'], method: 'card' as string };
+const emptyForm = { dealId: '', amount: '', kind: 'regular' as Payment['kind'], method: '' as string };
 
 export default function PaymentsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { canViewLmsTechnicalFields } = useRolePermissions();
+  const { tenantConfig } = useTenantConfig();
+  const { isLmsBridgeEnabled } = useLmsBridge();
   const [searchParams, setSearchParams] = useSearchParams();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -37,6 +45,7 @@ export default function PaymentsPage() {
   const [form, setForm] = useState(emptyForm);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [dealsLoading, setDealsLoading] = useState(false);
+  const [dealBridgeData, setDealBridgeData] = useState<DealWithCourseMapping | null>(null);
   const { toast } = useToast();
   const prefillDealId = searchParams.get('dealId') || '';
   const shouldOpenCreate = searchParams.get('create') === '1';
@@ -44,27 +53,6 @@ export default function PaymentsPage() {
   const selectedDealPayments = payments.filter((payment) => String(payment.dealId) === form.dealId);
   const selectedDealSummary = selectedDealPayments[0]?.dealPaymentSummary ?? null;
   const canConfirmPayments = user?.role !== 'sales';
-
-  const dealRequiresLmsEmail = (deal?: Deal | Payment['deal']) =>
-    !!deal?.lmsCourseId && !!deal?.courseType;
-
-  const dealMissingLmsGroup = (deal?: Deal | Payment['deal']) =>
-    !!deal?.lmsCourseId &&
-    !!deal?.courseType &&
-    deal.courseType !== 'video' &&
-    !deal?.lmsGroupId;
-
-  const selectedDealMissingEnrollmentEmail =
-    dealRequiresLmsEmail(selectedDeal) && !selectedDeal?.contact?.email?.trim();
-
-  const confirmTargetMissingEnrollmentEmail =
-    dealRequiresLmsEmail(confirmTarget?.deal) &&
-    !confirmTarget?.lmsEnrollmentId &&
-    !confirmTarget?.deal?.contact?.email?.trim();
-
-  const confirmTargetMissingEnrollmentGroup =
-    dealMissingLmsGroup(confirmTarget?.deal) &&
-    !confirmTarget?.lmsEnrollmentId;
 
   const clearPrefillParams = () => {
     setSearchParams((current) => {
@@ -127,16 +115,18 @@ export default function PaymentsPage() {
     setForm((prev) => ({ ...prev, dealId: prefillDealId }));
   }, [showCreate, prefillDealId]);
 
-  const handleCreate = async () => {
-    if (!form.dealId || !form.amount) return;
-    if (selectedDealMissingEnrollmentEmail) {
-      toast({
-        title: 'LMS каттоо үчүн email керек',
-        description: 'Бул келишим LMS каттоону түзөт. Адегенде байланыштын email дарегин толтуруңуз.',
-        variant: 'destructive',
-      });
+  useEffect(() => {
+    if (!selectedDeal || !isLmsBridgeEnabled) {
+      setDealBridgeData(null);
       return;
     }
+    bridgeApi.getDealBridgeData(selectedDeal.id)
+      .then((data) => setDealBridgeData(data))
+      .catch(() => setDealBridgeData(null));
+  }, [selectedDeal, isLmsBridgeEnabled]);
+
+  const handleCreate = async () => {
+    if (!form.dealId || !form.amount) return;
     setIsCreating(true);
     try {
       const payload = {
@@ -165,22 +155,6 @@ export default function PaymentsPage() {
 
   const handleConfirm = async () => {
     if (!confirmTarget) return;
-    if (confirmTargetMissingEnrollmentEmail) {
-      toast({
-        title: 'LMS каттоо үчүн email керек',
-        description: 'Бул төлөмдү ырастоодон мурун байланыштын email дарегин толтуруңуз.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    if (confirmTargetMissingEnrollmentGroup) {
-      toast({
-        title: 'LMS тобу келишимде көрсөтүлгөн эмес',
-        description: 'Бул төлөм оффлайн же онлайн түз эфир курсу үчүн. Алгач deal ичиндеги LMS тобун толтуруңуз.',
-        variant: 'destructive',
-      });
-      return;
-    }
     setIsConfirming(true);
     try {
       await paymentsApi.update(confirmTarget.id, { paymentStatus: 'confirmed' });
@@ -199,33 +173,38 @@ export default function PaymentsPage() {
     payment.deal?.contact?.fullName || payment.contact?.fullName || payment.user?.fullName || '—';
 
   const getPaymentDealLabel = (payment: Payment) => {
-    const dealId = payment.deal?.id || payment.dealId;
-    const course = payment.deal?.courseNameSnapshot;
-    const group = payment.deal?.groupNameSnapshot;
+    const dealId = payment.deal?.id;
 
-    if (!dealId && !course && !group) return '—';
+    if (!dealId) return '—';
 
-    const details = [course, group].filter(Boolean).join(' • ');
-    return details ? `#${dealId ?? '—'} • ${details}` : `#${dealId ?? '—'}`;
+    return `#${dealId}`;
+  };
+
+  const getPaymentMethodName = (methodKey: string) => {
+    const pm = tenantConfig.paymentMethods.find(p => p.methodKey === methodKey);
+    if (pm) return pm.methodName;
+    return ky.paymentMethod[methodKey] || methodKey;
   };
 
   const columns: Column<Payment>[] = [
     { key: 'user', header: 'Студент', render: (p) => <span className="font-medium">{getPaymentStudentName(p)}</span> },
     { key: 'deal', header: 'Келишим', render: (p) => <span className="text-sm">{getPaymentDealLabel(p)}</span> },
     { key: 'kind', header: ky.payments.kind, render: (p) => ky.paymentKind[p.kind || 'regular'] },
-    { key: 'amount', header: ky.payments.amount, render: (p) => <span className="font-semibold">{p.amount.toLocaleString()} сом</span> },
-    { key: 'method', header: ky.payments.method, render: (p) => ky.paymentMethod[p.method] },
-    { key: 'paidAt', header: ky.payments.paidAt, render: (p) => p.paidAt ? new Date(p.paidAt).toLocaleDateString('ky-KG') : '—' },
-    { key: 'status', header: ky.common.status, render: (p) => (
-      <div className="flex items-center gap-2">
-        <StatusBadge variant={getPaymentStatusVariant(getPaymentWorkflowStatus(p))} dot>{ky.paymentStatus[getPaymentWorkflowStatus(p)]}</StatusBadge>
-        {canConfirmPayments && getPaymentWorkflowStatus(p) === 'submitted' && (
-          <Button variant="ghost" size="sm" className="h-7 text-xs text-success hover:text-success" title={ky.payments.confirmPayment} aria-label={`${getPaymentStudentName(p)} үчүн ${ky.payments.confirmPayment.toLowerCase()}`} onClick={() => setConfirmTarget(p)}>
-            <CheckCircle className="h-3.5 w-3.5" />
-          </Button>
-        )}
-      </div>
-    )},
+    { key: 'amount', header: ky.payments.amount, render: (p) => <span className="font-semibold">{p.amount.toLocaleString()} {tenantConfig.currency}</span> },
+    { key: 'method', header: ky.payments.method, render: (p) => getPaymentMethodName(p.method) },
+    { key: 'paidAt', header: ky.payments.paidAt, render: (p) => p.paidAt ? formatDate(p.paidAt) : '—' },
+    {
+      key: 'status', header: ky.common.status, render: (p) => (
+        <div className="flex items-center gap-2">
+          <StatusBadge variant={getPaymentStatusVariant(getPaymentWorkflowStatus(p))} dot>{ky.paymentStatus[getPaymentWorkflowStatus(p)]}</StatusBadge>
+          {canConfirmPayments && getPaymentWorkflowStatus(p) === 'submitted' && (
+            <Button variant="ghost" size="sm" className="h-7 text-xs text-success hover:text-success" title={ky.payments.confirmPayment} aria-label={`${getPaymentStudentName(p)} үчүн ${ky.payments.confirmPayment.toLowerCase()}`} onClick={() => setConfirmTarget(p)}>
+              <CheckCircle className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      )
+    },
   ];
   const mobileBoardColumns = Object.entries(ky.paymentStatus)
     .filter(([value]) => statusFilter === 'all' || value === statusFilter)
@@ -292,9 +271,9 @@ export default function PaymentsPage() {
         </div>
 
         <div className="mt-3 space-y-2 text-sm text-muted-foreground">
-          <p className="font-medium text-foreground">{payment.amount.toLocaleString()} сом</p>
-          <p>{ky.paymentKind[payment.kind || 'regular']} • {ky.paymentMethod[payment.method]}</p>
-          <p>{payment.paidAt ? new Date(payment.paidAt).toLocaleDateString('ky-KG') : 'Дата жок'}</p>
+          <p className="font-medium text-foreground">{payment.amount.toLocaleString()} {tenantConfig.currency}</p>
+          <p>{ky.paymentKind[payment.kind || 'regular']} • {getPaymentMethodName(payment.method)}</p>
+          <p>{payment.paidAt ? formatDate(payment.paidAt) : 'Дата жок'}</p>
         </div>
 
         {canConfirmPayments && workflowStatus === 'submitted' && (
@@ -365,7 +344,7 @@ export default function PaymentsPage() {
                   <SelectItem value="__none__">Тандалган эмес</SelectItem>
                   {deals.map((deal) => (
                     <SelectItem key={deal.id} value={String(deal.id)}>
-                      #{deal.id} • {deal.courseNameSnapshot || 'Курс көрсөтүлгөн эмес'} • {deal.contact?.fullName || `Байланыш #${deal.contactId ?? '—'}`}
+                      #{deal.id} • {deal.contact?.fullName || `Байланыш #${deal.contactId ?? '—'}`}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -373,36 +352,19 @@ export default function PaymentsPage() {
               {selectedDeal && (
                 <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground space-y-1">
                   <p>
-                    {selectedDeal.courseNameSnapshot || 'Курс көрсөтүлгөн эмес'}
+                    {dealBridgeData?.courseNameSnapshot || 'Курс көрсөтүлгөн эмес'}
                     {selectedDeal.contact?.fullName ? ` • ${selectedDeal.contact.fullName}` : ''}
                   </p>
                   {selectedDealSummary ? (
                     <p>
-                      Жалпы: {selectedDealSummary.dealTotal.toLocaleString()} сом
-                      {' • '}Ырасталды: {selectedDealSummary.confirmedPaid.toLocaleString()} сом
-                      {' • '}Депозит: {selectedDealSummary.depositPaid.toLocaleString()} сом
-                      {' • '}Калганы: {selectedDealSummary.remaining.toLocaleString()} сом
+                      Жалпы: {selectedDealSummary.dealTotal.toLocaleString()} {tenantConfig.currency}
+                      {' • '}Ырасталды: {selectedDealSummary.confirmedPaid.toLocaleString()} {tenantConfig.currency}
+                      {' • '}Депозит: {selectedDealSummary.depositPaid.toLocaleString()} {tenantConfig.currency}
+                      {' • '}Калганы: {selectedDealSummary.remaining.toLocaleString()} {tenantConfig.currency}
                     </p>
                   ) : selectedDeal.amount != null ? (
-                    <p>Жалпы: {Number(selectedDeal.amount).toLocaleString()} сом</p>
+                    <p>Жалпы: {Number(selectedDeal.amount).toLocaleString()} {tenantConfig.currency}</p>
                   ) : null}
-                </div>
-              )}
-              {selectedDealMissingEnrollmentEmail && (
-                <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive space-y-2">
-                  <p>
-                    Бул келишим LMS каттоону түзөт. Улантуу үчүн байланыштын email дарегин толтуруңуз.
-                  </p>
-                  {selectedDeal?.contact?.id && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate(`/contacts/${selectedDeal.contact?.id}`)}
-                    >
-                      Байланышты ачуу
-                    </Button>
-                  )}
                 </div>
               )}
             </div>
@@ -424,14 +386,18 @@ export default function PaymentsPage() {
               <Select value={form.method} onValueChange={(v) => setForm({ ...form, method: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {Object.entries(ky.paymentMethod).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                  {tenantConfig.paymentMethods.map((pm) => (
+                    <SelectItem key={pm.methodKey} value={pm.methodKey}>
+                      {pm.methodName || ky.paymentMethod[pm.methodKey] || pm.methodKey}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={resetCreateForm}>{ky.common.cancel}</Button>
-            <Button onClick={handleCreate} disabled={isCreating || !form.dealId || !form.amount || selectedDealMissingEnrollmentEmail}>
+            <Button onClick={handleCreate} disabled={isCreating || !form.dealId || !form.amount}>
               {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {form.kind === 'deposit' ? ky.payments.depositPayment : ky.common.create}
             </Button>
@@ -445,29 +411,15 @@ export default function PaymentsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Төлөмдү ырастоо</AlertDialogTitle>
             <AlertDialogDescription>
-              {confirmTargetMissingEnrollmentEmail
-                ? 'Бул төлөм LMS каттоону активдештирет. Адегенде байланыштын email дарегин толтуруңуз.'
-                : confirmTargetMissingEnrollmentGroup
-                  ? 'Бул төлөм LMS каттоону активдештирет. Оффлайн жана онлайн түз эфир курстары үчүн deal ичинде LMS тобу милдеттүү.'
-                : `${confirmTarget ? getPaymentStudentName(confirmTarget) : 'Кардар'} — ${confirmTarget?.amount?.toLocaleString?.() ?? '0'} сом төлөмүн ырастайсызбы?`}
+              {`${confirmTarget ? getPaymentStudentName(confirmTarget) : 'Кардар'} — ${confirmTarget?.amount?.toLocaleString?.() ?? '0'} сом төлөмүн ырастайсызбы?`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isConfirming}>{ky.common.cancel}</AlertDialogCancel>
-            {confirmTargetMissingEnrollmentEmail && confirmTarget?.deal?.contact?.id ? (
-              <AlertDialogAction onClick={() => navigate(`/contacts/${confirmTarget.deal?.contact?.id}`)} disabled={isConfirming}>
-                Байланышты ачуу
-              </AlertDialogAction>
-            ) : confirmTargetMissingEnrollmentGroup && confirmTarget?.deal?.id ? (
-              <AlertDialogAction onClick={() => navigate(`/deals/${confirmTarget.deal?.id}`)} disabled={isConfirming}>
-                Келишимди ачуу
-              </AlertDialogAction>
-            ) : (
             <AlertDialogAction onClick={handleConfirm} disabled={isConfirming}>
               {isConfirming && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Ырастоо
             </AlertDialogAction>
-            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

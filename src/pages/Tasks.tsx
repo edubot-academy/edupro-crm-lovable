@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { ky } from '@/lib/i18n';
+import { formatDate } from '@/lib/formatting';
 import type { Contact, Deal, Task, TaskWorkflowStatus } from '@/types';
 import { getTaskWorkflowStatus } from '@/lib/crm-status';
 import { contactApi, dealsApi, tasksApi } from '@/api/modules';
@@ -27,6 +28,7 @@ export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [totalItems, setTotalItems] = useState(0);
   const [statusFilter, setStatusFilter] = useState('all');
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
@@ -56,6 +58,7 @@ export default function TasksPage() {
 
   const fetchTasks = () => {
     setIsLoading(true);
+    setLoadError(null);
     tasksApi.list({ search, workflowStatus: statusFilter === 'all' ? undefined : statusFilter })
       .then((res) => {
         setTasks(res.items);
@@ -64,6 +67,12 @@ export default function TasksPage() {
       .catch(() => {
         setTasks([]);
         setTotalItems(0);
+        setLoadError('Интернет байланышын текшерип, кайра аракет кылыңыз');
+        toast({
+          title: 'Тизмени жүктөө мүмкүн болгон жок',
+          description: 'Интернет байланышын текшерип, кайра аракет кылыңыз',
+          variant: 'destructive',
+        });
       })
       .finally(() => setIsLoading(false));
   };
@@ -205,25 +214,29 @@ export default function TasksPage() {
   );
 
   const columns: Column<Task>[] = [
-    { key: 'title', header: 'Тапшырма', render: (t) => (
-      <div>
-        <span className="font-medium">{t.title}</span>
-        {t.description && <p className="text-xs text-muted-foreground">{t.description}</p>}
-      </div>
-    )},
+    {
+      key: 'title', header: 'Тапшырма', render: (t) => (
+        <div>
+          <span className="font-medium">{t.title}</span>
+          {t.description && <p className="text-xs text-muted-foreground">{t.description}</p>}
+        </div>
+      )
+    },
     { key: 'assignedTo', header: ky.tasks.assignedUser, render: (t) => t.assignedTo?.fullName || '—' },
     { key: 'relatedTo', header: ky.tasks.relatedTo, render: (t) => `Байланыш: ${t.contactId || '—'} / Келишим: ${t.dealId || '—'}`, className: 'hidden lg:table-cell' },
-    { key: 'dueAt', header: ky.tasks.dueAt, render: (t) => t.dueAt ? new Date(t.dueAt).toLocaleDateString('ky-KG') : '—' },
-    { key: 'status', header: ky.common.status, render: (t) => (
-      <div className="flex items-center gap-2">
-        {(() => { const status = getTaskWorkflowStatus(t); return <StatusBadge variant={getTaskStatusVariant(status)} dot>{ky.taskWorkflowStatus[status]}</StatusBadge>; })()}
-        {getTaskWorkflowStatus(t) !== 'completed' && getTaskWorkflowStatus(t) !== 'cancelled' && (
-          <Button variant="ghost" size="sm" className="h-7 text-xs text-success hover:text-success" onClick={() => handleMarkDone(t)} disabled={isUpdatingTaskId === t.id}>
-            <CheckCircle className="h-3.5 w-3.5" />
-          </Button>
-        )}
-      </div>
-    )},
+    { key: 'dueAt', header: ky.tasks.dueAt, render: (t) => t.dueAt ? formatDate(t.dueAt) : '—' },
+    {
+      key: 'status', header: ky.common.status, render: (t) => (
+        <div className="flex items-center gap-2">
+          {(() => { const status = getTaskWorkflowStatus(t); return <StatusBadge variant={getTaskStatusVariant(status)} dot>{ky.taskWorkflowStatus[status]}</StatusBadge>; })()}
+          {getTaskWorkflowStatus(t) !== 'completed' && getTaskWorkflowStatus(t) !== 'cancelled' && (
+            <Button variant="ghost" size="sm" className="h-7 text-xs text-success hover:text-success" onClick={() => handleMarkDone(t)} disabled={isUpdatingTaskId === t.id}>
+              <CheckCircle className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      )
+    },
     {
       key: 'actions', header: '', render: (t) => (
         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(t); }}>
@@ -250,7 +263,7 @@ export default function TasksPage() {
           </div>
           <div className="rounded-md bg-muted/60 p-2">
             <p className="text-xs text-muted-foreground">{ky.tasks.dueAt}</p>
-            <p className="font-medium">{task.dueAt ? new Date(task.dueAt).toLocaleDateString('ky-KG') : '—'}</p>
+            <p className="font-medium">{task.dueAt ? formatDate(task.dueAt) : '—'}</p>
           </div>
         </div>
         <div className="flex items-center justify-between">
@@ -265,7 +278,7 @@ export default function TasksPage() {
               disabled={isUpdatingTaskId === task.id}
             >
               <CheckCircle className="mr-2 h-4 w-4" />
-              Белгилөө
+              Аткарылды деп белгилөө
             </Button>
           ) : <span />}
           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(task); }}>
@@ -286,9 +299,11 @@ export default function TasksPage() {
         columns={columns}
         data={filtered}
         isLoading={isLoading}
+        errorMessage={loadError || undefined}
+        onRetry={fetchTasks}
         searchValue={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Тапшырма издөө..."
+        searchPlaceholder="Тапшырманы издөө..."
         headerActions={headerActions}
         activeFilters={activeFilters}
         totalItems={totalItems}
@@ -358,7 +373,7 @@ export default function TasksPage() {
                     <SelectItem value="__none__">Тандалган эмес</SelectItem>
                     {deals.map((deal) => (
                       <SelectItem key={deal.id} value={String(deal.id)}>
-                        #{deal.id} • {deal.courseNameSnapshot || 'Курс көрсөтүлгөн эмес'}
+                        #{deal.id} {deal.contact?.fullName ? `• ${deal.contact.fullName}` : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>

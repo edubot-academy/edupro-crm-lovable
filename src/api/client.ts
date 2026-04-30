@@ -3,6 +3,16 @@ const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
   (import.meta.env.PROD ? "https://api.edupro.edubot.it.com" : "");
 
+import { validateAndSanitizeTenantId } from '@/lib/validation';
+import { isTenantScopedApiPath } from '@/lib/tenant-bootstrap';
+
+// Automatically prepend /api to all paths in development
+// In production, the API_BASE_URL already includes the full path
+const API_PREFIX = import.meta.env.PROD ? "" : "/api";
+
+// Security: Request timeout to prevent hanging requests (30 seconds)
+const REQUEST_TIMEOUT = 30000;
+
 interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | undefined>;
   /** Skip auto-refresh on 401 (used internally for refresh calls). */
@@ -15,9 +25,19 @@ interface RequestOptions extends RequestInit {
 
 // This will be set by AuthContext after mount
 let getAccessTokenFn: (() => Promise<string | null>) | null = null;
+let getAuthTenantIdFn: (() => string | null) | null = null;
+let getResolvedTenantIdFn: (() => string | null) | null = null;
 
 export function setAccessTokenProvider(fn: () => Promise<string | null>) {
   getAccessTokenFn = fn;
+}
+
+export function setAuthTenantIdProvider(fn: () => string | null) {
+  getAuthTenantIdFn = fn;
+}
+
+export function setResolvedTenantIdProvider(fn: () => string | null) {
+  getResolvedTenantIdFn = fn;
 }
 
 class ApiClient {
@@ -28,7 +48,9 @@ class ApiClient {
   }
 
   private buildUrl(path: string, params?: Record<string, string | number | undefined>): string {
-    const url = new URL(`${this.baseUrl}${path}`, window.location.origin);
+    // Automatically prepend /api prefix in development
+    const fullPath = path.startsWith('/') ? `${API_PREFIX}${path}` : `${API_PREFIX}/${path}`;
+    const url = new URL(`${this.baseUrl}${fullPath}`, window.location.origin);
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) url.searchParams.set(key, String(value));
@@ -44,13 +66,29 @@ class ApiClient {
     getAttemptHeaders?: (() => Record<string, string>) | undefined,
   ): Promise<Response> {
     const attemptHeaders = getAttemptHeaders ? getAttemptHeaders() : {};
-    return fetch(url, {
-      ...fetchOptions,
-      headers: {
-        ...baseHeaders,
-        ...attemptHeaders,
-      },
-    });
+
+    // Security: Add timeout to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+
+    try {
+      const response = await fetch(url, {
+        ...fetchOptions,
+        headers: {
+          ...baseHeaders,
+          ...attemptHeaders,
+        },
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Request timeout. Please check your connection and try again.');
+      }
+      throw error;
+    }
   }
 
   private async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -62,12 +100,28 @@ class ApiClient {
       token = await getAccessTokenFn();
     }
 
+    const resolvedTenantId = getResolvedTenantIdFn ? getResolvedTenantIdFn() : null;
+    const authTenantId = getAuthTenantIdFn ? getAuthTenantIdFn() : null;
+    const tenantId = authTenantId || resolvedTenantId;
+
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(extraHeaders || {}),
       ...((fetchOptions.headers as Record<string, string>) || {}),
     };
+
+    // Add X-Company-Id header if a tenant is available and no explicit value was provided.
+    if (tenantId && !extraHeaders?.['X-Company-Id']) {
+      const sanitizedTenantId = validateAndSanitizeTenantId(tenantId);
+      if (sanitizedTenantId) {
+        headers["X-Company-Id"] = sanitizedTenantId;
+      }
+    }
+
+    if (isTenantScopedApiPath(path) && !headers['X-Company-Id']) {
+      throw new Error('Уюм табылган жок. Доменди текшерип, кайра аракет кылыңыз.');
+    }
 
     const url = this.buildUrl(path, params);
     const response = await this.performFetch(url, fetchOptions, headers, getAttemptHeaders);
