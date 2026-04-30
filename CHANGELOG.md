@@ -6,7 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Version bumps are classified by delivery scale; see `VERSIONING.md`.
 
-## [1.7.1] - 2026-04-29
+## [2.0.0] - 2026-04-30
+
+### Breaking Changes
+- **Major architectural shift**: Application is now a tenant-only CRM frontend, no longer a combined platform/tenant system
+- Removed platform admin routes (`/platform`) and PlatformAdminPage component (platform operations moved to separate application)
+- Removed legacy contact routes (`/legacy-contacts`, `/legacy-contacts/:id`) and related components
+- Removed superadmin role from tenant CRM (platform-only role, managed in separate platform admin)
+- Removed platform admin login mode toggle from Login page
+- Companies API endpoint removed from tenant CRM (no longer used in tenant context)
+- Legacy contacts API endpoint removed from tenant CRM
+- Global feature flag management removed from tenant CRM (now managed in platform admin)
+- This release requires operators to use the separate platform admin application for platform-level operations
 
 ### Added
 - New backend feature flags: payments_enabled, whatsapp_integration_enabled, custom_roles_enabled, custom_domain_enabled to FeatureFlag type and FeatureFlags interface
