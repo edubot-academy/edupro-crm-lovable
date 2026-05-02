@@ -10,30 +10,59 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { ky } from '@/lib/i18n';
-import { contactApi, dealsApi, tasksApi } from '@/api/modules';
-import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
+import { contactApi, dealsApi, leadsApi, tasksApi, trialLessonsApi } from '@/api/modules';
 import { useRolePermissions } from '@/hooks/use-role-permissions';
 import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
 import { useTenantConfig } from '@/components/core/TenantConfigProvider';
-import type { Contact, Deal, DealPipelineStage } from '@/types';
-import { getDealPipelineStage, mapPipelineToDealStage } from '@/lib/crm-status';
+import type { Contact, Deal, DealPipelineStage, Lead, TrialLesson } from '@/types';
 import type { LmsCourseType } from '@/types/lms';
-import { formatLmsDate, getCourseSalesSummary, getLmsGroupAvailability, getSeatsLeft } from '@/lib/lms-availability';
+import { getDealPipelineStage, mapPipelineToDealStage } from '@/lib/crm-status';
 import { Plus, Trash2, Loader2, GraduationCap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { getFriendlyError } from '@/lib/error-messages';
+import { LmsCourseContextFields } from '@/components/lms/LmsCourseContextFields';
+import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
 
-const emptyForm = {
+type DealCreateFormState = {
+  leadId: string;
+  contactId: string;
+  trialLessonId: string;
+  amount: string;
+  currency: string;
+  pipelineStage: DealPipelineStage;
+  notes: string;
+  lmsCourseId: string;
+  lmsGroupId: string;
+  courseType: LmsCourseType | '';
+  courseNameSnapshot: string;
+  groupNameSnapshot: string;
+  initialTaskTitle: string;
+  initialTaskDescription: string;
+  initialTaskDueAt: string;
+};
+
+const emptyForm: DealCreateFormState = {
+  leadId: '',
   contactId: '',
+  trialLessonId: '',
   amount: '',
   currency: 'KGS',
   pipelineStage: 'new' as DealPipelineStage,
   notes: '',
+  lmsCourseId: '',
+  lmsGroupId: '',
+  courseType: '',
+  courseNameSnapshot: '',
+  groupNameSnapshot: '',
   initialTaskTitle: '',
   initialTaskDescription: '',
   initialTaskDueAt: '',
 };
+
+function normalizeCourseType(value?: string | null): LmsCourseType | '' {
+  return value === 'video' || value === 'offline' || value === 'online_live' ? value : '';
+}
 
 export default function DealsPage() {
   const navigate = useNavigate();
@@ -45,6 +74,8 @@ export default function DealsPage() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [trialLessons, setTrialLessons] = useState<TrialLesson[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -55,9 +86,24 @@ export default function DealsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const prefillLeadId = searchParams.get('leadId') || '';
+  const prefillContactId = searchParams.get('contactId') || '';
+  const prefillTrialLessonId = searchParams.get('trialLessonId') || '';
   const prefillCourseId = searchParams.get('courseId') || '';
   const prefillGroupId = searchParams.get('groupId') || '';
+  const prefillCourseType = searchParams.get('courseType') || '';
+  const prefillCourseName = searchParams.get('courseName') || '';
+  const prefillGroupName = searchParams.get('groupName') || '';
   const shouldOpenCreate = searchParams.get('create') === '1';
+  const { data: coursesData } = useLmsCourses(isLmsBridgeEnabled ? { isActive: 'true' } : undefined);
+  const courses = coursesData?.items ?? [];
+  const selectedFormCourse = courses.find((course) => course.id === form.lmsCourseId) ?? null;
+  const { data: groupsData } = useLmsGroups(
+    isLmsBridgeEnabled && form.lmsCourseId && selectedFormCourse?.courseType !== 'video'
+      ? { courseId: form.lmsCourseId, limit: 100 }
+      : undefined,
+  );
+  const groups = groupsData?.items ?? [];
 
   // Use tenant-configured pipeline stages if available, otherwise use hardcoded stages
   const pipelineStageOptions = useMemo(() => {
@@ -78,9 +124,14 @@ export default function DealsPage() {
     setSearchParams((current) => {
       const next = new URLSearchParams(current);
       next.delete('create');
+      next.delete('leadId');
+      next.delete('contactId');
+      next.delete('trialLessonId');
       next.delete('courseId');
       next.delete('courseType');
       next.delete('groupId');
+      next.delete('courseName');
+      next.delete('groupName');
       return next;
     }, { replace: true });
   };
@@ -117,9 +168,21 @@ export default function DealsPage() {
   useEffect(() => {
     if (!showCreate) return;
     setContactsLoading(true);
-    contactApi.list({ page: 1, limit: 100 })
-      .then((res) => setContacts(res.items))
-      .catch(() => setContacts([]))
+    Promise.all([
+      contactApi.list({ page: 1, limit: 100 }),
+      leadsApi.list({ page: 1, limit: 100 }),
+      trialLessonsApi.list({ page: 1, limit: 100 }),
+    ])
+      .then(([contactsRes, leadsRes, trialsRes]) => {
+        setContacts(contactsRes.items);
+        setLeads(leadsRes.items);
+        setTrialLessons(trialsRes.items);
+      })
+      .catch(() => {
+        setContacts([]);
+        setLeads([]);
+        setTrialLessons([]);
+      })
       .finally(() => setContactsLoading(false));
   }, [showCreate]);
 
@@ -128,9 +191,79 @@ export default function DealsPage() {
     setShowCreate(true);
   }, [shouldOpenCreate]);
 
+  useEffect(() => {
+    if (!showCreate) return;
+    setForm((prev) => ({
+      ...prev,
+      leadId: prefillLeadId || prev.leadId,
+      contactId: prefillContactId || prev.contactId,
+      trialLessonId: prefillTrialLessonId || prev.trialLessonId,
+      lmsCourseId: prefillCourseId || prev.lmsCourseId,
+      lmsGroupId: prefillGroupId || prev.lmsGroupId,
+      courseType: normalizeCourseType(prefillCourseType) || prev.courseType,
+      courseNameSnapshot: prefillCourseName || prev.courseNameSnapshot,
+      groupNameSnapshot: prefillGroupName || prev.groupNameSnapshot,
+    }));
+  }, [showCreate, prefillContactId, prefillCourseId, prefillCourseName, prefillCourseType, prefillGroupId, prefillGroupName, prefillLeadId, prefillTrialLessonId]);
+
   const handleContactChange = (value: string) => {
     setForm((prev) => ({ ...prev, contactId: value }));
   };
+
+  useEffect(() => {
+    if (!form.leadId) return;
+    const selectedLead = leads.find((lead) => String(lead.id) === form.leadId);
+    if (!selectedLead?.contactId) return;
+
+    setForm((prev) => (
+      {
+        ...prev,
+        contactId: prev.contactId || String(selectedLead.contactId),
+        lmsCourseId: prev.lmsCourseId || selectedLead.interestedCourseId || '',
+        lmsGroupId: prev.lmsGroupId || selectedLead.interestedGroupId || '',
+        courseType: prev.courseType || normalizeCourseType(selectedLead.courseType),
+      }
+    ));
+  }, [form.leadId, leads]);
+
+  useEffect(() => {
+    if (!form.trialLessonId) return;
+    const selectedTrial = trialLessons.find((trial) => String(trial.id) === form.trialLessonId);
+    if (!selectedTrial) return;
+
+    setForm((prev) => ({
+      ...prev,
+      leadId: selectedTrial.leadId ? String(selectedTrial.leadId) : prev.leadId,
+      contactId: selectedTrial.contactId ? String(selectedTrial.contactId) : prev.contactId,
+      lmsCourseId: prev.lmsCourseId || selectedTrial.lmsCourseId || '',
+      lmsGroupId: prev.lmsGroupId || selectedTrial.lmsGroupId || '',
+      courseType: prev.courseType || normalizeCourseType(selectedTrial.courseType),
+    }));
+  }, [form.trialLessonId, trialLessons]);
+
+  useEffect(() => {
+    if (!form.lmsCourseId) return;
+    const selectedCourse = courses.find((course) => course.id === form.lmsCourseId);
+    if (!selectedCourse) return;
+
+    setForm((prev) => (
+      prev.courseNameSnapshot === selectedCourse.name
+        ? prev
+        : { ...prev, courseNameSnapshot: prev.courseNameSnapshot || selectedCourse.name }
+    ));
+  }, [courses, form.lmsCourseId]);
+
+  useEffect(() => {
+    if (!form.lmsCourseId || !form.lmsGroupId) return;
+    const selectedGroup = groups.find((group) => group.id === form.lmsGroupId);
+    if (!selectedGroup) return;
+
+    setForm((prev) => (
+      prev.groupNameSnapshot === selectedGroup.name
+        ? prev
+        : { ...prev, groupNameSnapshot: prev.groupNameSnapshot || selectedGroup.name }
+    ));
+  }, [form.lmsCourseId, form.lmsGroupId, groups]);
 
   const handleCreate = async () => {
     if (!form.contactId || !form.amount || !form.initialTaskTitle.trim()) return;
@@ -138,10 +271,17 @@ export default function DealsPage() {
     try {
       const deal = await dealsApi.create({
         contactId: Number(form.contactId),
+        leadId: form.leadId ? Number(form.leadId) : undefined,
+        trialLessonId: form.trialLessonId ? Number(form.trialLessonId) : undefined,
         amount: Number(form.amount),
         currency: form.currency,
         pipelineStage: form.pipelineStage,
         notes: form.notes || undefined,
+        lmsCourseId: isLmsBridgeEnabled ? form.lmsCourseId || undefined : undefined,
+        lmsGroupId: isLmsBridgeEnabled ? form.lmsGroupId || undefined : undefined,
+        courseType: isLmsBridgeEnabled ? form.courseType || undefined : undefined,
+        courseNameSnapshot: isLmsBridgeEnabled ? form.courseNameSnapshot || undefined : undefined,
+        groupNameSnapshot: isLmsBridgeEnabled ? form.groupNameSnapshot || undefined : undefined,
       });
       await tasksApi.create({
         title: form.initialTaskTitle.trim(),
@@ -416,6 +556,22 @@ export default function DealsPage() {
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
+                <Label>Лид</Label>
+                <Select value={form.leadId || '__none__'} onValueChange={(value) => setForm((prev) => ({ ...prev, leadId: value === '__none__' ? '' : value }))} disabled={contactsLoading}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={contactsLoading ? 'Жүктөлүүдө...' : 'Лид тандаңыз'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Тандалган эмес</SelectItem>
+                    {leads.map((lead) => (
+                      <SelectItem key={lead.id} value={String(lead.id)}>
+                        {lead.fullName} {lead.phone ? `• ${lead.phone}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
                 <Label>Байланыш *</Label>
                 <Select value={form.contactId} onValueChange={handleContactChange} disabled={contactsLoading}>
                   <SelectTrigger>
@@ -425,6 +581,22 @@ export default function DealsPage() {
                     {contacts.map((contact) => (
                       <SelectItem key={contact.id} value={String(contact.id)}>
                         {contact.fullName} {contact.phone ? `• ${contact.phone}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Сыноо сабагы</Label>
+                <Select value={form.trialLessonId || '__none__'} onValueChange={(value) => setForm((prev) => ({ ...prev, trialLessonId: value === '__none__' ? '' : value }))} disabled={contactsLoading}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={contactsLoading ? 'Жүктөлүүдө...' : 'Сыноо сабагын тандаңыз'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Тандалган эмес</SelectItem>
+                    {trialLessons.map((trial) => (
+                      <SelectItem key={trial.id} value={String(trial.id)}>
+                        #{trial.id} {trial.contact?.fullName ? `• ${trial.contact.fullName}` : ''} {trial.trialTopic ? `• ${trial.trialTopic}` : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -452,6 +624,28 @@ export default function DealsPage() {
               <Label>{ky.common.notes}</Label>
               <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Контекст же комментарий" />
             </div>
+            {isLmsBridgeEnabled ? (
+              <LmsCourseContextFields
+                value={{
+                  lmsCourseId: form.lmsCourseId,
+                  lmsGroupId: form.lmsGroupId,
+                  courseType: form.courseType,
+                  courseNameSnapshot: form.courseNameSnapshot,
+                  groupNameSnapshot: form.groupNameSnapshot,
+                }}
+                onChange={(next) => setForm((prev) => ({
+                  ...prev,
+                  lmsCourseId: next.lmsCourseId,
+                  lmsGroupId: next.lmsGroupId,
+                  courseType: next.courseType,
+                  courseNameSnapshot: next.courseNameSnapshot,
+                  groupNameSnapshot: next.groupNameSnapshot,
+                }))}
+                courseLabel="Курс"
+                groupLabel="Группа"
+                description="Эгер лид же сыноо сабагы тандалса, бул бөлүктү бош калтырсаңыз система алардын окуу тандоосун колдонот."
+              />
+            ) : null}
             <div className="space-y-4 rounded-lg border border-border/60 p-4">
               <div>
                 <p className="text-sm font-medium">Биринчи тапшырма</p>

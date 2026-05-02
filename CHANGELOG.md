@@ -6,6 +6,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Version bumps are classified by delivery scale; see `VERSIONING.md`.
 
+## [2.1.0] - 2026-05-02
+
+### Added
+- LMS Bridge Integration: Lead course interest tracking with `LeadLmsMapping` entity and `LeadCourseInterest` component
+- LMS Bridge Integration: Deal course context fields (`LmsCourseContextFields` component) for associating deals with LMS courses/groups
+- LMS Bridge Integration: Deal course mapping display (`DealCourseMapping` component) showing LMS course/group snapshots
+- LMS Bridge Integration: Trial lesson course context support (courseId, groupId, courseType fields)
+- LMS Bridge Integration: URL parameter passing for course context (courseId, groupId, courseType, courseName, groupName) from LeadDetail to Deals create form
+- LMS Bridge Integration: Auto-fill course context from lead when creating deals or trial lessons
+- LMS Bridge Integration: Dynamic course/group snapshot resolution in Deals create form using `useLmsCourses` and `useLmsGroups` hooks
+- LMS Bridge Integration: Shared `DealCourseType` enum moved to `crm.enums.ts` for cross-module consistency
+- LMS Bridge Integration: Backend database migrations for `lead_lms_mapping` table and trial lesson course context columns
+- LMS Bridge Integration: Backend service layer support in `LeadService` for mapping operations
+- LMS Bridge Integration: Backend service layer support in `DealService` for course context validation and sync
+- LMS Bridge Integration: Backend service layer support in `TrialLessonService` for course context fields
+- LMS Bridge Integration: Runtime validation in `normalizeCourseType` to prevent invalid course type values
+- LMS Bridge Integration: Unit tests for `LeadService`, `DealService`, and `TrialLessonService` covering LMS bridge functionality
+- LMS Bridge Integration: `lms-formatting.ts` utility library with course type labels and formatting helpers
+
+### Changed
+- LMS Bridge Integration: `LeadDetail.tsx` passes full course context (including snapshots) when creating deals
+- LMS Bridge Integration: `Deals.tsx` auto-fills LMS course context from selected leads and trial lessons
+- LMS Bridge Integration: `TrialLessons.tsx` auto-fills LMS course context from selected leads and deals
+- LMS Bridge Integration: `DealCourseType` imports updated across backend modules to use shared `crm.enums.ts`
+- LMS Bridge Integration: Backend lead DTOs now use shared `DealCourseType` enum instead of importing from deal DTO
+- LMS Bridge Integration: Backend trial lesson DTOs and entity now use shared `DealCourseType` enum
+
+### Fixed
+- LMS Bridge Integration: React controlled input warning in `LeadDetail.tsx` by coalescing null lead fields to empty strings
+- LMS Bridge Integration: Type safety in `Deals.tsx` course type handling with `normalizeCourseType` helper
+
 ## [2.0.1] - 2026-04-30
 
 ### Changed

@@ -48,6 +48,8 @@ export type EducationDealStage =
 export interface LeadWithCourseInterest {
   interestedCourseId?: string;
   interestedGroupId?: string;
+  courseType?: import('./lms').LmsCourseType;
+  interestLevel?: 'low' | 'medium' | 'high';
   syncStatus?: string;
   lastSyncedAt?: string;
 }

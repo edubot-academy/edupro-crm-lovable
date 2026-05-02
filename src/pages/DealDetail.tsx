@@ -1,18 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '@/components/PageShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, ArrowLeft, BookOpen, CreditCard, Workflow, User, CalendarDays, Clock3, Users, Pencil } from 'lucide-react';
+import { Loader2, ArrowLeft, CreditCard, Workflow, Pencil } from 'lucide-react';
 import { contactApi, dealsApi, paymentsApi, bridgeApi } from '@/api/modules';
 import type { Contact, Deal, Payment } from '@/types';
-import type { ContactWithStudentMapping, DealWithCourseMapping } from '@/types/bridge';
-import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
-import { formatLmsDate, getLmsGroupAvailability, getSeatsLeft } from '@/lib/lms-availability';
+import type { ContactWithStudentMapping } from '@/types/bridge';
 import { formatDate } from '@/lib/formatting';
 import { IntegrationHistoryPanel } from '@/components/lms/IntegrationHistoryPanel';
 import { DealCourseMapping } from '@/components/lms/DealCourseMapping';
@@ -20,15 +16,24 @@ import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
 import { useRolePermissions } from '@/hooks/use-role-permissions';
 import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
+import { LmsCourseContextFields } from '@/components/lms/LmsCourseContextFields';
+import type { LmsCourseType } from '@/types/lms';
+
+type DealEditLmsFormState = {
+  lmsCourseId: string;
+  lmsGroupId: string;
+  courseType: LmsCourseType | '';
+  courseNameSnapshot: string;
+  groupNameSnapshot: string;
+};
 
 export default function DealDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { canViewLmsTechnicalFields, canViewIntegrationHistory } = useRolePermissions();
+  const { canViewIntegrationHistory } = useRolePermissions();
   const { isLmsBridgeEnabled } = useLmsBridge();
   const [deal, setDeal] = useState<Deal | null>(null);
-  const [bridgeData, setBridgeData] = useState<DealWithCourseMapping | null>(null);
   const [contactBridgeData, setContactBridgeData] = useState<ContactWithStudentMapping | null>(null);
   const [contact, setContact] = useState<Contact | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -37,9 +42,12 @@ export default function DealDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<DealEditLmsFormState>({
     lmsCourseId: '',
     lmsGroupId: '',
+    courseType: '',
+    courseNameSnapshot: '',
+    groupNameSnapshot: '',
   });
 
   const loadDeal = async (dealId: number) => {
@@ -67,16 +75,6 @@ export default function DealDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    if (!deal || !isLmsBridgeEnabled) {
-      setBridgeData(null);
-      return;
-    }
-    bridgeApi.getDealBridgeData(deal.id)
-      .then((data) => setBridgeData(data))
-      .catch(() => setBridgeData(null));
-  }, [deal, isLmsBridgeEnabled]);
-
-  useEffect(() => {
     if (!contact || !isLmsBridgeEnabled) {
       setContactBridgeData(null);
       return;
@@ -95,88 +93,50 @@ export default function DealDetailPage() {
       .finally(() => setPaymentsLoading(false));
   }, [id]);
 
-  const { data: coursesData, isLoading: coursesLoading } = useLmsCourses(
-    isLmsBridgeEnabled && canViewLmsTechnicalFields() ? { isActive: 'true' } : undefined
-  );
-  const courses = coursesData?.items ?? [];
-  const selectedEditCourse = courses.find((course) => course.id === editForm.lmsCourseId);
-  const editNeedsGroup = !!selectedEditCourse && selectedEditCourse.courseType !== 'video';
-  const { data: groupsData, isLoading: groupsLoading } = useLmsGroups(
-    isLmsBridgeEnabled && canViewLmsTechnicalFields() && editOpen
-      ? (editNeedsGroup ? { courseId: editForm.lmsCourseId, limit: 100 } : undefined)
-      : isLmsBridgeEnabled && canViewLmsTechnicalFields() && bridgeData?.lmsCourseId ? { courseId: bridgeData.lmsCourseId, limit: 100 } : undefined,
-  );
-  const groups = groupsData?.items ?? [];
-
-  const liveGroup = useMemo(
-    () => groupsData?.items?.find((group) => group.id === bridgeData?.lmsGroupId) ?? null,
-    [groupsData?.items, bridgeData?.lmsGroupId],
-  );
-
   useEffect(() => {
     if (!deal || !editOpen) return;
     setEditForm({
-      lmsCourseId: bridgeData?.lmsCourseId || '',
-      lmsGroupId: bridgeData?.lmsGroupId || '',
+      lmsCourseId: deal.lmsMapping?.lmsCourseId || '',
+      lmsGroupId: deal.lmsMapping?.lmsGroupId || '',
+      courseType: deal.lmsMapping?.courseType || '',
+      courseNameSnapshot: deal.lmsMapping?.courseNameSnapshot || '',
+      groupNameSnapshot: deal.lmsMapping?.groupNameSnapshot || '',
     });
   }, [deal, editOpen]);
 
   if (isLoading) {
-    return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
+    return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   }
 
   if (error || !deal) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4">
+      <div className="flex h-64 flex-col items-center justify-center gap-4">
         <p className="text-muted-foreground">{error || 'Келишим табылган жок'}</p>
         <Button variant="outline" onClick={() => navigate('/deals')}>
-          <ArrowLeft className="mr-2 h-4 w-4" />Артка
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Артка
         </Button>
       </div>
     );
   }
 
-  const availability = liveGroup ? getLmsGroupAvailability(liveGroup) : null;
   const paymentSummary = payments[0]?.dealPaymentSummary ?? null;
 
   const handleSaveLmsData = async () => {
-    if (!deal) return;
-
-    if (!selectedEditCourse) {
-      toast({
-        title: 'Курс тандоо керек',
-        description: 'Алгач LMS курсун тандаңыз.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (editNeedsGroup && !editForm.lmsGroupId) {
-      toast({
-        title: 'Топ тандоо керек',
-        description: 'Оффлайн жана онлайн түз эфир курстары үчүн LMS тобун сактаңыз.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const selectedGroup = groups.find((group) => group.id === editForm.lmsGroupId);
-
     setIsSaving(true);
     try {
-      await bridgeApi.updateDealLmsMapping(deal.id, {
+      const updatedDeal = await dealsApi.update(deal.id, {
         lmsCourseId: editForm.lmsCourseId,
-        courseType: selectedEditCourse.courseType,
-        courseNameSnapshot: selectedEditCourse.name || undefined,
-        lmsGroupId: selectedEditCourse.courseType === 'video' ? undefined : editForm.lmsGroupId || undefined,
-        groupNameSnapshot: selectedEditCourse.courseType === 'video' ? undefined : selectedGroup?.name || undefined,
+        lmsGroupId: editForm.lmsGroupId,
+        courseType: editForm.courseType || null,
+        courseNameSnapshot: editForm.courseNameSnapshot,
+        groupNameSnapshot: editForm.groupNameSnapshot,
       });
-
-      await loadDeal(deal.id);
+      setDeal(updatedDeal);
       setEditOpen(false);
       toast({
-        title: 'LMS маалымат жаңыртылды',
-        description: 'Келишимдеги курс жана топ маалыматы сакталды.',
+        title: 'Окуу маалыматы жаңыртылды',
+        description: 'Келишимдеги курс жана группа сакталды.',
       });
     } catch (error) {
       const friendly = getFriendlyError(error, { fallbackTitle: 'Келишимди жаңыртуу ишке ашкан жок' });
@@ -190,40 +150,38 @@ export default function DealDetailPage() {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title={`Келишим #${deal.id}`}
-        description={isLmsBridgeEnabled && canViewLmsTechnicalFields() ? (bridgeData?.courseNameSnapshot || 'LMS курс байланышы жок') : undefined}
+        description={isLmsBridgeEnabled ? (deal.lmsMapping?.courseNameSnapshot || 'Окуу байланышы көрсөтүлгөн эмес') : undefined}
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => navigate('/deals')}>
-              <ArrowLeft className="mr-2 h-4 w-4" />Артка
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Артка
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => navigate(`/payments?create=1&dealId=${deal.id}`)}
-            >
+            <Button variant="outline" onClick={() => navigate(`/payments?create=1&dealId=${deal.id}`)}>
               Төлөм кошуу
             </Button>
-            {isLmsBridgeEnabled && canViewLmsTechnicalFields() && (
+            {isLmsBridgeEnabled ? (
               <Button variant="outline" onClick={() => setEditOpen(true)}>
                 <Pencil className="mr-2 h-4 w-4" />
                 Продукт маалыматты оңдоо
               </Button>
-            )}
+            ) : null}
           </div>
         }
       />
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {isLmsBridgeEnabled && canViewLmsTechnicalFields() && bridgeData && (
+        {isLmsBridgeEnabled && deal.lmsMapping ? (
           <DealCourseMapping
-            lmsCourseId={bridgeData.lmsCourseId}
-            lmsGroupId={bridgeData.lmsGroupId}
-            courseType={bridgeData.courseType}
-            courseNameSnapshot={bridgeData.courseNameSnapshot}
-            groupNameSnapshot={bridgeData.groupNameSnapshot}
+            lmsCourseId={deal.lmsMapping.lmsCourseId}
+            lmsGroupId={deal.lmsMapping.lmsGroupId}
+            courseType={deal.lmsMapping.courseType}
+            courseNameSnapshot={deal.lmsMapping.courseNameSnapshot}
+            groupNameSnapshot={deal.lmsMapping.groupNameSnapshot}
             dealId={deal.id}
             contactLmsStudentId={contactBridgeData?.lmsStudentId}
           />
-        )}
+        ) : null}
 
         <div className="space-y-4">
           <Card className="shadow-card border-border/50">
@@ -234,14 +192,14 @@ export default function DealDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {paymentSummary && (
+              {paymentSummary ? (
                 <div className="grid gap-2 sm:grid-cols-2">
-                  <MiniMetric label="Жалпы сумма" icon={CreditCard} value={`${paymentSummary.dealTotal.toLocaleString()} сом`} />
-                  <MiniMetric label="Ырасталган төлөм" icon={CreditCard} value={`${paymentSummary.confirmedPaid.toLocaleString()} сом`} />
-                  <MiniMetric label="Депозит" icon={CreditCard} value={`${paymentSummary.depositPaid.toLocaleString()} сом`} />
-                  <MiniMetric label="Калганы" icon={CreditCard} value={`${paymentSummary.remaining.toLocaleString()} сом`} />
+                  <MiniMetric label="Жалпы сумма" value={`${paymentSummary.dealTotal.toLocaleString()} сом`} />
+                  <MiniMetric label="Ырасталган төлөм" value={`${paymentSummary.confirmedPaid.toLocaleString()} сом`} />
+                  <MiniMetric label="Депозит" value={`${paymentSummary.depositPaid.toLocaleString()} сом`} />
+                  <MiniMetric label="Калганы" value={`${paymentSummary.remaining.toLocaleString()} сом`} />
                 </div>
-              )}
+              ) : null}
               {paymentsLoading ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -251,7 +209,7 @@ export default function DealDetailPage() {
                 <p className="text-sm text-muted-foreground">Бул келишим боюнча төлөм табылган жок.</p>
               ) : (
                 payments.map((payment) => (
-                  <div key={payment.id} className="rounded-md border p-3 space-y-2">
+                  <div key={payment.id} className="space-y-2 rounded-md border p-3">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-sm font-medium">{payment.amount.toLocaleString()} сом</p>
                       <PaymentStatusBadge status={payment.paymentStatus || payment.status} />
@@ -266,7 +224,7 @@ export default function DealDetailPage() {
             </CardContent>
           </Card>
 
-          {isLmsBridgeEnabled && canViewIntegrationHistory() && contactBridgeData?.lmsStudentId && (
+          {isLmsBridgeEnabled && canViewIntegrationHistory() && contactBridgeData?.lmsStudentId ? (
             <Card className="shadow-card border-border/50">
               <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -276,7 +234,7 @@ export default function DealDetailPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => navigate(`/enrollments?crmDealId=${deal.id}${contactBridgeData?.lmsStudentId ? `&studentId=${encodeURIComponent(contactBridgeData.lmsStudentId)}` : ''}`)}
+                  onClick={() => navigate(`/enrollments?crmDealId=${deal.id}${contactBridgeData.lmsStudentId ? `&studentId=${encodeURIComponent(contactBridgeData.lmsStudentId)}` : ''}`)}
                 >
                   Толук тарых
                 </Button>
@@ -286,78 +244,33 @@ export default function DealDetailPage() {
                   initialFilters={{
                     crmDealId: deal.id,
                     crmContactId: contact?.id,
-                    lmsStudentId: contactBridgeData?.lmsStudentId,
+                    lmsStudentId: contactBridgeData.lmsStudentId,
                   }}
                 />
               </CardContent>
             </Card>
-          )}
+          ) : null}
         </div>
       </div>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>LMS маалыматты оңдоо</DialogTitle>
+            <DialogTitle>Окуу маалыматын оңдоо</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>LMS курс</Label>
-              <Select
-                value={editForm.lmsCourseId || '__none__'}
-                onValueChange={(value) => setEditForm({
-                  lmsCourseId: value === '__none__' ? '' : value,
-                  lmsGroupId: '',
-                })}
-                disabled={coursesLoading}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={coursesLoading ? 'Жүктөлүүдө...' : 'Курс тандаңыз'} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Тандалган эмес</SelectItem>
-                  {courses.map((course) => (
-                    <SelectItem key={course.id} value={course.id}>
-                      {course.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Курс түрү</Label>
-              <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-                {selectedEditCourse ? formatCourseType(selectedEditCourse.courseType) : '—'}
-              </div>
-            </div>
-
-            {selectedEditCourse && selectedEditCourse.courseType !== 'video' ? (
-              <div className="space-y-2">
-                <Label>LMS топ</Label>
-                <Select
-                  value={editForm.lmsGroupId || '__none__'}
-                  onValueChange={(value) => setEditForm((current) => ({
-                    ...current,
-                    lmsGroupId: value === '__none__' ? '' : value,
-                  }))}
-                  disabled={groupsLoading}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={groupsLoading ? 'Жүктөлүүдө...' : 'Топ тандаңыз'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Тандалган эмес</SelectItem>
-                    {groups.map((group) => (
-                      <SelectItem key={group.id} value={group.id}>
-                        {group.name} {group.teacherName ? `• ${group.teacherName}` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : null}
-          </div>
+          <LmsCourseContextFields
+            value={{
+              lmsCourseId: editForm.lmsCourseId,
+              lmsGroupId: editForm.lmsGroupId,
+              courseType: editForm.courseType,
+              courseNameSnapshot: editForm.courseNameSnapshot,
+              groupNameSnapshot: editForm.groupNameSnapshot,
+            }}
+            onChange={(next) => setEditForm(next)}
+            courseLabel="Курс"
+            groupLabel="Группа"
+            description="Келишимдеги акыркы окуу тандоосу ушул жерде сакталат. Төлөм жана enrollment ушул мааниге таянат."
+          />
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>
               Жабуу
@@ -373,26 +286,11 @@ export default function DealDetailPage() {
   );
 }
 
-function DetailItem({ label, value, icon: Icon }: { label: string; value: string; icon?: React.ElementType }) {
-  return (
-    <div className="rounded-md border bg-muted/20 px-3 py-2">
-      <p className="text-xs text-muted-foreground flex items-center gap-2">
-        {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
-        {label}
-      </p>
-      <p className="text-sm font-medium mt-1">{value}</p>
-    </div>
-  );
-}
-
-function MiniMetric({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
+function MiniMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md border bg-background px-3 py-2">
-      <p className="text-xs text-muted-foreground flex items-center gap-2">
-        <Icon className="h-3.5 w-3.5" />
-        {label}
-      </p>
-      <p className="text-sm font-medium mt-1">{value}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 text-sm font-medium">{value}</p>
     </div>
   );
 }
@@ -417,13 +315,6 @@ function PaymentStatusBadge({ status }: { status?: string }) {
               ? 'Мөөнөтү өткөн'
               : status || '—';
   return <Badge variant={variant}>{label}</Badge>;
-}
-
-function formatCourseType(value?: string | null) {
-  if (value === 'video') return 'Видео';
-  if (value === 'offline') return 'Оффлайн';
-  if (value === 'online_live') return 'Онлайн түз эфир';
-  return '—';
 }
 
 function formatPaymentMethod(value?: string) {

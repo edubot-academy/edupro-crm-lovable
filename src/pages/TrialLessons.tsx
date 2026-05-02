@@ -10,20 +10,37 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { ky } from '@/lib/i18n';
-import type { Contact, Deal, TrialLesson } from '@/types';
-import { contactApi, dealsApi, trialLessonsApi } from '@/api/modules';
+import type { Contact, Deal, Lead, TrialLesson } from '@/types';
+import { contactApi, dealsApi, leadsApi, trialLessonsApi } from '@/api/modules';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
+import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
+import { LmsCourseContextFields } from '@/components/lms/LmsCourseContextFields';
+import { formatLmsCourseType } from '@/lib/lms-formatting';
+import type { LmsCourseType } from '@/types/lms';
 
 const trialResultVariant = (s: string) => {
   switch (s) { case 'pending': return 'info' as const; case 'attended': case 'passed': return 'success' as const; case 'failed': return 'destructive' as const; case 'missed': return 'warning' as const; default: return 'default' as const; }
 };
 
-const emptyForm = { contactId: '', dealId: '', scheduledAt: '', notes: '' };
+type TrialLessonFormState = {
+  leadId: string;
+  contactId: string;
+  dealId: string;
+  scheduledAt: string;
+  notes: string;
+  trialTopic: string;
+  lmsCourseId: string;
+  lmsGroupId: string;
+  courseType: LmsCourseType | '';
+};
+
+const emptyForm: TrialLessonFormState = { leadId: '', contactId: '', dealId: '', scheduledAt: '', notes: '', trialTopic: '', lmsCourseId: '', lmsGroupId: '', courseType: '' };
 
 export default function TrialLessonsPage() {
   const { toast } = useToast();
+  const { isLmsBridgeEnabled } = useLmsBridge();
   const [trials, setTrials] = useState<TrialLesson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -34,6 +51,7 @@ export default function TrialLessonsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [optionsLoading, setOptionsLoading] = useState(false);
@@ -70,14 +88,17 @@ export default function TrialLessonsPage() {
     if (!showCreate) return;
     setOptionsLoading(true);
     Promise.all([
+      leadsApi.list({ page: 1, limit: 100 }),
       contactApi.list({ page: 1, limit: 100 }),
       dealsApi.list({ page: 1, limit: 100 }),
     ])
-      .then(([contactsRes, dealsRes]) => {
+      .then(([leadsRes, contactsRes, dealsRes]) => {
+        setLeads(leadsRes.items);
         setContacts(contactsRes.items);
         setDeals(dealsRes.items);
       })
       .catch(() => {
+        setLeads([]);
         setContacts([]);
         setDeals([]);
       })
@@ -85,14 +106,33 @@ export default function TrialLessonsPage() {
   }, [showCreate]);
 
   useEffect(() => {
+    if (!form.leadId) return;
+    const selectedLead = leads.find((lead) => String(lead.id) === form.leadId);
+    if (!selectedLead?.contactId) return;
+
+    setForm((prev) => ({
+      ...prev,
+      contactId: prev.contactId || String(selectedLead.contactId),
+      lmsCourseId: prev.lmsCourseId || selectedLead.interestedCourseId || '',
+      lmsGroupId: prev.lmsGroupId || selectedLead.interestedGroupId || '',
+      courseType: prev.courseType || selectedLead.courseType || '',
+    }));
+  }, [form.leadId, leads]);
+
+  useEffect(() => {
     if (!form.dealId) return;
     const selectedDeal = deals.find((deal) => String(deal.id) === form.dealId);
     if (!selectedDeal?.contactId) return;
 
     setForm((prev) => (
-      prev.contactId === String(selectedDeal.contactId)
-        ? prev
-        : { ...prev, contactId: String(selectedDeal.contactId) }
+      {
+        ...prev,
+        contactId: String(selectedDeal.contactId),
+        leadId: selectedDeal.leadId ? String(selectedDeal.leadId) : prev.leadId,
+        lmsCourseId: prev.lmsCourseId || selectedDeal.lmsMapping?.lmsCourseId || '',
+        lmsGroupId: prev.lmsGroupId || selectedDeal.lmsMapping?.lmsGroupId || '',
+        courseType: prev.courseType || selectedDeal.lmsMapping?.courseType || '',
+      }
     ));
   }, [deals, form.dealId]);
 
@@ -101,10 +141,15 @@ export default function TrialLessonsPage() {
     setIsCreating(true);
     try {
       await trialLessonsApi.create({
+        leadId: form.leadId ? Number(form.leadId) : undefined,
         contactId: Number(form.contactId),
         dealId: form.dealId ? Number(form.dealId) : undefined,
         scheduledAt: form.scheduledAt,
         notes: form.notes || undefined,
+        trialTopic: form.trialTopic || undefined,
+        lmsCourseId: isLmsBridgeEnabled ? form.lmsCourseId || undefined : undefined,
+        lmsGroupId: isLmsBridgeEnabled ? form.lmsGroupId || undefined : undefined,
+        courseType: isLmsBridgeEnabled ? form.courseType || undefined : undefined,
       });
       toast({ title: 'Сыноо сабагы ийгиликтүү кошулду' });
       setShowCreate(false);
@@ -137,6 +182,8 @@ export default function TrialLessonsPage() {
   const columns: Column<TrialLesson>[] = [
     { key: 'contact', header: 'Студент', render: (t) => <span className="font-medium">{t.contact?.fullName || '—'}</span> },
     { key: 'scheduledAt', header: ky.trialLessons.scheduledAt, render: (t) => new Date(t.scheduledAt).toLocaleString('ky-KG', { dateStyle: 'short', timeStyle: 'short' }) },
+    { key: 'trialTopic', header: 'Тема', render: (t) => <span className="text-sm">{t.trialTopic || '—'}</span>, className: 'hidden md:table-cell' },
+    { key: 'courseType', header: 'Курс', render: (t) => <span className="text-sm">{t.lmsCourseId ? `${formatLmsCourseType(t.courseType)}${t.lmsGroupId ? ' • группа бар' : ''}` : '—'}</span>, className: 'hidden lg:table-cell' },
     { key: 'result', header: ky.trialLessons.result, render: (t) => <StatusBadge variant={trialResultVariant(t.result)} dot>{ky.trialResult[t.result]}</StatusBadge> },
     { key: 'notes', header: ky.common.notes, render: (t) => <span className="text-sm text-muted-foreground truncate max-w-[200px] block">{t.notes || '—'}</span>, className: 'hidden md:table-cell' },
     {
@@ -170,10 +217,12 @@ export default function TrialLessonsPage() {
         </StatusBadge>
       </div>
 
-      {trial.notes && (
-        <p className="mt-3 rounded-md bg-muted/60 p-2 text-xs text-muted-foreground">
-          {trial.notes}
-        </p>
+      {(trial.trialTopic || trial.notes || trial.lmsCourseId) && (
+        <div className="mt-3 space-y-2">
+          {trial.trialTopic ? <p className="rounded-md bg-muted/60 p-2 text-xs text-muted-foreground">{trial.trialTopic}</p> : null}
+          {trial.lmsCourseId ? <p className="text-xs text-muted-foreground">Курс: {formatLmsCourseType(trial.courseType)}</p> : null}
+          {trial.notes ? <p className="rounded-md bg-muted/60 p-2 text-xs text-muted-foreground">{trial.notes}</p> : null}
+        </div>
       )}
 
       <div className="mt-3 flex justify-end">
@@ -227,6 +276,26 @@ export default function TrialLessonsPage() {
           <DialogHeader><DialogTitle>{ky.trialLessons.newTrialLesson}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
+              <Label>Лид</Label>
+              <Select
+                value={form.leadId || '__none__'}
+                onValueChange={(value) => setForm((prev) => ({ ...prev, leadId: value === '__none__' ? '' : value }))}
+                disabled={optionsLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={optionsLoading ? 'Жүктөлүүдө...' : 'Лид тандаңыз'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Тандалган эмес</SelectItem>
+                  {leads.map((lead) => (
+                    <SelectItem key={lead.id} value={String(lead.id)}>
+                      {lead.fullName} {lead.phone ? `• ${lead.phone}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label>Байланыш *</Label>
               <Select
                 value={form.contactId || '__none__'}
@@ -271,9 +340,33 @@ export default function TrialLessonsPage() {
               <Input type="datetime-local" value={form.scheduledAt} onChange={(e) => setForm({ ...form, scheduledAt: e.target.value })} />
             </div>
             <div className="space-y-2">
+              <Label>Сыноо темасы</Label>
+              <Input value={form.trialTopic} onChange={(e) => setForm({ ...form, trialTopic: e.target.value })} placeholder="Мисалы: React кириш сабагы" />
+            </div>
+            <div className="space-y-2">
               <Label>{ky.common.notes}</Label>
               <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Эскертүүлөр..." />
             </div>
+            {isLmsBridgeEnabled ? (
+              <LmsCourseContextFields
+                value={{
+                  lmsCourseId: form.lmsCourseId,
+                  lmsGroupId: form.lmsGroupId,
+                  courseType: form.courseType,
+                  courseNameSnapshot: '',
+                  groupNameSnapshot: '',
+                }}
+                onChange={(next) => setForm((prev) => ({
+                  ...prev,
+                  lmsCourseId: next.lmsCourseId,
+                  lmsGroupId: next.lmsGroupId,
+                  courseType: next.courseType,
+                }))}
+                courseLabel="Сыноо үчүн курс"
+                groupLabel="Сыноо үчүн группа"
+                description="Лид тандалса, бул бөлүктү бош калтырсаңыз система лиддин кызыгуусун колдонууга аракет кылат."
+              />
+            ) : null}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={resetCreateForm}>{ky.common.cancel}</Button>

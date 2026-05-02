@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { BookOpen } from 'lucide-react';
+import { formatLmsCourseType, leadInterestLevelLabels } from '@/lib/lms-formatting';
 
 /**
  * LeadCourseInterest - LMS Bridge Component
@@ -17,12 +18,21 @@ import { BookOpen } from 'lucide-react';
 interface LeadCourseInterestProps {
   interestedCourseId?: string;
   interestedGroupId?: string;
+  courseType?: string;
+  interestLevel?: 'low' | 'medium' | 'high';
   courseName?: string;
   groupName?: string;
 }
 
-export function LeadCourseInterest({ interestedCourseId, interestedGroupId, courseName, groupName }: LeadCourseInterestProps) {
-  if (!interestedCourseId && !interestedGroupId) {
+export function LeadCourseInterest({
+  interestedCourseId,
+  interestedGroupId,
+  courseType,
+  interestLevel,
+  courseName,
+  groupName,
+}: LeadCourseInterestProps) {
+  if (!interestedCourseId && !interestedGroupId && !interestLevel) {
     return null;
   }
 
@@ -47,6 +57,18 @@ export function LeadCourseInterest({ interestedCourseId, interestedGroupId, cour
             <Label className="text-xs text-muted-foreground">Топ ID</Label>
             <p className="text-sm font-medium">{interestedGroupId}</p>
             {groupName && <p className="text-xs text-muted-foreground">{groupName}</p>}
+          </div>
+        )}
+        {courseType && (
+          <div>
+            <Label className="text-xs text-muted-foreground">Курс түрү</Label>
+            <p className="text-sm font-medium">{formatLmsCourseType(courseType as 'video' | 'offline' | 'online_live')}</p>
+          </div>
+        )}
+        {interestLevel && (
+          <div>
+            <Label className="text-xs text-muted-foreground">Кызыгуу деңгээли</Label>
+            <p className="text-sm font-medium">{leadInterestLevelLabels[interestLevel]}</p>
           </div>
         )}
       </CardContent>

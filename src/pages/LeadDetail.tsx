@@ -10,19 +10,36 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { StatusBadge, getLeadStatusVariant } from '@/components/StatusBadge';
 import { ky } from '@/lib/i18n';
-import { ArrowLeft, Phone, Mail, Tag, User, BookOpen, MessageSquare, Loader2, Save, Calendar } from 'lucide-react';
-import { leadsApi, usersApi, bridgeApi } from '@/api/modules';
+import { ArrowLeft, Phone, Mail, Tag, User, MessageSquare, Loader2, Save, Calendar } from 'lucide-react';
+import { leadsApi, usersApi } from '@/api/modules';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRolePermissions } from '@/hooks/use-role-permissions';
 import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
 import { useTenantConfig } from '@/components/core/TenantConfigProvider';
 import type { AssignableUser, Lead, LeadSource } from '@/types';
-import type { LeadWithCourseInterest } from '@/types/bridge';
+import type { LmsCourseType } from '@/types/lms';
 import { getFriendlyError } from '@/lib/error-messages';
 import { ScheduleTimelineEventDialog } from '@/components/ScheduleTimelineEventDialog';
 import { ScheduledTimelineEventsCard } from '@/components/ScheduledTimelineEventsCard';
 import { LeadCourseInterest } from '@/components/lms/LeadCourseInterest';
+import { LmsCourseContextFields } from '@/components/lms/LmsCourseContextFields';
+import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
+import { leadInterestLevelLabels } from '@/lib/lms-formatting';
+
+type LeadDetailFormState = {
+  fullName: string;
+  phone: string;
+  email: string;
+  source: LeadSource | '';
+  status: string;
+  assignedManagerId: string;
+  notes: string;
+  interestedCourseId: string;
+  interestedGroupId: string;
+  courseType: LmsCourseType | '';
+  interestLevel: 'low' | 'medium' | 'high' | '';
+};
 
 export default function LeadDetailPage() {
   const { id } = useParams();
@@ -30,7 +47,7 @@ export default function LeadDetailPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { tenantConfig } = useTenantConfig();
-  const { canAssignLeads, canViewLmsTechnicalFields } = useRolePermissions();
+  const { canAssignLeads } = useRolePermissions();
   const { isLmsBridgeEnabled } = useLmsBridge();
   const canAssignToSales = canAssignLeads();
   const [lead, setLead] = useState<Lead | null>(null);
@@ -43,7 +60,6 @@ export default function LeadDetailPage() {
   const [isConverting, setIsConverting] = useState(false);
   const [managers, setManagers] = useState<AssignableUser[]>([]);
   const [managersLoading, setManagersLoading] = useState(false);
-  const [leadBridgeData, setLeadBridgeData] = useState<LeadWithCourseInterest | null>(null);
 
   // Use tenant-configured lead sources if available, otherwise use hardcoded sources
   const leadSourceOptions = useMemo(() => {
@@ -78,7 +94,7 @@ export default function LeadDetailPage() {
     ];
   }, [tenantConfig.leadStatuses]);
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<LeadDetailFormState>({
     fullName: '',
     phone: '',
     email: '',
@@ -86,7 +102,24 @@ export default function LeadDetailPage() {
     status: 'new',
     assignedManagerId: '',
     notes: '',
+    interestedCourseId: '',
+    interestedGroupId: '',
+    courseType: '',
+    interestLevel: '',
   });
+
+  const { data: coursesData } = useLmsCourses(isLmsBridgeEnabled ? { isActive: 'true' } : undefined);
+  const courses = coursesData?.items ?? [];
+  const selectedLeadCourseId = form.interestedCourseId || lead?.interestedCourseId || '';
+  const selectedLeadCourse = courses.find((course) => course.id === selectedLeadCourseId) ?? null;
+  const { data: groupsData } = useLmsGroups(
+    isLmsBridgeEnabled && selectedLeadCourseId && selectedLeadCourse?.courseType !== 'video'
+      ? { courseId: selectedLeadCourseId, limit: 100 }
+      : undefined,
+  );
+  const groups = groupsData?.items ?? [];
+  const leadCourseName = courses.find((course) => course.id === lead?.interestedCourseId)?.name;
+  const leadGroupName = groups.find((group) => group.id === lead?.interestedGroupId)?.name;
 
   useEffect(() => {
     if (!id || id === 'new') return;
@@ -102,25 +135,19 @@ export default function LeadDetailPage() {
   useEffect(() => {
     if (!lead) return;
     setForm({
-      fullName: lead.fullName,
-      phone: lead.phone,
-      email: lead.email,
+      fullName: lead.fullName ?? '',
+      phone: lead.phone ?? '',
+      email: lead.email ?? '',
       source: lead.source,
       status: lead.status,
       assignedManagerId: lead.assignedManager?.id ? String(lead.assignedManager.id) : '',
       notes: lead.notes || '',
+      interestedCourseId: lead.interestedCourseId || '',
+      interestedGroupId: lead.interestedGroupId || '',
+      courseType: lead.courseType || '',
+      interestLevel: lead.interestLevel || '',
     });
   }, [lead]);
-
-  useEffect(() => {
-    if (!lead || !isLmsBridgeEnabled) {
-      setLeadBridgeData(null);
-      return;
-    }
-    bridgeApi.getLeadBridgeData(lead.id)
-      .then((data) => setLeadBridgeData(data))
-      .catch(() => setLeadBridgeData(null));
-  }, [lead, isLmsBridgeEnabled]);
 
   useEffect(() => {
     if (!isEditOpen) return;
@@ -154,13 +181,17 @@ export default function LeadDetailPage() {
     }
 
     setForm({
-      fullName: lead.fullName,
-      phone: lead.phone,
-      email: lead.email,
+      fullName: lead.fullName ?? '',
+      phone: lead.phone ?? '',
+      email: lead.email ?? '',
       source: lead.source,
       status: lead.status,
       assignedManagerId: lead.assignedManager?.id ? String(lead.assignedManager.id) : '',
       notes: lead.notes || '',
+      interestedCourseId: lead.interestedCourseId || '',
+      interestedGroupId: lead.interestedGroupId || '',
+      courseType: lead.courseType || '',
+      interestLevel: lead.interestLevel || '',
     });
     setIsEditOpen(false);
   };
@@ -180,6 +211,10 @@ export default function LeadDetailPage() {
           ? (form.assignedManagerId ? Number(form.assignedManagerId) : null)
           : undefined,
         notes: form.notes || undefined,
+        interestedCourseId: isLmsBridgeEnabled ? form.interestedCourseId : undefined,
+        interestedGroupId: isLmsBridgeEnabled ? form.interestedGroupId : undefined,
+        courseType: isLmsBridgeEnabled ? (form.courseType || null) : undefined,
+        interestLevel: isLmsBridgeEnabled ? (form.interestLevel || null) : undefined,
       });
       setLead(updatedLead);
       setIsEditOpen(false);
@@ -243,6 +278,25 @@ export default function LeadDetailPage() {
             <Button variant="outline" onClick={() => setIsEditOpen(true)}>
               {ky.common.edit}
             </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const params = new URLSearchParams({
+                  create: '1',
+                  leadId: String(lead.id),
+                });
+                if (lead.contactId) params.set('contactId', String(lead.contactId));
+                if (lead.interestedCourseId) params.set('courseId', lead.interestedCourseId);
+                if (lead.interestedGroupId) params.set('groupId', lead.interestedGroupId);
+                if (lead.courseType) params.set('courseType', lead.courseType);
+                if (leadCourseName) params.set('courseName', leadCourseName);
+                if (leadGroupName) params.set('groupName', leadGroupName);
+                navigate(`/deals?${params.toString()}`);
+              }}
+              disabled={!lead.contactId}
+            >
+              Келишим түзүү
+            </Button>
             <Button variant="outline" onClick={() => setIsScheduleOpen(true)}>
               <Calendar className="mr-2 h-4 w-4" />
               Пландоо
@@ -275,10 +329,14 @@ export default function LeadDetailPage() {
           </CardContent>
         </Card>
 
-        {isLmsBridgeEnabled && canViewLmsTechnicalFields() && (
+        {isLmsBridgeEnabled && (
           <LeadCourseInterest
-            interestedCourseId={leadBridgeData?.interestedCourseId}
-            interestedGroupId={leadBridgeData?.interestedGroupId}
+            interestedCourseId={lead.interestedCourseId || undefined}
+            interestedGroupId={lead.interestedGroupId || undefined}
+            courseType={lead.courseType || undefined}
+            interestLevel={lead.interestLevel || undefined}
+            courseName={leadCourseName}
+            groupName={leadGroupName}
           />
         )}
 
@@ -391,6 +449,48 @@ export default function LeadDetailPage() {
               <Label>{ky.common.notes}</Label>
               <Textarea value={form.notes} onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))} rows={3} />
             </div>
+            {isLmsBridgeEnabled ? (
+              <>
+                <LmsCourseContextFields
+                  value={{
+                    lmsCourseId: form.interestedCourseId,
+                    lmsGroupId: form.interestedGroupId,
+                    courseType: form.courseType,
+                    courseNameSnapshot: '',
+                    groupNameSnapshot: '',
+                  }}
+                  onChange={(next) => setForm((prev) => ({
+                    ...prev,
+                    interestedCourseId: next.lmsCourseId,
+                    interestedGroupId: next.lmsGroupId,
+                    courseType: next.courseType,
+                  }))}
+                  courseLabel="Кызыккан курс"
+                  groupLabel="Кызыккан группа"
+                  description="Бул тандоо кийинки келишимди алдын ала толтурууга колдонулат. Кааласаңыз бош калтырыңыз."
+                />
+                <div className="space-y-2">
+                  <Label>Кызыгуу деңгээли</Label>
+                  <Select
+                    value={form.interestLevel || '__none__'}
+                    onValueChange={(value) => setForm((prev) => ({
+                      ...prev,
+                      interestLevel: value === '__none__' ? '' : (value as LeadDetailFormState['interestLevel']),
+                    }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Кызыгуу деңгээлин тандаңыз" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Тандалган эмес</SelectItem>
+                      <SelectItem value="low">{leadInterestLevelLabels.low}</SelectItem>
+                      <SelectItem value="medium">{leadInterestLevelLabels.medium}</SelectItem>
+                      <SelectItem value="high">{leadInterestLevelLabels.high}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            ) : null}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={resetEditForm} disabled={isSaving}>

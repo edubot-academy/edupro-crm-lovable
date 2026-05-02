@@ -20,9 +20,22 @@ import { useRolePermissions } from '@/hooks/use-role-permissions';
 import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
 import { useTenantConfig } from '@/components/core/TenantConfigProvider';
 import type { AssignableUser, Lead, LeadSource } from '@/types';
+import type { LmsCourseType } from '@/types/lms';
 import { Plus, Trash2, Loader2, Phone, Mail, User, GraduationCap, Save, X, RotateCcw, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
+import { LmsCourseContextFields } from '@/components/lms/LmsCourseContextFields';
+import { leadInterestLevelLabels } from '@/lib/lms-formatting';
+
+type LeadFormState = Omit<Lead, 'id' | 'createdAt' | 'updatedAt' | 'assignedManager' | 'company' | 'source' | 'courseType' | 'interestLevel'> & {
+  source?: LeadSource;
+  assignedManagerId: number;
+  tags: string[];
+  interestedCourseId: string;
+  interestedGroupId: string;
+  courseType: LmsCourseType | '';
+  interestLevel: 'low' | 'medium' | 'high' | '';
+};
 
 export default function LeadsPage() {
   const navigate = useNavigate();
@@ -89,7 +102,7 @@ export default function LeadsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [managers, setManagers] = useState<AssignableUser[]>([]);
-  const emptyLeadForm: Omit<Lead, 'id' | 'createdAt' | 'updatedAt' | 'assignedManager' | 'company'> & { assignedManagerId: number; tags: string[] } = {
+  const emptyLeadForm: LeadFormState = {
     fullName: '',
     phone: '',
     email: '',
@@ -99,6 +112,10 @@ export default function LeadsPage() {
     assignedManagerId: 0,
     tags: [],
     notes: '',
+    interestedCourseId: '',
+    interestedGroupId: '',
+    courseType: '',
+    interestLevel: '',
   };
   const [newLead, setNewLead] = useState(emptyLeadForm);
   const [duplicateCheck, setDuplicateCheck] = useState<{ hasDuplicate: boolean; duplicateFields?: string[]; existingLead?: Lead } | null>(null);
@@ -332,6 +349,10 @@ export default function LeadsPage() {
         assignedManagerId: newLead.assignedManagerId || user?.id,
         tags: newLead.tags.length > 0 ? newLead.tags : undefined,
         notes: newLead.notes || undefined,
+        interestedCourseId: isLmsBridgeEnabled ? newLead.interestedCourseId || undefined : undefined,
+        interestedGroupId: isLmsBridgeEnabled ? newLead.interestedGroupId || undefined : undefined,
+        courseType: isLmsBridgeEnabled ? newLead.courseType || undefined : undefined,
+        interestLevel: isLmsBridgeEnabled ? newLead.interestLevel || undefined : undefined,
       });
       toast({ title: 'Лид ийгиликтүү түзүлдү' });
       setCreateOpen(false);
@@ -954,6 +975,48 @@ export default function LeadsPage() {
               <Label>{ky.common.notes}</Label>
               <Textarea value={newLead.notes} onChange={(e) => setNewLead(p => ({ ...p, notes: e.target.value }))} rows={2} />
             </div>
+            {isLmsBridgeEnabled ? (
+              <>
+                <LmsCourseContextFields
+                  value={{
+                    lmsCourseId: newLead.interestedCourseId || '',
+                    lmsGroupId: newLead.interestedGroupId || '',
+                    courseType: newLead.courseType,
+                    courseNameSnapshot: '',
+                    groupNameSnapshot: '',
+                  }}
+                  onChange={(next) => setNewLead((prev) => ({
+                    ...prev,
+                    interestedCourseId: next.lmsCourseId,
+                    interestedGroupId: next.lmsGroupId,
+                    courseType: next.courseType,
+                  }))}
+                  courseLabel="Кызыккан курс"
+                  groupLabel="Кызыккан группа"
+                  description="Бул маалымат кийин келишим ачканда автоматтык түрдө сунушталат."
+                />
+                <div className="space-y-2">
+                  <Label>Кызыгуу деңгээли</Label>
+                  <Select
+                    value={newLead.interestLevel || '__none__'}
+                    onValueChange={(value) => setNewLead((prev) => ({
+                      ...prev,
+                      interestLevel: value === '__none__' ? '' : (value as LeadFormState['interestLevel']),
+                    }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Кызыгуу деңгээлин тандаңыз" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Тандалган эмес</SelectItem>
+                      <SelectItem value="low">{leadInterestLevelLabels.low}</SelectItem>
+                      <SelectItem value="medium">{leadInterestLevelLabels.medium}</SelectItem>
+                      <SelectItem value="high">{leadInterestLevelLabels.high}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            ) : null}
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={resetCreateForm}>{ky.common.cancel}</Button>
               <Button

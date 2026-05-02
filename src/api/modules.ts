@@ -3,9 +3,10 @@ import type {
   LmsCourse, LmsGroup, Payment, TrialLesson, Task,
   TimelineEvent, RetentionCase, DashboardStats, DashboardStatsQueryParams,
   CrmDashboardStats, EducationDashboardStats,
-  FunnelReport, SystemUser, CreatedUserResponse, AssignableUser, Lead, Contact, ContactNote, Deal, PaginatedResponse,
+  FunnelReport, SystemUser, CreatedUserResponse, AssignableUser, Lead, LeadWritePayload, Contact, ContactNote, Deal, CreateDealPayload, UpdateDealPayload, PaginatedResponse,
   TelegramLinkResponse, TelegramStatusResponse,
   InAppNotification, UnreadNotificationsResponse,
+  TrialLessonWritePayload,
 } from '@/types';
 import type {
   ContactWithStudentMapping,
@@ -55,8 +56,8 @@ export const leadsApi = {
   list: (params?: Record<string, string | number | undefined>) =>
     apiClient.get<PaginatedResponse<Lead>>('/leads', params),
   get: (id: number) => apiClient.get<Lead>(`/leads/${id}`),
-  create: (data: Partial<Lead>) => apiClient.post<Lead>('/leads', data),
-  update: (id: number, data: Partial<Lead>) => apiClient.patch<Lead>(`/leads/${id}`, data),
+  create: (data: LeadWritePayload) => apiClient.post<Lead>('/leads', data),
+  update: (id: number, data: LeadWritePayload) => apiClient.patch<Lead>(`/leads/${id}`, data),
   delete: (id: number) => apiClient.delete<{ success: boolean }>(`/leads/${id}`),
   checkDuplicates: (data: { phone: string; email?: string }) =>
     apiClient.post<{ hasDuplicate: boolean; duplicateFields?: string[]; existingLead?: Lead }>('/leads/check-duplicates', data),
@@ -153,8 +154,8 @@ export const dealsApi = {
   list: (params?: Record<string, string | number | undefined>) =>
     apiClient.get<PaginatedResponse<Deal>>('/deals', params),
   get: (id: number) => apiClient.get<Deal>(`/deals/${id}`),
-  create: (data: Partial<Deal>) => apiClient.post<Deal>('/deals', data),
-  update: (id: number, data: Partial<Deal>) => apiClient.patch<Deal>(`/deals/${id}`, data),
+  create: (data: CreateDealPayload) => apiClient.post<Deal>('/deals', data),
+  update: (id: number, data: UpdateDealPayload) => apiClient.patch<Deal>(`/deals/${id}`, data),
   delete: (id: number) => apiClient.delete<{ success: boolean }>(`/deals/${id}`),
 };
 
@@ -177,9 +178,9 @@ export const trialLessonsApi = {
   list: (params?: Record<string, string | number | undefined>) =>
     apiClient.get<PaginatedResponse<TrialLesson>>('/trial-lessons', params),
   get: (id: number) => apiClient.get<TrialLesson>(`/trial-lessons/${id}`),
-  create: (data: { leadId?: number; contactId?: number; dealId?: number; scheduledAt: string; result?: string; notes?: string }) =>
+  create: (data: TrialLessonWritePayload) =>
     apiClient.post<TrialLesson>('/trial-lessons', data),
-  update: (id: number, data: Partial<TrialLesson>) =>
+  update: (id: number, data: TrialLessonWritePayload) =>
     apiClient.patch<TrialLesson>(`/trial-lessons/${id}`, data),
   delete: (id: number) => apiClient.delete<{ success: boolean }>(`/trial-lessons/${id}`),
 };

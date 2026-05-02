@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { BookOpen, GraduationCap } from 'lucide-react';
+import { formatLmsCourseType } from '@/lib/lms-formatting';
 
 /**
  * DealCourseMapping - LMS Bridge Component
@@ -67,7 +68,7 @@ export function DealCourseMapping({
         {courseType && (
           <div>
             <Label className="text-xs text-muted-foreground">Курс Түрү</Label>
-            <p className="text-sm">{courseType}</p>
+            <p className="text-sm">{formatLmsCourseType(courseType as 'video' | 'offline' | 'online_live')}</p>
           </div>
         )}
         <Button

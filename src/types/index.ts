@@ -216,9 +216,28 @@ export interface Lead {
   tags?: string[];
   assignedManager?: { id: number; fullName: string };
   assignedManagerId?: number;
+  interestedCourseId?: string | null;
+  interestedGroupId?: string | null;
+  courseType?: import('@/types/lms').LmsCourseType | null;
+  interestLevel?: 'low' | 'medium' | 'high' | null;
   company?: CompanyRef;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface LeadWritePayload {
+  fullName?: string;
+  phone?: string;
+  email?: string;
+  source?: LeadSource;
+  status?: LeadStatus;
+  assignedManagerId?: number | null;
+  tags?: string[];
+  notes?: string;
+  interestedCourseId?: string | null;
+  interestedGroupId?: string | null;
+  courseType?: import('@/types/lms').LmsCourseType | null;
+  interestLevel?: 'low' | 'medium' | 'high' | null;
 }
 
 // ==================== CONTACTS / STUDENTS ====================
@@ -281,9 +300,47 @@ export interface Deal {
   notes?: string;
   lead?: { id: number; fullName: string };
   contact?: { id: number; fullName: string; email?: string };
+  lmsMapping?: {
+    lmsCourseId?: string;
+    lmsGroupId?: string;
+    courseType?: import('@/types/lms').LmsCourseType;
+    courseNameSnapshot?: string;
+    groupNameSnapshot?: string;
+  };
   company?: CompanyRef;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CreateDealPayload {
+  contactId?: number;
+  leadId?: number;
+  trialLessonId?: number;
+  amount?: number;
+  currency?: string;
+  stage?: DealStage;
+  pipelineStage?: DealPipelineStage;
+  notes?: string;
+  lmsCourseId?: string | null;
+  lmsGroupId?: string | null;
+  courseType?: import('@/types/lms').LmsCourseType | null;
+  courseNameSnapshot?: string | null;
+  groupNameSnapshot?: string | null;
+}
+
+export interface UpdateDealPayload {
+  contactId?: number;
+  leadId?: number;
+  amount?: number;
+  currency?: string;
+  stage?: DealStage;
+  pipelineStage?: DealPipelineStage;
+  notes?: string;
+  lmsCourseId?: string | null;
+  lmsGroupId?: string | null;
+  courseType?: import('@/types/lms').LmsCourseType | null;
+  courseNameSnapshot?: string | null;
+  groupNameSnapshot?: string | null;
 }
 
 // ==================== TRIAL LESSONS ====================
@@ -293,6 +350,12 @@ export interface TrialLesson {
   id: number;
   scheduledAt: string;
   result: TrialResult;
+  trialTopic?: string | null;
+  lmsCourseId?: string | null;
+  lmsGroupId?: string | null;
+  courseType?: import('@/types/lms').LmsCourseType | null;
+  contactId?: number | null;
+  dealId?: number | null;
   notes?: string;
   leadId?: number;
   lead?: { id: number; fullName: string };
@@ -301,6 +364,19 @@ export interface TrialLesson {
   company?: CompanyRef;
   createdAt: string;
   updatedAt?: string;
+}
+
+export interface TrialLessonWritePayload {
+  leadId?: number;
+  contactId?: number;
+  dealId?: number;
+  scheduledAt?: string;
+  result?: TrialResult;
+  notes?: string;
+  trialTopic?: string;
+  lmsCourseId?: string;
+  lmsGroupId?: string;
+  courseType?: import('@/types/lms').LmsCourseType;
 }
 
 // ==================== PAYMENTS ====================

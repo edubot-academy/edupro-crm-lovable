@@ -9,6 +9,17 @@ import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
 import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
 
+function shouldRetryLmsQuery(failureCount: number, err: unknown) {
+  const apiError = (typeof err === 'object' && err !== null ? err as ApiError : null);
+  if (apiError?.status === 503) {
+    return false;
+  }
+  if (apiError?.code === 'INTEGRATION_NOT_CONFIGURED' || apiError?.code === 'INTEGRATION_ADMIN_NOT_CONFIGURED') {
+    return false;
+  }
+  return failureCount < 2;
+}
+
 function invalidateLmsQueries(queryClient: ReturnType<typeof useQueryClient>) {
   return Promise.all([
     queryClient.invalidateQueries({ queryKey: ['lms-courses'] }),
@@ -30,7 +41,7 @@ export function useLmsCourses(params?: LmsCourseListParams) {
   return useQuery({
     queryKey: ['lms-courses', params],
     queryFn: () => lmsApi.getCourses({ limit: 100, ...params }),
-    retry: 2,
+    retry: shouldRetryLmsQuery,
     staleTime: 60_000,
     enabled: isLmsBridgeEnabled,
   });
@@ -41,7 +52,7 @@ export function useLmsGroups(params?: LmsGroupListParams) {
   return useQuery({
     queryKey: ['lms-groups', params],
     queryFn: () => lmsApi.getGroups(params),
-    retry: 2,
+    retry: shouldRetryLmsQuery,
     staleTime: 60_000,
     enabled: isLmsBridgeEnabled && !!params?.courseId,
   });
@@ -52,7 +63,7 @@ export function useLmsStudentSummary(studentId: string | undefined) {
   return useQuery({
     queryKey: ['lms-student-summary', studentId],
     queryFn: () => lmsApi.getStudentSummary(studentId!),
-    retry: 2,
+    retry: shouldRetryLmsQuery,
     staleTime: 30_000,
     enabled: isLmsBridgeEnabled && !!studentId,
   });
@@ -76,7 +87,7 @@ export function useLmsIntegrationHistory(params?: Record<string, string | number
   return useQuery({
     queryKey: ['lms-integration-history', params],
     queryFn: () => lmsAdminApi.history(params),
-    retry: 2,
+    retry: shouldRetryLmsQuery,
     staleTime: 15_000,
     enabled: isLmsBridgeEnabled && !!params && Object.values(params).some((value) => value !== undefined && value !== null && value !== ''),
   });
