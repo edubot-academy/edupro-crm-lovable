@@ -10,12 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { StatusBadge, getLeadStatusVariant } from '@/components/StatusBadge';
 import { ky } from '@/lib/i18n';
-import { ArrowLeft, Phone, Mail, Tag, User, MessageSquare, Loader2, Save, Calendar } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, Tag, User, MessageSquare, Loader2, Save, Calendar, Sparkles } from 'lucide-react';
 import { leadsApi, usersApi } from '@/api/modules';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRolePermissions } from '@/hooks/use-role-permissions';
 import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
+import { useFeatureFlags } from '@/components/core/FeatureFlagProvider';
 import { useTenantConfig } from '@/components/core/TenantConfigProvider';
 import type { AssignableUser, Lead, LeadSource } from '@/types';
 import type { LmsCourseType } from '@/types/lms';
@@ -26,6 +27,8 @@ import { LeadCourseInterest } from '@/components/lms/LeadCourseInterest';
 import { LmsCourseContextFields } from '@/components/lms/LmsCourseContextFields';
 import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
 import { leadInterestLevelLabels } from '@/lib/lms-formatting';
+import { AiDraftModal } from '@/components/ai/AiDraftModal';
+import { AiDraftHandoffCard } from '@/components/ai/AiDraftHandoffCard';
 
 type LeadDetailFormState = {
   fullName: string;
@@ -46,15 +49,20 @@ export default function LeadDetailPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { isFeatureEnabled } = useFeatureFlags();
   const { tenantConfig } = useTenantConfig();
   const { canAssignLeads } = useRolePermissions();
   const { isLmsBridgeEnabled } = useLmsBridge();
+  const isAiDraftsEnabled =
+    isFeatureEnabled('ai_assist_enabled') && isFeatureEnabled('ai_followup_drafts_enabled');
   const canAssignToSales = canAssignLeads();
   const [lead, setLead] = useState<Lead | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
+  const [isAiDraftOpen, setIsAiDraftOpen] = useState(false);
+  const [aiDraftMessage, setAiDraftMessage] = useState('');
   const [scheduleRefreshKey, setScheduleRefreshKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
@@ -196,6 +204,14 @@ export default function LeadDetailPage() {
     setIsEditOpen(false);
   };
 
+  const handleUseDraft = (message: string) => {
+    setAiDraftMessage(message);
+    toast({
+      title: 'Сунуш кошулду',
+      description: 'Сунушталган жооп төмөнкү талаага жайгаштырылды.',
+    });
+  };
+
   const handleSave = async () => {
     if (!lead || !form.fullName || !form.phone || !form.source) return;
 
@@ -278,6 +294,12 @@ export default function LeadDetailPage() {
             <Button variant="outline" onClick={() => setIsEditOpen(true)}>
               {ky.common.edit}
             </Button>
+            {isAiDraftsEnabled ? (
+              <Button variant="outline" onClick={() => setIsAiDraftOpen(true)}>
+                <Sparkles className="mr-2 h-4 w-4" />
+                AI жооп сунушу
+              </Button>
+            ) : null}
             <Button
               variant="outline"
               onClick={() => {
@@ -310,6 +332,15 @@ export default function LeadDetailPage() {
       />
 
       <div className="grid gap-6 lg:grid-cols-3">
+        {aiDraftMessage ? (
+          <AiDraftHandoffCard
+            value={aiDraftMessage}
+            onChange={setAiDraftMessage}
+            onClear={() => setAiDraftMessage('')}
+            className="lg:col-span-3"
+          />
+        ) : null}
+
         <Card className="shadow-card border-border/50 lg:col-span-2">
           <CardHeader>
             <CardTitle className="text-base">Лид маалыматы</CardTitle>
@@ -514,6 +545,16 @@ export default function LeadDetailPage() {
           onSaved={() => setScheduleRefreshKey((prev) => prev + 1)}
         />
       )}
+      {isAiDraftsEnabled ? (
+        <AiDraftModal
+          open={isAiDraftOpen}
+          onOpenChange={setIsAiDraftOpen}
+          targetType="lead"
+          targetId={lead.id}
+          targetName={lead.fullName}
+          onUseDraft={handleUseDraft}
+        />
+      ) : null}
     </div>
   );
 }

@@ -15,11 +15,14 @@ import { profileApi } from '@/api/modules';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, PencilLine, ToggleLeft, Palette, Globe, DollarSign, Tag, CreditCard } from 'lucide-react';
 import { getFriendlyError } from '@/lib/error-messages';
+import { AiUsageSummary } from '@/components/ai/AiUsageSummary';
 
 export default function SettingsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { featureFlags, isFeatureEnabled, allowedFeatures, sources } = useFeatureFlags();
+  const isAiDraftsEnabled =
+    isFeatureEnabled('ai_assist_enabled') && isFeatureEnabled('ai_followup_drafts_enabled');
   const { tenantConfig, updateTenantConfig } = useTenantConfig();
   const [fullName, setFullName] = useState(user?.fullName || '');
   const [email, setEmail] = useState(user?.email || '');
@@ -342,6 +345,10 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {isAiDraftsEnabled ? (
+        <AiUsageSummary className="shadow-card border-border/50" />
+      ) : null}
 
       <Card className="shadow-card border-border/50">
         <CardHeader>

@@ -25,6 +25,8 @@ const defaultFeatureFlags: FeatureFlags = {
   whatsapp_integration_enabled: false,
   custom_roles_enabled: false,
   custom_domain_enabled: false,
+  ai_assist_enabled: false,
+  ai_followup_drafts_enabled: false,
 };
 
 function getEnvironmentFeatureFlags(): Partial<FeatureFlags> {
@@ -35,6 +37,8 @@ function getEnvironmentFeatureFlags(): Partial<FeatureFlags> {
     ...(import.meta.env.VITE_ENABLE_RETENTION !== undefined && { retention_enabled: import.meta.env.VITE_ENABLE_RETENTION === 'true' }),
     ...(import.meta.env.VITE_ENABLE_TELEGRAM !== undefined && { telegram_notifications_enabled: import.meta.env.VITE_ENABLE_TELEGRAM === 'true' }),
     ...(import.meta.env.VITE_ENABLE_ADVANCED_REPORTS !== undefined && { advanced_reports_enabled: import.meta.env.VITE_ENABLE_ADVANCED_REPORTS === 'true' }),
+    ...(import.meta.env.VITE_ENABLE_AI_ASSIST !== undefined && { ai_assist_enabled: import.meta.env.VITE_ENABLE_AI_ASSIST === 'true' }),
+    ...(import.meta.env.VITE_ENABLE_AI_DRAFTS !== undefined && { ai_followup_drafts_enabled: import.meta.env.VITE_ENABLE_AI_DRAFTS === 'true' }),
   };
 }
 

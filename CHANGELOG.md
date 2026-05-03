@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Version bumps are classified by delivery scale; see `VERSIONING.md`.
 
+## [2.2.0] - 2026-05-04
+
+### Added
+- AI Assistant Integration: New AI feature flags `ai_assist_enabled` and `ai_followup_drafts_enabled` for controlling AI functionality
+- AI Assistant Integration: AI draft followup API client (`aiApi`) with `draftFollowup` and `getUsageSummary` endpoints
+- AI Assistant Integration: AI error message library (`ai-error-messages.ts`) with comprehensive Kyrgyz error mappings and user-friendly messages
+- AI Assistant Integration: AI draft modal component (`AiDraftModal`) for generating AI-powered followup messages
+- AI Assistant Integration: AI draft handoff card component (`AiDraftHandoffCard`) for displaying and using AI-generated drafts
+- AI Assistant Integration: AI usage summary component (`AiUsageSummary`) for displaying AI service usage statistics
+- AI Assistant Integration: AI draft functionality integrated into ContactDetail, DealDetail, and LeadDetail pages
+- AI Assistant Integration: Environment variable support (`VITE_ENABLE_AI_ASSIST`, `VITE_ENABLE_AI_DRAFTS`) for AI feature flags
+- AI Assistant Integration: Feature flag checks in detail pages to conditionally show AI functionality
+- AI Assistant Integration: AI draft button with Sparkles icon in detail page action areas
+- AI Assistant Integration: AI message state management for handling generated drafts
+- AI Assistant Integration: Comprehensive error handling with recoverable error detection and retry delays
+
+### Changed
+- FeatureFlagProvider: Added AI feature flags to default flags and environment variable overrides
+- Feature types: Extended `FeatureFlag` type and `FeatureFlags` interface with AI-related flags
+- Detail pages: Added AI draft modal integration and state management
+- Detail pages: Added AI feature flag checks before rendering AI functionality
+- Detail pages: Imported Sparkles icon for AI-related UI elements
+
 ## [2.1.0] - 2026-05-02
 
 ### Added

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Loader2, ArrowLeft, CreditCard, Workflow, Pencil } from 'lucide-react';
+import { Loader2, ArrowLeft, CreditCard, Workflow, Pencil, Sparkles } from 'lucide-react';
 import { contactApi, dealsApi, paymentsApi, bridgeApi } from '@/api/modules';
 import type { Contact, Deal, Payment } from '@/types';
 import type { ContactWithStudentMapping } from '@/types/bridge';
@@ -15,9 +15,12 @@ import { DealCourseMapping } from '@/components/lms/DealCourseMapping';
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
 import { useRolePermissions } from '@/hooks/use-role-permissions';
+import { useFeatureFlags } from '@/components/core/FeatureFlagProvider';
 import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
 import { LmsCourseContextFields } from '@/components/lms/LmsCourseContextFields';
 import type { LmsCourseType } from '@/types/lms';
+import { AiDraftModal } from '@/components/ai/AiDraftModal';
+import { AiDraftHandoffCard } from '@/components/ai/AiDraftHandoffCard';
 
 type DealEditLmsFormState = {
   lmsCourseId: string;
@@ -31,8 +34,11 @@ export default function DealDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { isFeatureEnabled } = useFeatureFlags();
   const { canViewIntegrationHistory } = useRolePermissions();
   const { isLmsBridgeEnabled } = useLmsBridge();
+  const isAiDraftsEnabled =
+    isFeatureEnabled('ai_assist_enabled') && isFeatureEnabled('ai_followup_drafts_enabled');
   const [deal, setDeal] = useState<Deal | null>(null);
   const [contactBridgeData, setContactBridgeData] = useState<ContactWithStudentMapping | null>(null);
   const [contact, setContact] = useState<Contact | null>(null);
@@ -41,6 +47,8 @@ export default function DealDetailPage() {
   const [paymentsLoading, setPaymentsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [isAiDraftOpen, setIsAiDraftOpen] = useState(false);
+  const [aiDraftMessage, setAiDraftMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [editForm, setEditForm] = useState<DealEditLmsFormState>({
     lmsCourseId: '',
@@ -146,6 +154,14 @@ export default function DealDetailPage() {
     }
   };
 
+  const handleUseDraft = (message: string) => {
+    setAiDraftMessage(message);
+    toast({
+      title: 'Сунуш кошулду',
+      description: 'Сунушталган жооп төмөнкү талаага жайгаштырылды.',
+    });
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
@@ -157,6 +173,12 @@ export default function DealDetailPage() {
               <ArrowLeft className="mr-2 h-4 w-4" />
               Артка
             </Button>
+            {isAiDraftsEnabled ? (
+              <Button variant="outline" onClick={() => setIsAiDraftOpen(true)}>
+                <Sparkles className="mr-2 h-4 w-4" />
+                AI жооп сунушу
+              </Button>
+            ) : null}
             <Button variant="outline" onClick={() => navigate(`/payments?create=1&dealId=${deal.id}`)}>
               Төлөм кошуу
             </Button>
@@ -171,6 +193,15 @@ export default function DealDetailPage() {
       />
 
       <div className="grid gap-6 lg:grid-cols-3">
+        {aiDraftMessage ? (
+          <AiDraftHandoffCard
+            value={aiDraftMessage}
+            onChange={setAiDraftMessage}
+            onClear={() => setAiDraftMessage('')}
+            className="lg:col-span-3"
+          />
+        ) : null}
+
         {isLmsBridgeEnabled && deal.lmsMapping ? (
           <DealCourseMapping
             lmsCourseId={deal.lmsMapping.lmsCourseId}
@@ -282,6 +313,16 @@ export default function DealDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {isAiDraftsEnabled ? (
+        <AiDraftModal
+          open={isAiDraftOpen}
+          onOpenChange={setIsAiDraftOpen}
+          targetType="deal"
+          targetId={deal.id}
+          targetName={`Келишим #${deal.id}`}
+          onUseDraft={handleUseDraft}
+        />
+      ) : null}
     </div>
   );
 }

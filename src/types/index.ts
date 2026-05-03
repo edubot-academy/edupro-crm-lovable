@@ -32,7 +32,9 @@ export type FeatureFlag =
   | 'payments_enabled'
   | 'whatsapp_integration_enabled'
   | 'custom_roles_enabled'
-  | 'custom_domain_enabled';
+  | 'custom_domain_enabled'
+  | 'ai_assist_enabled'
+  | 'ai_followup_drafts_enabled';
 
 export interface FeatureFlags {
   crm_enabled: boolean;
@@ -45,6 +47,8 @@ export interface FeatureFlags {
   whatsapp_integration_enabled: boolean;
   custom_roles_enabled: boolean;
   custom_domain_enabled: boolean;
+  ai_assist_enabled: boolean;
+  ai_followup_drafts_enabled: boolean;
 }
 
 // ==================== TENANT CONFIGURATION ====================

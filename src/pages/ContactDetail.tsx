@@ -9,11 +9,12 @@ import { ky } from '@/lib/i18n';
 import { contactApi, bridgeApi } from '@/api/modules';
 import type { Contact } from '@/types';
 import type { ContactWithStudentMapping } from '@/types/bridge';
-import { User, Phone, Mail, Link2, BookOpen, Workflow, GraduationCap, Pencil, Trash2, Copy, Loader2, ArrowLeft, Calendar, Activity } from 'lucide-react';
+import { User, Phone, Mail, Link2, BookOpen, Workflow, GraduationCap, Pencil, Trash2, Copy, Loader2, ArrowLeft, Calendar, Activity, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRolePermissions } from '@/hooks/use-role-permissions';
+import { useFeatureFlags } from '@/components/core/FeatureFlagProvider';
 import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
 import { ContactStudentMapping } from '@/components/lms/ContactStudentMapping';
 import { useCreateStudentOnboardingLink, useLmsIntegrationHistory, useLmsStudentSummary } from '@/hooks/use-lms';
@@ -22,18 +23,25 @@ import { ScheduledTimelineEventsCard } from '@/components/ScheduledTimelineEvent
 import { getFriendlyError } from '@/lib/error-messages';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { AiDraftModal } from '@/components/ai/AiDraftModal';
+import { AiDraftHandoffCard } from '@/components/ai/AiDraftHandoffCard';
 
 export default function ContactDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { isFeatureEnabled } = useFeatureFlags();
   const { canViewLmsTechnicalFields, canViewStudentSummary, canViewIntegrationHistory } = useRolePermissions();
   const { isLmsBridgeEnabled } = useLmsBridge();
+  const isAiDraftsEnabled =
+    isFeatureEnabled('ai_assist_enabled') && isFeatureEnabled('ai_followup_drafts_enabled');
   const [contact, setContact] = useState<Contact | null>(null);
   const [bridgeData, setBridgeData] = useState<ContactWithStudentMapping | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
+  const [isAiDraftOpen, setIsAiDraftOpen] = useState(false);
+  const [aiDraftMessage, setAiDraftMessage] = useState('');
   const [scheduleRefreshKey, setScheduleRefreshKey] = useState(0);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -170,6 +178,14 @@ export default function ContactDetailPage() {
     }
   };
 
+  const handleUseDraft = (message: string) => {
+    setAiDraftMessage(message);
+    toast({
+      title: 'Сунуш кошулду',
+      description: 'Сунушталган жооп төмөнкү талаага жайгаштырылды.',
+    });
+  };
+
   if (isLoading) {
     return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   }
@@ -193,6 +209,12 @@ export default function ContactDetailPage() {
               <ArrowLeft className="mr-2 h-4 w-4" />{ky.common.back}
             </Button>
             <Button variant="outline" onClick={() => setIsEditOpen(true)}>{ky.common.edit}</Button>
+            {isAiDraftsEnabled ? (
+              <Button variant="outline" onClick={() => setIsAiDraftOpen(true)}>
+                <Sparkles className="mr-2 h-4 w-4" />
+                AI жооп сунушу
+              </Button>
+            ) : null}
             <Button variant="outline" onClick={() => setIsScheduleOpen(true)}>
               <Calendar className="mr-2 h-4 w-4" />
               Пландоо
@@ -201,6 +223,15 @@ export default function ContactDetailPage() {
         }
       />
       <div className="grid gap-6 lg:grid-cols-3">
+        {aiDraftMessage ? (
+          <AiDraftHandoffCard
+            value={aiDraftMessage}
+            onChange={setAiDraftMessage}
+            onClear={() => setAiDraftMessage('')}
+            className="lg:col-span-3"
+          />
+        ) : null}
+
         <Card className="shadow-card border-border/50 lg:col-span-2">
           <CardHeader><CardTitle className="text-base">{ky.contacts.infoTitle}</CardTitle></CardHeader>
           <CardContent className="space-y-4">
@@ -401,6 +432,16 @@ export default function ContactDetailPage() {
           onSaved={() => setScheduleRefreshKey((prev) => prev + 1)}
         />
       )}
+      {isAiDraftsEnabled ? (
+        <AiDraftModal
+          open={isAiDraftOpen}
+          onOpenChange={setIsAiDraftOpen}
+          targetType="contact"
+          targetId={contact.id}
+          targetName={contact.fullName}
+          onUseDraft={handleUseDraft}
+        />
+      ) : null}
       <Dialog open={isEditOpen} onOpenChange={(open) => {
         if (!open) {
           resetEditForm();
