@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Version bumps are classified by delivery scale; see `VERSIONING.md`.
 
+## [2.2.1] - 2026-05-04
+
+### Added
+- AI Draft Modal: Display `suggestedAction` field from AI draft response alongside the generated message
+
+### Changed
+- AI API types: Added `suggestedAction: string` to `DraftFollowupResponse` interface
+
 ## [2.2.0] - 2026-05-04
 
 ### Added

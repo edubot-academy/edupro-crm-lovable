@@ -11,6 +11,7 @@ export interface DraftFollowupResponse {
   message: string;
   reason: string;
   confidence: number;
+  suggestedAction: string;
   promptVersion: string;
   draftKind: 'human_review_required';
   model: string;

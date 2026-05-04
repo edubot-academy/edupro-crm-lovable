@@ -348,6 +348,13 @@ export function AiDraftModal({
                   </div>
                 </div>
 
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Кийинки сунушталган кадам</Label>
+                  <div className="bg-muted/30 rounded-lg p-4">
+                    <p className="text-sm text-muted-foreground">{draft.suggestedAction}</p>
+                  </div>
+                </div>
+
                 {/* Confidence */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Ишеним деңгээли</Label>
