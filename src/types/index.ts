@@ -34,7 +34,9 @@ export type FeatureFlag =
   | 'custom_roles_enabled'
   | 'custom_domain_enabled'
   | 'ai_assist_enabled'
-  | 'ai_followup_drafts_enabled';
+  | 'ai_followup_drafts_enabled'
+  | 'ai_operator_guidance_enabled'
+  | 'ai_insight_persistence_enabled';
 
 export interface FeatureFlags {
   crm_enabled: boolean;
@@ -49,6 +51,8 @@ export interface FeatureFlags {
   custom_domain_enabled: boolean;
   ai_assist_enabled: boolean;
   ai_followup_drafts_enabled: boolean;
+  ai_operator_guidance_enabled: boolean;
+  ai_insight_persistence_enabled: boolean;
 }
 
 // ==================== TENANT CONFIGURATION ====================

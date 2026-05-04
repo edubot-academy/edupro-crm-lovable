@@ -26,6 +26,9 @@ import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
 import { LmsCourseContextFields } from '@/components/lms/LmsCourseContextFields';
 import { leadInterestLevelLabels } from '@/lib/lms-formatting';
+import { ListPriorityIndicator, PriorityScore, RiskScore } from '@/components/ai/PriorityIndicator';
+import { useFeatureFlags } from '@/components/core/FeatureFlagProvider';
+import { aiApi, type LeadPriorityScoreResult, type RiskScoreResult } from '@/api/ai';
 
 type LeadFormState = Omit<Lead, 'id' | 'createdAt' | 'updatedAt' | 'assignedManager' | 'company' | 'source' | 'courseType' | 'interestLevel'> & {
   source?: LeadSource;
@@ -46,7 +49,9 @@ export default function LeadsPage() {
   const { toast } = useToast();
   const { canAssignLeads, canViewLmsTechnicalFields } = useRolePermissions();
   const { isLmsBridgeEnabled } = useLmsBridge();
+  const { isFeatureEnabled } = useFeatureFlags();
   const canAssignToSales = canAssignLeads();
+  const isAiOperationalIntelligenceEnabled = isFeatureEnabled('ai_assist_enabled') && isFeatureEnabled('ai_operator_guidance_enabled');
   const getSearchParam = (key: string, fallback = '') => searchParams.get(key) ?? fallback;
   const getPageParam = () => {
     const value = Number(searchParams.get('page'));
@@ -56,6 +61,11 @@ export default function LeadsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState(() => getSearchParam('q'));
   const [statusFilter, setStatusFilter] = useState<string>(() => getSearchParam('status', 'all'));
+
+  // Release 2 - Priority and risk data for leads
+  const [leadPriorities, setLeadPriorities] = useState<Record<number, PriorityScore>>({});
+  const [leadRisks, setLeadRisks] = useState<Record<number, RiskScore>>({});
+  const [priorityLoading, setPriorityLoading] = useState(false);
 
   // Use tenant-configured lead sources if available, otherwise use hardcoded sources
   const leadSourceOptions = useMemo(() => {
@@ -144,19 +154,68 @@ export default function LeadsPage() {
       page,
       limit: 10,
     })
-      .then((res) => {
+      .then(async (res) => {
         setLeads(res.items);
         setTotalItems(res.total || 0);
         setTotalPages(Math.max(res.totalPages || 1, 1));
+
+        // Load priority and risk data if AI operational intelligence is enabled
+        if (isAiOperationalIntelligenceEnabled && res.items.length > 0) {
+          setPriorityLoading(true);
+          const priorities: Record<number, PriorityScore> = {};
+          const risks: Record<number, RiskScore> = {};
+
+          await Promise.allSettled(
+            res.items.map(async (lead) => {
+              try {
+                // Load priority score
+                const priorityData = await aiApi.getPriorityScore('lead', lead.id);
+                priorities[lead.id] = {
+                  score: priorityData.score.score,
+                  level: priorityData.score.tier,
+                  factors: priorityData.score.breakdown.map(b => ({
+                    factor: b.factor,
+                    weight: b.weight,
+                    contribution: b.contribution,
+                    value: b.value
+                  })),
+                  explanation: `Priority score: ${priorityData.score.score}/${priorityData.score.maxScore}`,
+                  maxScore: priorityData.score.maxScore,
+                  tier: priorityData.score.tier,
+                };
+              } catch (err) {
+                console.warn(`Failed to load priority for lead ${lead.id}:`, err);
+              }
+
+              try {
+                // Load risk score
+                const riskData = await aiApi.getRiskScore('lead', lead.id);
+                risks[lead.id] = {
+                  risk: riskData.risk,
+                  reasons: riskData.reasons,
+                  score: riskData.score,
+                };
+              } catch (err) {
+                console.warn(`Failed to load risk for lead ${lead.id}:`, err);
+              }
+            })
+          );
+
+          setLeadPriorities(priorities);
+          setLeadRisks(risks);
+          setPriorityLoading(false);
+        }
       })
       .catch(() => {
         setLeads([]);
         setTotalItems(0);
         setTotalPages(1);
+        setLeadPriorities({});
+        setLeadRisks({});
         setError('Лиддерди жүктөө мүмкүн болгон жок. Тармакты же фильтрлерди текшериңиз.');
       })
       .finally(() => setIsLoading(false));
-  }, [page, search, statusFilter, dateFilter, customFromDate, customToDate]);
+  }, [page, search, statusFilter, dateFilter, customFromDate, customToDate, isAiOperationalIntelligenceEnabled]);
 
   useEffect(() => {
     fetchLeads();
@@ -474,6 +533,18 @@ export default function LeadsPage() {
         </div>
       ),
     },
+    // Release 2 - Priority/Risk Indicators
+    ...(isAiOperationalIntelligenceEnabled ? [{
+      key: 'priority',
+      header: 'Приоритет',
+      render: (l: Lead) => (
+        <ListPriorityIndicator
+          priority={leadPriorities[l.id]}
+          risk={leadRisks[l.id]}
+        />
+      ),
+      className: 'w-20',
+    }] : []),
     { key: 'phone', header: ky.common.phone },
     { key: 'assignedManager', header: ky.leads.assignedManager, render: (l) => <span className="block max-w-[140px] truncate text-sm">{l.assignedManager?.fullName || '—'}</span>, className: 'hidden md:table-cell' },
     {

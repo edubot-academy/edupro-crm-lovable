@@ -27,6 +27,8 @@ const defaultFeatureFlags: FeatureFlags = {
   custom_domain_enabled: false,
   ai_assist_enabled: false,
   ai_followup_drafts_enabled: false,
+  ai_operator_guidance_enabled: false,
+  ai_insight_persistence_enabled: false,
 };
 
 function getEnvironmentFeatureFlags(): Partial<FeatureFlags> {

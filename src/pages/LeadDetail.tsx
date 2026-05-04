@@ -29,6 +29,12 @@ import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
 import { leadInterestLevelLabels } from '@/lib/lms-formatting';
 import { AiDraftModal } from '@/components/ai/AiDraftModal';
 import { AiDraftHandoffCard } from '@/components/ai/AiDraftHandoffCard';
+import { PriorityIndicator, PriorityScore, RiskScore } from '@/components/ai/PriorityIndicator';
+import { NextBestActionCard, NextBestAction } from '@/components/ai/NextBestActionCard';
+import { CommunicationSummary, CommunicationSummary as CommunicationSummaryType } from '@/components/ai/CommunicationSummary';
+import { StructuredSuggestionReview, SuggestionSet, FieldSuggestion } from '@/components/ai/StructuredSuggestionReview';
+import { AiFeedbackControls } from '@/components/ai/AiFeedbackControls';
+import { aiApi, type LeadPriorityScoreResult, type NextBestActionResult, type RiskScoreResult, type TimelineSummaryResult, type ExtractionResult, type FeedbackRequest } from '@/api/ai';
 
 type LeadDetailFormState = {
   fullName: string;
@@ -44,6 +50,33 @@ type LeadDetailFormState = {
   interestLevel: 'low' | 'medium' | 'high' | '';
 };
 
+// Helper functions for extraction mapping
+function getFieldLabel(field: string): string {
+  const fieldLabels: Record<string, string> = {
+    preferredSchedule: 'Ыңгайлуу убакыт',
+    courseInterest: 'Кызыккан курс',
+    budgetSignal: 'Бюджет белгиси',
+    objections: 'Каршылыктар',
+    otherNotes: 'Кошумча белгилер',
+  };
+  return fieldLabels[field] || field;
+}
+
+function getCurrentFieldValue(field: string, item: Lead | Deal): string {
+  switch (field) {
+    case 'courseInterest':
+      return 'interestedCourseId' in item ? (item.interestedCourseId || '') : '';
+    case 'otherNotes':
+      return item.notes || '';
+    default:
+      return '';
+  }
+}
+
+function inferFieldType(field: string): FieldSuggestion['fieldType'] {
+  return field === 'objections' || field === 'otherNotes' ? 'textarea' : 'text';
+}
+
 export default function LeadDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -55,6 +88,8 @@ export default function LeadDetailPage() {
   const { isLmsBridgeEnabled } = useLmsBridge();
   const isAiDraftsEnabled =
     isFeatureEnabled('ai_assist_enabled') && isFeatureEnabled('ai_followup_drafts_enabled');
+  const isAiOperationalIntelligenceEnabled =
+    isFeatureEnabled('ai_assist_enabled') && isFeatureEnabled('ai_operator_guidance_enabled');
   const canAssignToSales = canAssignLeads();
   const [lead, setLead] = useState<Lead | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -68,6 +103,16 @@ export default function LeadDetailPage() {
   const [isConverting, setIsConverting] = useState(false);
   const [managers, setManagers] = useState<AssignableUser[]>([]);
   const [managersLoading, setManagersLoading] = useState(false);
+
+  // Release 2 - Operational Intelligence State
+  const [priorityScore, setPriorityScore] = useState<PriorityScore | null>(null);
+  const [riskScore, setRiskScore] = useState<RiskScore | null>(null);
+  const [nextBestAction, setNextBestAction] = useState<NextBestAction | null>(null);
+  const [communicationSummary, setCommunicationSummary] = useState<CommunicationSummaryType | null>(null);
+  const [extractionSuggestions, setExtractionSuggestions] = useState<SuggestionSet | null>(null);
+  const [isSuggestionReviewOpen, setIsSuggestionReviewOpen] = useState(false);
+  const [intelligenceLoading, setIntelligenceLoading] = useState(false);
+  const [intelligenceError, setIntelligenceError] = useState<string | null>(null);
 
   // Use tenant-configured lead sources if available, otherwise use hardcoded sources
   const leadSourceOptions = useMemo(() => {
@@ -181,6 +226,212 @@ export default function LeadDetailPage() {
       .catch(() => setManagers([]))
       .finally(() => setManagersLoading(false));
   }, [isEditOpen, canAssignToSales, user]);
+
+  // Release 2 - Load operational intelligence data
+  useEffect(() => {
+    if (!lead || !isAiOperationalIntelligenceEnabled) return;
+
+    const loadIntelligenceData = async () => {
+      setIntelligenceLoading(true);
+      setIntelligenceError(null);
+
+      try {
+        const leadId = Number(lead.id);
+
+        // Load priority score
+        try {
+          const priorityData = await aiApi.getPriorityScore('lead', leadId);
+          setPriorityScore({
+            score: priorityData.score.score,
+            level: priorityData.score.tier,
+            factors: priorityData.score.breakdown,
+            explanation: `Priority: ${priorityData.score.score}/${priorityData.score.maxScore}`,
+            maxScore: priorityData.score.maxScore,
+            tier: priorityData.score.tier,
+          });
+        } catch (err) {
+          console.warn('Failed to load priority score:', err);
+        }
+
+        // Load risk score
+        try {
+          const riskData = await aiApi.getRiskScore('lead', leadId);
+          setRiskScore({
+            risk: riskData.risk,
+            reasons: riskData.reasons,
+            score: riskData.score,
+          });
+        } catch (err) {
+          console.warn('Failed to load risk score:', err);
+        }
+
+        // Load next best action
+        try {
+          const actionData = await aiApi.getNextBestAction('lead', leadId);
+          setNextBestAction(actionData);
+        } catch (err) {
+          console.warn('Failed to load next best action:', err);
+        }
+
+        // Load communication summary
+        try {
+          const summaryData = await aiApi.getTimelineSummary('lead', leadId);
+          setCommunicationSummary(summaryData);
+        } catch (err) {
+          console.warn('Failed to load communication summary:', err);
+        }
+
+        // Load extraction suggestions
+        try {
+          // Extract text from lead notes for analysis
+          const textToExtract = lead.notes || '';
+          if (textToExtract.trim()) {
+            const extractionData = await aiApi.getExtraction('lead', leadId, textToExtract);
+            const rawSuggestions = [
+              { field: 'preferredSchedule', value: extractionData.preferredSchedule },
+              { field: 'courseInterest', value: extractionData.courseInterest },
+              { field: 'budgetSignal', value: extractionData.budgetSignal },
+              { field: 'objections', value: extractionData.objections.length > 0 ? extractionData.objections.join(', ') : null },
+              { field: 'otherNotes', value: extractionData.otherNotes },
+            ].filter((item): item is { field: string; value: string } => Boolean(item.value && item.value.trim()));
+
+            if (rawSuggestions.length > 0) {
+              const suggestions: FieldSuggestion[] = rawSuggestions.map((field) => ({
+                field: field.field,
+                fieldLabel: getFieldLabel(field.field),
+                currentValue: getCurrentFieldValue(field.field, lead),
+                suggestedValue: field.value,
+                confidence: extractionData.confidence,
+                reasoning: `Жазуудан ${Math.round(extractionData.confidence * 100)}% ишеним менен алынган`,
+                fieldType: inferFieldType(field.field),
+              }));
+
+              setExtractionSuggestions({
+                id: `extraction-${lead.id}`,
+                targetType: 'lead',
+                targetId: leadId,
+                suggestions,
+                overallConfidence: extractionData.confidence,
+                source: 'ai_extraction',
+                generatedAt: new Date().toISOString(),
+                aiRequestId: extractionData.aiRequestId || null,
+              });
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to load extraction suggestions:', err);
+        }
+      } catch (err) {
+        setIntelligenceError('Операциялык интеллект маалыматын жүктөөдө ката кетти');
+      } finally {
+        setIntelligenceLoading(false);
+      }
+    };
+
+    loadIntelligenceData();
+  }, [lead, isAiOperationalIntelligenceEnabled]);
+
+  // Handle AI feedback submission
+  const handleAiFeedback = async (feedback: FeedbackRequest) => {
+    try {
+      await aiApi.submitFeedback(feedback);
+    } catch (error) {
+      throw error; // Let the component handle the error display
+    }
+  };
+
+  // Handle next best action execution
+  const handleNextBestAction = (action: NextBestAction) => {
+    switch (action.action) {
+      case 'call':
+        if (lead.phone) {
+          window.location.href = `tel:${lead.phone}`;
+        } else {
+          toast({
+            title: 'Телефон номери жок',
+            description: 'Бул лидде телефон номери жазылган эмес',
+            variant: 'destructive',
+          });
+        }
+        break;
+      case 'whatsapp':
+        setIsAiDraftOpen(true);
+        break;
+      case 'schedule_trial':
+        setIsScheduleOpen(true);
+        break;
+      case 'send_reminder':
+        setIsAiDraftOpen(true);
+        break;
+      case 'follow_up':
+        setIsAiDraftOpen(true);
+        break;
+      case 'escalate':
+        toast({
+          title: 'Жогорку деңгээлге өткөрүү',
+          description: 'Бул лид жогорку деңгээлге өткөрүлдү',
+        });
+        break;
+      default:
+        toast({
+          title: 'Аракет аткарылды',
+          description: `${action.action} аракети аткарылды`,
+        });
+    }
+  };
+
+  // Handle suggestion application
+  const handleApplySuggestions = async (acceptedSuggestions: { field: string; value: string }[]) => {
+    if (!lead) return;
+
+    try {
+      // Update form with accepted suggestions
+      const updatedForm = { ...form };
+
+      acceptedSuggestions.forEach(suggestion => {
+        switch (suggestion.field) {
+          case 'fullName':
+            updatedForm.fullName = suggestion.value;
+            break;
+          case 'phone':
+            updatedForm.phone = suggestion.value;
+            break;
+          case 'email':
+            updatedForm.email = suggestion.value;
+            break;
+          case 'notes':
+            updatedForm.notes = suggestion.value;
+            break;
+          // Add more field mappings as needed
+        }
+      });
+
+      setForm(updatedForm);
+
+      // Optionally save immediately
+      // await handleSave();
+
+      toast({
+        title: 'Сунуштар колдонулду',
+        description: `${acceptedSuggestions.length} өзгөртүү колдонулду`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Ката кетти',
+        description: 'Сунуштарды колдонууда ката кетти',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Refresh intelligence data
+  const refreshIntelligenceData = () => {
+    if (lead && isAiOperationalIntelligenceEnabled) {
+      // Trigger the useEffect to reload data
+      setIntelligenceError(null);
+      // The useEffect will automatically reload when lead changes
+    }
+  };
 
   const resetEditForm = () => {
     if (!lead) {
@@ -359,6 +610,120 @@ export default function LeadDetailPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Release 2 - Operational Intelligence Components */}
+        {isAiOperationalIntelligenceEnabled && (
+          <div className="space-y-4 lg:col-span-3">
+            <div className="rounded-2xl border border-orange-200/70 bg-orange-50/70 p-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="rounded-2xl bg-white p-2 shadow-sm">
+                  <Sparkles className="h-5 w-5 text-orange-500" />
+                </div>
+                <div className="space-y-1">
+                  <h2 className="text-base font-semibold text-foreground">AI жардамчысы</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Бул блок приоритетти, тобокелдикти жана кийинки кадамды тез түшүнүүгө жардам берет. Сунуштар маалыматтык мүнөздө.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {(priorityScore || riskScore) && (
+              <Card className="shadow-card border-border/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Приоритет жана тобокелдик</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <PriorityIndicator
+                    priority={priorityScore}
+                    risk={riskScore}
+                    showDetails={true}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
+            <div className="grid gap-4 xl:grid-cols-2">
+              <NextBestActionCard
+                action={nextBestAction}
+                targetType="lead"
+                targetId={Number(lead.id)}
+                onActionExecute={handleNextBestAction}
+                loading={intelligenceLoading}
+                error={intelligenceError}
+              />
+
+              <div className="space-y-4">
+                {communicationSummary && (
+                  <Card className="shadow-card border-border/50">
+                    <CardContent className="space-y-4 p-0">
+                      <CommunicationSummary
+                        summary={communicationSummary}
+                        targetType="lead"
+                        targetId={Number(lead.id)}
+                        onRefresh={refreshIntelligenceData}
+                        loading={intelligenceLoading}
+                      />
+                      {communicationSummary.aiRequestId && (
+                        <div className="border-t px-6 pb-6 pt-4">
+                          <p className="mb-3 text-sm font-medium text-foreground">Бул жыйынтык канчалык пайдалуу болду?</p>
+                          <AiFeedbackControls
+                            targetType="lead"
+                            targetId={Number(lead.id)}
+                            feature="timeline_summary"
+                            aiRequestId={communicationSummary.aiRequestId}
+                            disabled={intelligenceLoading}
+                            onFeedbackSubmit={handleAiFeedback}
+                          />
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {extractionSuggestions && (
+                  <Card className="shadow-card border-border/50">
+                    <CardHeader className="pb-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <CardTitle className="text-base">Маалыматка сунушталган толуктоолор</CardTitle>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {extractionSuggestions.suggestions.length} талаа карап чыгууга даяр.
+                          </p>
+                        </div>
+                        <span className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-medium text-orange-800">
+                          {Math.round(extractionSuggestions.overallConfidence * 100)}% ишеним
+                        </span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="rounded-xl border border-border/70 bg-muted/30 p-4 text-sm text-muted-foreground">
+                        AI сунуштаган талааларды текшерип, керектүүлөрүн гана колдонуңуз.
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <Button onClick={() => setIsSuggestionReviewOpen(true)} variant="outline" size="sm">
+                          Сунуштарды кароо
+                        </Button>
+                        {extractionSuggestions.aiRequestId && (
+                          <div className="min-w-full border-t pt-4 sm:min-w-0 sm:border-t-0 sm:pt-0">
+                            <AiFeedbackControls
+                              targetType="lead"
+                              targetId={Number(lead.id)}
+                              feature="extraction"
+                              aiRequestId={extractionSuggestions.aiRequestId}
+                              disabled={intelligenceLoading}
+                              onFeedbackSubmit={handleAiFeedback}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {isLmsBridgeEnabled && (
           <LeadCourseInterest
@@ -555,6 +920,18 @@ export default function LeadDetailPage() {
           onUseDraft={handleUseDraft}
         />
       ) : null}
+
+      {/* Release 2 - Structured Suggestion Review Dialog */}
+      {isAiOperationalIntelligenceEnabled && extractionSuggestions && (
+        <StructuredSuggestionReview
+          suggestions={extractionSuggestions}
+          open={isSuggestionReviewOpen}
+          onOpenChange={setIsSuggestionReviewOpen}
+          onApplySuggestions={handleApplySuggestions}
+          loading={intelligenceLoading}
+          error={intelligenceError}
+        />
+      )}
     </div>
   );
 }

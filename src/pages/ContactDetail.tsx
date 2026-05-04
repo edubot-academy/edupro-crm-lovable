@@ -25,6 +25,8 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { AiDraftModal } from '@/components/ai/AiDraftModal';
 import { AiDraftHandoffCard } from '@/components/ai/AiDraftHandoffCard';
+import { CommunicationSummary, CommunicationSummary as CommunicationSummaryType } from '@/components/ai/CommunicationSummary';
+import { aiApi, type TimelineSummaryResult } from '@/api/ai';
 
 export default function ContactDetailPage() {
   const { id } = useParams();
@@ -35,6 +37,8 @@ export default function ContactDetailPage() {
   const { isLmsBridgeEnabled } = useLmsBridge();
   const isAiDraftsEnabled =
     isFeatureEnabled('ai_assist_enabled') && isFeatureEnabled('ai_followup_drafts_enabled');
+  const isAiOperationalIntelligenceEnabled =
+    isFeatureEnabled('ai_assist_enabled') && isFeatureEnabled('ai_operator_guidance_enabled');
   const [contact, setContact] = useState<Contact | null>(null);
   const [bridgeData, setBridgeData] = useState<ContactWithStudentMapping | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,6 +50,11 @@ export default function ContactDetailPage() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [onboardingLink, setOnboardingLink] = useState<string | null>(null);
+
+  // Release 2 - Communication Summary State
+  const [communicationSummary, setCommunicationSummary] = useState<CommunicationSummaryType | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
   const [form, setForm] = useState({
     fullName: '',
     phone: '',
@@ -103,6 +112,29 @@ export default function ContactDetailPage() {
       notes: contact.notes || '',
     });
   }, [contact]);
+
+  // Release 2 - Load communication summary
+  useEffect(() => {
+    if (!contact || !isAiOperationalIntelligenceEnabled) return;
+
+    const loadCommunicationSummary = async () => {
+      setSummaryLoading(true);
+      setSummaryError(null);
+
+      try {
+        const contactId = Number(contact.id);
+        const summaryData = await aiApi.getTimelineSummary('contact', contactId);
+        setCommunicationSummary(summaryData);
+      } catch (err) {
+        console.warn('Failed to load communication summary:', err);
+        setSummaryError('Байланышуу жыйынтыгын жүктөө мүмкүн болгон жок');
+      } finally {
+        setSummaryLoading(false);
+      }
+    };
+
+    loadCommunicationSummary();
+  }, [contact, isAiOperationalIntelligenceEnabled]);
 
   const resetEditForm = () => {
     if (!contact) {
@@ -242,6 +274,20 @@ export default function ContactDetailPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Release 2 - Communication Summary */}
+        {isAiOperationalIntelligenceEnabled && communicationSummary && (
+          <CommunicationSummary
+            summary={communicationSummary}
+            targetType="contact"
+            targetId={Number(contact.id)}
+            onRefresh={() => {
+              // Refresh logic would go here
+            }}
+            loading={summaryLoading}
+            error={summaryError}
+          />
+        )}
 
         {isLmsBridgeEnabled && canViewLmsTechnicalFields() && bridgeData && (
           <ContactStudentMapping

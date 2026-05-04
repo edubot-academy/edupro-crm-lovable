@@ -395,16 +395,6 @@ export function AiDraftModal({
                     </button>
                     {showTechnicalDetails && (
                       <div className="rounded-lg bg-muted/30 p-4 space-y-3">
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <div>
-                            <Label className="text-xs text-muted-foreground">Промпт версиясы</Label>
-                            <div className="text-sm">{draft.promptVersion}</div>
-                          </div>
-                          <div>
-                            <Label className="text-xs text-muted-foreground">Модель</Label>
-                            <div className="text-sm">{draft.model}</div>
-                          </div>
-                        </div>
                         <div>
                           <Label className="text-xs text-muted-foreground">ID</Label>
                           <div className="text-sm">{targetId}</div>

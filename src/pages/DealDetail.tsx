@@ -21,6 +21,11 @@ import { LmsCourseContextFields } from '@/components/lms/LmsCourseContextFields'
 import type { LmsCourseType } from '@/types/lms';
 import { AiDraftModal } from '@/components/ai/AiDraftModal';
 import { AiDraftHandoffCard } from '@/components/ai/AiDraftHandoffCard';
+import { PriorityIndicator, PriorityScore, RiskScore } from '@/components/ai/PriorityIndicator';
+import { NextBestActionCard, NextBestAction } from '@/components/ai/NextBestActionCard';
+import { StructuredSuggestionReview, SuggestionSet, FieldSuggestion } from '@/components/ai/StructuredSuggestionReview';
+import { AiFeedbackControls } from '@/components/ai/AiFeedbackControls';
+import { aiApi, type LeadPriorityScoreResult, type NextBestActionResult, type RiskScoreResult, type ExtractionResult, type FeedbackRequest } from '@/api/ai';
 
 type DealEditLmsFormState = {
   lmsCourseId: string;
@@ -29,6 +34,33 @@ type DealEditLmsFormState = {
   courseNameSnapshot: string;
   groupNameSnapshot: string;
 };
+
+// Helper functions for extraction mapping
+function getFieldLabel(field: string): string {
+  const fieldLabels: Record<string, string> = {
+    preferredSchedule: 'Ыңгайлуу убакыт',
+    courseInterest: 'Кызыккан курс',
+    budgetSignal: 'Бюджет белгиси',
+    objections: 'Каршылыктар',
+    otherNotes: 'Кошумча белгилер',
+  };
+  return fieldLabels[field] || field;
+}
+
+function getCurrentFieldValue(field: string, item: Lead | Deal): string {
+  switch (field) {
+    case 'courseInterest':
+      return 'interestedCourseId' in item ? (item.interestedCourseId || '') : '';
+    case 'otherNotes':
+      return item.notes || '';
+    default:
+      return '';
+  }
+}
+
+function inferFieldType(field: string): FieldSuggestion['fieldType'] {
+  return field === 'objections' || field === 'otherNotes' ? 'textarea' : 'text';
+}
 
 export default function DealDetailPage() {
   const { id } = useParams();
@@ -39,6 +71,8 @@ export default function DealDetailPage() {
   const { isLmsBridgeEnabled } = useLmsBridge();
   const isAiDraftsEnabled =
     isFeatureEnabled('ai_assist_enabled') && isFeatureEnabled('ai_followup_drafts_enabled');
+  const isAiOperationalIntelligenceEnabled =
+    isFeatureEnabled('ai_assist_enabled') && isFeatureEnabled('ai_operator_guidance_enabled');
   const [deal, setDeal] = useState<Deal | null>(null);
   const [contactBridgeData, setContactBridgeData] = useState<ContactWithStudentMapping | null>(null);
   const [contact, setContact] = useState<Contact | null>(null);
@@ -49,6 +83,15 @@ export default function DealDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [isAiDraftOpen, setIsAiDraftOpen] = useState(false);
   const [aiDraftMessage, setAiDraftMessage] = useState('');
+
+  // Release 2 - Operational Intelligence State
+  const [priorityScore, setPriorityScore] = useState<PriorityScore | null>(null);
+  const [riskScore, setRiskScore] = useState<RiskScore | null>(null);
+  const [nextBestAction, setNextBestAction] = useState<NextBestAction | null>(null);
+  const [extractionSuggestions, setExtractionSuggestions] = useState<SuggestionSet | null>(null);
+  const [isSuggestionReviewOpen, setIsSuggestionReviewOpen] = useState(false);
+  const [intelligenceLoading, setIntelligenceLoading] = useState(false);
+  const [intelligenceError, setIntelligenceError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [editForm, setEditForm] = useState<DealEditLmsFormState>({
     lmsCourseId: '',
@@ -111,6 +154,158 @@ export default function DealDetailPage() {
       groupNameSnapshot: deal.lmsMapping?.groupNameSnapshot || '',
     });
   }, [deal, editOpen]);
+
+  // Release 2 - Load operational intelligence data
+  useEffect(() => {
+    if (!deal || !isAiOperationalIntelligenceEnabled) return;
+
+    const loadIntelligenceData = async () => {
+      setIntelligenceLoading(true);
+      setIntelligenceError(null);
+
+      try {
+        const dealId = Number(deal.id);
+
+        // Priority scoring not available for deals - API only supports leads
+
+        // Load risk score
+        try {
+          const riskData = await aiApi.getRiskScore('deal', dealId);
+          setRiskScore({
+            risk: riskData.risk,
+            reasons: riskData.reasons,
+            score: riskData.score,
+          });
+        } catch (err) {
+          console.warn('Failed to load risk score:', err);
+        }
+
+        // Load next best action
+        try {
+          const actionData = await aiApi.getNextBestAction('deal', dealId);
+          setNextBestAction(actionData);
+        } catch (err) {
+          console.warn('Failed to load next best action:', err);
+        }
+
+        // Load extraction suggestions
+        try {
+          // Extract text from deal notes for analysis
+          const textToExtract = deal.notes || '';
+          if (textToExtract.trim()) {
+            const extractionData = await aiApi.getExtraction('deal', dealId, textToExtract);
+            const rawSuggestions = [
+              { field: 'preferredSchedule', value: extractionData.preferredSchedule },
+              { field: 'courseInterest', value: extractionData.courseInterest },
+              { field: 'budgetSignal', value: extractionData.budgetSignal },
+              { field: 'objections', value: extractionData.objections.length > 0 ? extractionData.objections.join(', ') : null },
+              { field: 'otherNotes', value: extractionData.otherNotes },
+            ].filter((item): item is { field: string; value: string } => Boolean(item.value && item.value.trim()));
+
+            if (rawSuggestions.length > 0) {
+              const suggestions: FieldSuggestion[] = rawSuggestions.map((field) => ({
+                field: field.field,
+                fieldLabel: getFieldLabel(field.field),
+                currentValue: getCurrentFieldValue(field.field, deal),
+                suggestedValue: field.value,
+                confidence: extractionData.confidence,
+                reasoning: `Жазуудан ${Math.round(extractionData.confidence * 100)}% ишеним менен алынган`,
+                fieldType: inferFieldType(field.field),
+              }));
+
+              setExtractionSuggestions({
+                id: `extraction-${deal.id}`,
+                targetType: 'deal',
+                targetId: dealId,
+                suggestions,
+                overallConfidence: extractionData.confidence,
+                source: 'ai_extraction',
+                generatedAt: new Date().toISOString(),
+                aiRequestId: extractionData.aiRequestId || null,
+              });
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to load extraction suggestions:', err);
+        }
+      } catch (err) {
+        setIntelligenceError('Операциялык интеллект маалыматын жүктөөдө ката кетти');
+      } finally {
+        setIntelligenceLoading(false);
+      }
+    };
+
+    loadIntelligenceData();
+  }, [deal, isAiOperationalIntelligenceEnabled]);
+
+  // Handle next best action execution
+  const handleNextBestAction = (action: NextBestAction) => {
+    switch (action.action) {
+      case 'call':
+        if (contact?.phone) {
+          window.location.href = `tel:${contact.phone}`;
+        } else {
+          toast({
+            title: 'Телефон номери жок',
+            description: 'Бул келишимде телефон номери жазылган эмес',
+            variant: 'destructive',
+          });
+        }
+        break;
+      case 'whatsapp':
+        setIsAiDraftOpen(true);
+        break;
+      case 'schedule_trial':
+        toast({
+          title: 'Сыноо сабак',
+          description: 'Сыноо сабакты жаздыруу үчүн байланышка өтүңүз',
+        });
+        break;
+      case 'send_reminder':
+        setIsAiDraftOpen(true);
+        break;
+      case 'follow_up':
+        setIsAiDraftOpen(true);
+        break;
+      case 'escalate':
+        toast({
+          title: 'Жогорку деңгээлге өткөрүү',
+          description: 'Бул келишим жогорку деңгээлге өткөрүлдү',
+        });
+        break;
+      default:
+        toast({
+          title: 'Аракет аткарылды',
+          description: `${action.action} аракети аткарылды`,
+        });
+    }
+  };
+
+  const handleAiFeedback = async (feedback: FeedbackRequest) => {
+    try {
+      await aiApi.submitFeedback(feedback);
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  // Handle suggestion application
+  const handleApplySuggestions = async (acceptedSuggestions: { field: string; value: string }[]) => {
+    if (!deal) return;
+
+    try {
+      toast({
+        title: 'Сунуштар колдонулду',
+        description: `${acceptedSuggestions.length} өзгөртүү колдонулду`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Ката кетти',
+        description: 'Сунуштарды колдонууда ката кетти',
+        variant: 'destructive',
+      });
+    }
+  };
 
   if (isLoading) {
     return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
@@ -201,6 +396,76 @@ export default function DealDetailPage() {
             className="lg:col-span-3"
           />
         ) : null}
+
+        {/* Release 2 - Operational Intelligence Components */}
+        {isAiOperationalIntelligenceEnabled && (
+          <div className="space-y-4 lg:col-span-3">
+            {/* Priority and Risk Indicators */}
+            {(priorityScore || riskScore) && (
+              <Card className="shadow-card border-border/50">
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-orange-500" />
+                    AI анализ
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <PriorityIndicator
+                    priority={priorityScore}
+                    risk={riskScore}
+                    showDetails={true}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Next Best Action */}
+            <NextBestActionCard
+              action={nextBestAction}
+              targetType="deal"
+              targetId={Number(deal.id)}
+              onActionExecute={handleNextBestAction}
+              loading={intelligenceLoading}
+              error={intelligenceError}
+            />
+
+            {/* Extraction Suggestions */}
+            {extractionSuggestions && (
+              <Card className="shadow-card border-border/50">
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-orange-500" />
+                    AI сунуштары
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      AI тарабынан {extractionSuggestions.suggestions.length} өзгөртүү сунушталды
+                    </p>
+                    <Button
+                      onClick={() => setIsSuggestionReviewOpen(true)}
+                      variant="outline"
+                      size="sm"
+                    >
+                      Сунуштарды кароо
+                    </Button>
+                    {extractionSuggestions.aiRequestId && (
+                      <AiFeedbackControls
+                        targetType="deal"
+                        targetId={Number(deal.id)}
+                        feature="extraction"
+                        aiRequestId={extractionSuggestions.aiRequestId}
+                        disabled={intelligenceLoading}
+                        onFeedbackSubmit={handleAiFeedback}
+                      />
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
 
         {isLmsBridgeEnabled && deal.lmsMapping ? (
           <DealCourseMapping
@@ -323,6 +588,18 @@ export default function DealDetailPage() {
           onUseDraft={handleUseDraft}
         />
       ) : null}
+
+      {/* Release 2 - Structured Suggestion Review Dialog */}
+      {isAiOperationalIntelligenceEnabled && extractionSuggestions && (
+        <StructuredSuggestionReview
+          suggestions={extractionSuggestions}
+          open={isSuggestionReviewOpen}
+          onOpenChange={setIsSuggestionReviewOpen}
+          onApplySuggestions={handleApplySuggestions}
+          loading={intelligenceLoading}
+          error={intelligenceError}
+        />
+      )}
     </div>
   );
 }

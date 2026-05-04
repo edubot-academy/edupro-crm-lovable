@@ -23,6 +23,9 @@ import { Badge } from '@/components/ui/badge';
 import { getFriendlyError } from '@/lib/error-messages';
 import { LmsCourseContextFields } from '@/components/lms/LmsCourseContextFields';
 import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
+import { ListPriorityIndicator, PriorityScore, RiskScore } from '@/components/ai/PriorityIndicator';
+import { useFeatureFlags } from '@/components/core/FeatureFlagProvider';
+import { aiApi, type LeadPriorityScoreResult, type RiskScoreResult } from '@/api/ai';
 
 type DealCreateFormState = {
   leadId: string;
@@ -71,6 +74,8 @@ export default function DealsPage() {
   const { canViewLmsTechnicalFields } = useRolePermissions();
   const { isLmsBridgeEnabled } = useLmsBridge();
   const { tenantConfig } = useTenantConfig();
+  const { isFeatureEnabled } = useFeatureFlags();
+  const isAiOperationalIntelligenceEnabled = isFeatureEnabled('ai_assist_enabled') && isFeatureEnabled('ai_operator_guidance_enabled');
   const [deals, setDeals] = useState<Deal[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -86,6 +91,11 @@ export default function DealsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState(emptyForm);
+
+  // Release 2 - Priority and risk data for deals
+  const [dealPriorities, setDealPriorities] = useState<Record<number, PriorityScore>>({});
+  const [dealRisks, setDealRisks] = useState<Record<number, RiskScore>>({});
+  const [priorityLoading, setPriorityLoading] = useState(false);
   const prefillLeadId = searchParams.get('leadId') || '';
   const prefillContactId = searchParams.get('contactId') || '';
   const prefillTrialLessonId = searchParams.get('trialLessonId') || '';
@@ -142,17 +152,48 @@ export default function DealsPage() {
     setShowCreate(false);
   };
 
-  const fetchDeals = () => {
+  const fetchDeals = async () => {
     setIsLoading(true);
     setLoadError(null);
     dealsApi.list({ search })
-      .then((res) => {
+      .then(async (res) => {
         setDeals(res.items);
         setTotalItems(res.total || 0);
+
+        // Load priority and risk data if AI operational intelligence is enabled
+        if (isAiOperationalIntelligenceEnabled && res.items.length > 0) {
+          setPriorityLoading(true);
+          const priorities: Record<number, PriorityScore> = {};
+          const risks: Record<number, RiskScore> = {};
+
+          await Promise.allSettled(
+            res.items.map(async (deal) => {
+              // Priority scoring not available for deals - API only supports leads
+
+              try {
+                // Load risk score
+                const riskData = await aiApi.getRiskScore('deal', deal.id);
+                risks[deal.id] = {
+                  risk: riskData.risk,
+                  reasons: riskData.reasons,
+                  score: riskData.score,
+                };
+              } catch (err) {
+                console.warn(`Failed to load risk for deal ${deal.id}:`, err);
+              }
+            })
+          );
+
+          setDealPriorities(priorities);
+          setDealRisks(risks);
+          setPriorityLoading(false);
+        }
       })
       .catch(() => {
         setDeals([]);
         setTotalItems(0);
+        setDealPriorities({});
+        setDealRisks({});
         setLoadError('Интернет байланышын текшерип, кайра аракет кылыңыз');
         toast({
           title: 'Тизмени жүктөө мүмкүн болгон жок',
@@ -386,6 +427,18 @@ export default function DealsPage() {
 
   const columns: Column<Deal>[] = [
     { key: 'contact', header: 'Студент', render: (d) => <span className="font-medium">{d.contact?.fullName || '—'}</span> },
+    // Release 2 - Priority/Risk Indicators
+    ...(isAiOperationalIntelligenceEnabled ? [{
+      key: 'priority',
+      header: 'Приоритет',
+      render: (d: Deal) => (
+        <ListPriorityIndicator
+          priority={dealPriorities[d.id]}
+          risk={dealRisks[d.id]}
+        />
+      ),
+      className: 'w-20',
+    }] : []),
     { key: 'amount', header: ky.deals.amount, render: (d) => <span className="font-medium">{d.amount.toLocaleString()} {tenantConfig.currency}</span> },
     { key: 'stage', header: ky.deals.stage, render: (d) => { const stage = getDealPipelineStage(d, tenantConfig.pipelineStages); return <StatusBadge variant={getLeadStatusVariant(stage)} dot>{pipelineStageOptions.find(opt => opt.value === stage)?.label || ky.dealPipelineStage[stage]}</StatusBadge>; } },
     {

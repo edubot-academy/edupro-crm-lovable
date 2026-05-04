@@ -6,6 +6,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Version bumps are classified by delivery scale; see `VERSIONING.md`.
 
+## [2.3.0] - 2026-05-05
+
+### Added
+- AI Operational Intelligence: New AI components for enhanced CRM functionality
+  - `AiFeedbackControls` component for collecting user feedback on AI suggestions with rating system and comment support
+  - `CommunicationSummary` component for displaying AI-generated communication summaries with refresh capability
+  - `NextBestActionCard` component for presenting AI-recommended actions with priority indicators and execution buttons
+  - `PriorityIndicator` component for displaying lead priority scores and risk assessments with detailed breakdowns
+  - `StructuredSuggestionReview` component for reviewing and applying AI-suggested field updates with confidence scores
+- AI API Extensions: Extended AI API with new operational intelligence endpoints
+  - Lead priority scoring with factor breakdown and tier classification
+  - Next best action recommendations with AI reasoning and priority levels
+  - Risk scoring for leads and deals with detailed reason codes
+  - Timeline summary generation for communication history
+  - Structured data extraction from text with confidence scoring
+  - Feedback submission system for AI model improvement
+- Enhanced AI Types: New interfaces for operational intelligence features
+  - `LeadPriorityScoreResult` with scoring factors and tier classification
+  - `NextBestActionResult` with action types and AI reasoning
+  - `RiskScoreResult` with severity levels and detailed reasons
+  - `TimelineSummaryResult` with AI metadata tracking
+  - `ExtractionResult` for structured data extraction
+  - `FeedbackRequest` and `FeedbackResponse` for model improvement
+
+### Changed
+- AI API: Added normalization functions for action types and priority mappings
+- AI Draft Modal: Enhanced with next best action display and improved confidence visualization
+- Feature Flag Provider: Extended to support new AI operational intelligence features
+- Detail Pages: Updated to integrate new AI components and feedback systems
+- Badge Component: Enhanced with additional styling options for AI-related indicators
+
 ## [2.2.1] - 2026-05-04
 
 ### Added
