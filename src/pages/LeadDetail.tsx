@@ -8,9 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { StatusBadge, getLeadStatusVariant } from '@/components/StatusBadge';
 import { ky } from '@/lib/i18n';
-import { ArrowLeft, Phone, Mail, Tag, User, MessageSquare, Loader2, Save, Calendar, Sparkles } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, Tag, User, MessageSquare, Loader2, Save, Calendar, Sparkles, MoreHorizontal } from 'lucide-react';
 import { leadsApi, usersApi } from '@/api/modules';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -533,48 +534,103 @@ export default function LeadDetailPage() {
       <PageHeader
         title={lead.fullName}
         actions={
-          <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap">
-            <Button className="w-full sm:w-auto" variant="outline" onClick={() => navigate('/leads')}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              {ky.common.back}
-            </Button>
-            <Button className="w-full sm:w-auto" variant="outline" onClick={() => setIsEditOpen(true)}>
-              {ky.common.edit}
-            </Button>
-            {isAiDraftsEnabled ? (
-              <Button className="w-full sm:w-auto" variant="outline" onClick={() => setIsAiDraftOpen(true)}>
-                <Sparkles className="mr-2 h-4 w-4" />
-                AI жооп сунушу
+          <div className="flex w-full items-center justify-between gap-2 sm:flex-wrap sm:justify-end">
+            <div className="flex items-center gap-2 sm:hidden">
+              <Button className="h-9" variant="outline" onClick={() => navigate('/leads')}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                {ky.common.back}
               </Button>
-            ) : null}
-            <Button
-              className="w-full sm:w-auto"
-              variant="outline"
-              onClick={() => {
-                const params = new URLSearchParams({
-                  create: '1',
-                  leadId: String(lead.id),
-                });
-                if (lead.contactId) params.set('contactId', String(lead.contactId));
-                if (lead.interestedCourseId) params.set('courseId', lead.interestedCourseId);
-                if (lead.interestedGroupId) params.set('groupId', lead.interestedGroupId);
-                if (lead.courseType) params.set('courseType', lead.courseType);
-                if (leadCourseName) params.set('courseName', leadCourseName);
-                if (leadGroupName) params.set('groupName', leadGroupName);
-                navigate(`/deals?${params.toString()}`);
-              }}
-              disabled={!lead.contactId}
-            >
-              Келишим түзүү
-            </Button>
-            <Button className="w-full sm:w-auto" variant="outline" onClick={() => setIsScheduleOpen(true)}>
-              <Calendar className="mr-2 h-4 w-4" />
-              Пландоо
-            </Button>
-            <Button className="w-full sm:w-auto" onClick={handleConvertToContact} disabled={isConverting || !!lead.contactId}>
-              {isConverting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {lead.contactId ? 'Байланышка айланган' : ky.leads.convertToContact}
-            </Button>
+              <Button className="h-9" variant="outline" onClick={() => setIsEditOpen(true)}>
+                {ky.common.edit}
+              </Button>
+              {lead.contactId ? (
+                <Button
+                  className="h-9"
+                  onClick={() => {
+                    const params = new URLSearchParams({
+                      create: '1',
+                      leadId: String(lead.id),
+                    });
+                    if (lead.contactId) params.set('contactId', String(lead.contactId));
+                    if (lead.interestedCourseId) params.set('courseId', lead.interestedCourseId);
+                    if (lead.interestedGroupId) params.set('groupId', lead.interestedGroupId);
+                    if (lead.courseType) params.set('courseType', lead.courseType);
+                    if (leadCourseName) params.set('courseName', leadCourseName);
+                    if (leadGroupName) params.set('groupName', leadGroupName);
+                    navigate(`/deals?${params.toString()}`);
+                  }}
+                >
+                  Келишим түзүү
+                </Button>
+              ) : null}
+            </div>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="h-9 w-9 sm:hidden" variant="outline" size="icon" aria-label="More actions">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                {isAiDraftsEnabled ? (
+                  <DropdownMenuItem onClick={() => setIsAiDraftOpen(true)}>
+                    AI жооп сунушу
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuItem onClick={() => setIsScheduleOpen(true)}>
+                  Пландоо
+                </DropdownMenuItem>
+                {!lead.contactId ? (
+                  <DropdownMenuItem onClick={handleConvertToContact} disabled={isConverting}>
+                    {ky.leads.convertToContact}
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <div className="hidden sm:flex sm:flex-wrap sm:justify-end sm:gap-2">
+              <Button className="h-9" variant="outline" onClick={() => navigate('/leads')}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                {ky.common.back}
+              </Button>
+              <Button className="h-9" variant="outline" onClick={() => setIsEditOpen(true)}>
+                {ky.common.edit}
+              </Button>
+              {isAiDraftsEnabled ? (
+                <Button className="h-9" variant="outline" onClick={() => setIsAiDraftOpen(true)}>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  AI жооп сунушу
+                </Button>
+              ) : null}
+              <Button
+                className="h-9"
+                variant="outline"
+                onClick={() => {
+                  const params = new URLSearchParams({
+                    create: '1',
+                    leadId: String(lead.id),
+                  });
+                  if (lead.contactId) params.set('contactId', String(lead.contactId));
+                  if (lead.interestedCourseId) params.set('courseId', lead.interestedCourseId);
+                  if (lead.interestedGroupId) params.set('groupId', lead.interestedGroupId);
+                  if (lead.courseType) params.set('courseType', lead.courseType);
+                  if (leadCourseName) params.set('courseName', leadCourseName);
+                  if (leadGroupName) params.set('groupName', leadGroupName);
+                  navigate(`/deals?${params.toString()}`);
+                }}
+                disabled={!lead.contactId}
+              >
+                Келишим түзүү
+              </Button>
+              <Button className="h-9" variant="outline" onClick={() => setIsScheduleOpen(true)}>
+                <Calendar className="mr-2 h-4 w-4" />
+                Пландоо
+              </Button>
+              <Button className="h-9" onClick={handleConvertToContact} disabled={isConverting || !!lead.contactId}>
+                {isConverting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {lead.contactId ? 'Байланышка айланган' : ky.leads.convertToContact}
+              </Button>
+            </div>
           </div>
         }
       />

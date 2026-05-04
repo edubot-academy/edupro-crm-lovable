@@ -3,13 +3,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '@/components/PageShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ky } from '@/lib/i18n';
 import { contactApi, bridgeApi } from '@/api/modules';
 import type { Contact } from '@/types';
 import type { ContactWithStudentMapping } from '@/types/bridge';
-import { User, Phone, Mail, Link2, BookOpen, Workflow, GraduationCap, Pencil, Trash2, Copy, Loader2, ArrowLeft, Calendar, Activity, Sparkles } from 'lucide-react';
+import { User, Phone, Mail, Link2, BookOpen, Workflow, GraduationCap, Pencil, Trash2, Copy, Loader2, ArrowLeft, Calendar, Activity, Sparkles, MoreHorizontal } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -248,21 +249,48 @@ export default function ContactDetailPage() {
       <PageHeader
         title={contact.fullName}
         actions={
-          <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap">
-            <Button className="w-full sm:w-auto" variant="outline" onClick={() => navigate('/contacts')}>
-              <ArrowLeft className="mr-2 h-4 w-4" />{ky.common.back}
-            </Button>
-            <Button className="w-full sm:w-auto" variant="outline" onClick={() => setIsEditOpen(true)}>{ky.common.edit}</Button>
-            {isAiDraftsEnabled ? (
-              <Button className="w-full sm:w-auto" variant="outline" onClick={() => setIsAiDraftOpen(true)}>
-                <Sparkles className="mr-2 h-4 w-4" />
-                AI жооп сунушу
+          <div className="flex w-full items-center justify-between gap-2 sm:flex-wrap sm:justify-end">
+            <div className="flex items-center gap-2 sm:hidden">
+              <Button className="h-9" variant="outline" onClick={() => navigate('/contacts')}>
+                <ArrowLeft className="mr-2 h-4 w-4" />{ky.common.back}
               </Button>
-            ) : null}
-            <Button className="w-full sm:w-auto" variant="outline" onClick={() => setIsScheduleOpen(true)}>
-              <Calendar className="mr-2 h-4 w-4" />
-              Пландоо
-            </Button>
+              <Button className="h-9" onClick={() => setIsEditOpen(true)}>{ky.common.edit}</Button>
+            </div>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="h-9 w-9 sm:hidden" variant="outline" size="icon" aria-label="More actions">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                {isAiDraftsEnabled ? (
+                  <DropdownMenuItem onClick={() => setIsAiDraftOpen(true)}>
+                    AI жооп сунушу
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuItem onClick={() => setIsScheduleOpen(true)}>
+                  Пландоо
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <div className="hidden sm:flex sm:flex-wrap sm:justify-end sm:gap-2">
+              <Button className="h-9" variant="outline" onClick={() => navigate('/contacts')}>
+                <ArrowLeft className="mr-2 h-4 w-4" />{ky.common.back}
+              </Button>
+              <Button className="h-9" variant="outline" onClick={() => setIsEditOpen(true)}>{ky.common.edit}</Button>
+              {isAiDraftsEnabled ? (
+                <Button className="h-9" variant="outline" onClick={() => setIsAiDraftOpen(true)}>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  AI жооп сунушу
+                </Button>
+              ) : null}
+              <Button className="h-9" variant="outline" onClick={() => setIsScheduleOpen(true)}>
+                <Calendar className="mr-2 h-4 w-4" />
+                Пландоо
+              </Button>
+            </div>
           </div>
         }
       />

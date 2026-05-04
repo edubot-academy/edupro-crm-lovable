@@ -4,11 +4,13 @@ import { PageHeader } from '@/components/PageShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Loader2, ArrowLeft, CreditCard, Workflow, Pencil, Sparkles } from 'lucide-react';
+import { Loader2, ArrowLeft, CreditCard, Workflow, Pencil, Sparkles, MoreHorizontal } from 'lucide-react';
 import { contactApi, dealsApi, paymentsApi, bridgeApi } from '@/api/modules';
 import type { Contact, Deal, Payment } from '@/types';
 import type { ContactWithStudentMapping } from '@/types/bridge';
+import { ky } from '@/lib/i18n';
 import { formatDate } from '@/lib/formatting';
 import { IntegrationHistoryPanel } from '@/components/lms/IntegrationHistoryPanel';
 import { DealCourseMapping } from '@/components/lms/DealCourseMapping';
@@ -379,26 +381,58 @@ export default function DealDetailPage() {
         title={`Келишим #${deal.id}`}
         description={isLmsBridgeEnabled ? (deal.lmsMapping?.courseNameSnapshot || 'Окуу байланышы көрсөтүлгөн эмес') : undefined}
         actions={
-          <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap">
-            <Button className="w-full sm:w-auto" variant="outline" onClick={() => navigate('/deals')}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Артка
-            </Button>
-            {isAiDraftsEnabled ? (
-              <Button className="w-full sm:w-auto" variant="outline" onClick={() => setIsAiDraftOpen(true)}>
-                <Sparkles className="mr-2 h-4 w-4" />
-                AI жооп сунушу
+          <div className="flex w-full items-center justify-between gap-2 sm:flex-wrap sm:justify-end">
+            <div className="flex items-center gap-2 sm:hidden">
+              <Button className="h-9" variant="outline" onClick={() => navigate('/deals')}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Артка
               </Button>
-            ) : null}
-            <Button className="w-full sm:w-auto" variant="outline" onClick={() => navigate(`/payments?create=1&dealId=${deal.id}`)}>
-              Төлөм кошуу
-            </Button>
-            {isLmsBridgeEnabled ? (
-              <Button className="w-full sm:w-auto" variant="outline" onClick={() => setEditOpen(true)}>
-                <Pencil className="mr-2 h-4 w-4" />
-                Продукт маалыматты оңдоо
+              {isLmsBridgeEnabled ? (
+                <Button className="h-9" variant="outline" onClick={() => setEditOpen(true)}>
+                  {ky.common.edit}
+                </Button>
+              ) : null}
+            </div>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="h-9 w-9 sm:hidden" variant="outline" size="icon" aria-label="More actions">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                {isAiDraftsEnabled ? (
+                  <DropdownMenuItem onClick={() => setIsAiDraftOpen(true)}>
+                    AI жооп сунушу
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuItem onClick={() => navigate(`/payments?create=1&dealId=${deal.id}`)}>
+                  Төлөм кошуу
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <div className="hidden sm:flex sm:flex-wrap sm:justify-end sm:gap-2">
+              <Button className="h-9" variant="outline" onClick={() => navigate('/deals')}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Артка
               </Button>
-            ) : null}
+              {isAiDraftsEnabled ? (
+                <Button className="h-9" variant="outline" onClick={() => setIsAiDraftOpen(true)}>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  AI жооп сунушу
+                </Button>
+              ) : null}
+              <Button className="h-9" variant="outline" onClick={() => navigate(`/payments?create=1&dealId=${deal.id}`)}>
+                Төлөм кошуу
+              </Button>
+              {isLmsBridgeEnabled ? (
+                <Button className="h-9" variant="outline" onClick={() => setEditOpen(true)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Продукт маалыматты оңдоо
+                </Button>
+              ) : null}
+            </div>
           </div>
         }
       />

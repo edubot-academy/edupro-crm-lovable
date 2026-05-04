@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Version bumps are classified by delivery scale; see `VERSIONING.md`.
 
+## [2.3.3] - 2026-05-05
+
+### Added
+- Detail Pages: Added dropdown menu with MoreHorizontal icon for better action organization
+- Detail Pages: Added mobile-optimized action button layout with back button on mobile only
+
+### Changed
+- LeadDetail: Refactored action buttons into dropdown menu with improved mobile layout
+- ContactDetail: Refactored action buttons into dropdown menu with improved mobile layout  
+- DealDetail: Refactored action buttons into dropdown menu with improved mobile layout
+- Detail Pages: Improved responsive design with better mobile-first action organization
+
 ## [2.3.2] - 2026-05-05
 
 ### Fixed
