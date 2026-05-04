@@ -6,6 +6,7 @@ import { ChevronRight, Clock, AlertTriangle, Calendar, Info, MessageSquare, Phon
 import { useToast } from '@/hooks/use-toast';
 
 export interface NextBestAction {
+  actionKey?: string;
   action:
     | 'call'
     | 'whatsapp'
@@ -20,11 +21,14 @@ export interface NextBestAction {
     | 're_engage'
     | 'send_offer'
     | 'complete_open_task';
+  actionText: string;
   reasoning: string;
   priority: 'high' | 'medium' | 'low';
   aiGenerated: boolean;
+  knownAction: boolean;
   suggestedAt: string;
   prerequisites?: string[];
+  aiRequestId?: string | null;
 }
 
 interface NextBestActionCardProps {
@@ -155,6 +159,7 @@ function ActionButton({ action, onExecute, loading }: {
   const config = actionConfig[action.action] ?? fallbackActionConfig;
   const Icon = config.icon;
   const { toast } = useToast();
+  const buttonLabel = action.knownAction ? config.buttonLabel : 'Аракетти баштоо';
 
   const handleExecute = () => {
     if (action.action === 'call') {
@@ -169,7 +174,7 @@ function ActionButton({ action, onExecute, loading }: {
   return (
     <Button onClick={handleExecute} disabled={loading} className="w-full sm:w-auto">
       <Icon className="mr-2 h-4 w-4" />
-      {config.buttonLabel}
+      {buttonLabel}
       <ChevronRight className="ml-2 h-4 w-4" />
     </Button>
   );
@@ -201,6 +206,10 @@ export function NextBestActionCard({
   const config = actionConfig[action.action] ?? fallbackActionConfig;
   const urgencyStyle = urgencyStyles[action.priority];
   const Icon = config.icon;
+  const actionCategoryLabel = action.knownAction ? config.label : 'Жекече AI сунуш';
+  const actionDescription = action.knownAction
+    ? config.description
+    : 'AI ушул келишимге же лидге ылайыкташтырылган кийинки аракетти сунуштады.';
 
   return (
     <Card className="border-border/70 shadow-sm">
@@ -212,14 +221,14 @@ export function NextBestActionCard({
             </div>
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
-                <CardTitle className="text-lg">{config.label}</CardTitle>
+                <CardTitle className="text-lg">{actionCategoryLabel}</CardTitle>
                 <Badge className={`border ${urgencyStyle.tone}`}>{urgencyStyle.label}</Badge>
                 <Badge variant="outline" className="gap-1">
                   <Sparkles className="h-3.5 w-3.5" />
                   {action.aiGenerated ? 'AI сунушу' : 'Эреже сунушу'}
                 </Badge>
               </div>
-              <p className="text-sm text-muted-foreground">{config.description}</p>
+              <p className="text-sm text-muted-foreground">{actionDescription}</p>
             </div>
           </div>
           <div className="text-xs text-muted-foreground">Кийинки кадам</div>
@@ -227,6 +236,11 @@ export function NextBestActionCard({
       </CardHeader>
 
       <CardContent className="space-y-4">
+        <div className="rounded-xl border border-primary/15 bg-primary/5 p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Сунушталган аракет</p>
+          <p className="mt-2 text-sm leading-7 text-foreground">{action.actionText}</p>
+        </div>
+
         <div className="rounded-xl border border-border/70 bg-muted/30 p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Эмне үчүн бул сунушталды</p>
           <p className="mt-2 text-sm leading-6 text-foreground">{action.reasoning}</p>

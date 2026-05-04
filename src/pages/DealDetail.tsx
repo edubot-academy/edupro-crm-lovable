@@ -23,9 +23,10 @@ import { AiDraftModal } from '@/components/ai/AiDraftModal';
 import { AiDraftHandoffCard } from '@/components/ai/AiDraftHandoffCard';
 import { PriorityIndicator, PriorityScore, RiskScore } from '@/components/ai/PriorityIndicator';
 import { NextBestActionCard, NextBestAction } from '@/components/ai/NextBestActionCard';
+import { CommunicationSummary, CommunicationSummary as CommunicationSummaryType } from '@/components/ai/CommunicationSummary';
 import { StructuredSuggestionReview, SuggestionSet, FieldSuggestion } from '@/components/ai/StructuredSuggestionReview';
 import { AiFeedbackControls } from '@/components/ai/AiFeedbackControls';
-import { aiApi, type LeadPriorityScoreResult, type NextBestActionResult, type RiskScoreResult, type ExtractionResult, type FeedbackRequest } from '@/api/ai';
+import { aiApi, type LeadPriorityScoreResult, type NextBestActionResult, type RiskScoreResult, type TimelineSummaryResult, type ExtractionResult, type FeedbackRequest } from '@/api/ai';
 
 type DealEditLmsFormState = {
   lmsCourseId: string;
@@ -88,10 +89,12 @@ export default function DealDetailPage() {
   const [priorityScore, setPriorityScore] = useState<PriorityScore | null>(null);
   const [riskScore, setRiskScore] = useState<RiskScore | null>(null);
   const [nextBestAction, setNextBestAction] = useState<NextBestAction | null>(null);
+  const [communicationSummary, setCommunicationSummary] = useState<CommunicationSummaryType | null>(null);
   const [extractionSuggestions, setExtractionSuggestions] = useState<SuggestionSet | null>(null);
   const [isSuggestionReviewOpen, setIsSuggestionReviewOpen] = useState(false);
   const [intelligenceLoading, setIntelligenceLoading] = useState(false);
   const [intelligenceError, setIntelligenceError] = useState<string | null>(null);
+  const [intelligenceRefreshKey, setIntelligenceRefreshKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [editForm, setEditForm] = useState<DealEditLmsFormState>({
     lmsCourseId: '',
@@ -188,6 +191,13 @@ export default function DealDetailPage() {
           console.warn('Failed to load next best action:', err);
         }
 
+        try {
+          const summaryData = await aiApi.getTimelineSummary('deal', dealId);
+          setCommunicationSummary(summaryData);
+        } catch (err) {
+          console.warn('Failed to load communication summary:', err);
+        }
+
         // Load extraction suggestions
         try {
           // Extract text from deal notes for analysis
@@ -236,7 +246,7 @@ export default function DealDetailPage() {
     };
 
     loadIntelligenceData();
-  }, [deal, isAiOperationalIntelligenceEnabled]);
+  }, [deal, isAiOperationalIntelligenceEnabled, intelligenceRefreshKey]);
 
   // Handle next best action execution
   const handleNextBestAction = (action: NextBestAction) => {
@@ -287,6 +297,12 @@ export default function DealDetailPage() {
     } catch (error) {
       throw error;
     }
+  };
+
+  const refreshIntelligenceData = () => {
+    if (!deal || !isAiOperationalIntelligenceEnabled) return;
+    setIntelligenceError(null);
+    setIntelligenceRefreshKey((current) => current + 1);
   };
 
   // Handle suggestion application
@@ -420,14 +436,45 @@ export default function DealDetailPage() {
             )}
 
             {/* Next Best Action */}
-            <NextBestActionCard
-              action={nextBestAction}
+            <div className="space-y-4">
+              <NextBestActionCard
+                action={nextBestAction}
+                targetType="deal"
+                targetId={Number(deal.id)}
+                onActionExecute={handleNextBestAction}
+                loading={intelligenceLoading}
+                error={intelligenceError}
+              />
+              {nextBestAction?.aiRequestId && (
+                <AiFeedbackControls
+                  targetType="deal"
+                  targetId={Number(deal.id)}
+                  feature="next_best_action"
+                  aiRequestId={nextBestAction.aiRequestId}
+                  disabled={intelligenceLoading}
+                  onFeedbackSubmit={handleAiFeedback}
+                />
+              )}
+            </div>
+
+            <CommunicationSummary
+              summary={communicationSummary || undefined}
               targetType="deal"
               targetId={Number(deal.id)}
-              onActionExecute={handleNextBestAction}
-              loading={intelligenceLoading}
+              onRefresh={refreshIntelligenceData}
+              loading={intelligenceLoading && !communicationSummary}
               error={intelligenceError}
             />
+            {communicationSummary?.aiRequestId && (
+              <AiFeedbackControls
+                targetType="deal"
+                targetId={Number(deal.id)}
+                feature="timeline_summary"
+                aiRequestId={communicationSummary.aiRequestId}
+                disabled={intelligenceLoading}
+                onFeedbackSubmit={handleAiFeedback}
+              />
+            )}
 
             {/* Extraction Suggestions */}
             {extractionSuggestions && (

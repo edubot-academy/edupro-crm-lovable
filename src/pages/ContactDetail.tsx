@@ -25,8 +25,9 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { AiDraftModal } from '@/components/ai/AiDraftModal';
 import { AiDraftHandoffCard } from '@/components/ai/AiDraftHandoffCard';
+import { AiFeedbackControls } from '@/components/ai/AiFeedbackControls';
 import { CommunicationSummary, CommunicationSummary as CommunicationSummaryType } from '@/components/ai/CommunicationSummary';
-import { aiApi, type TimelineSummaryResult } from '@/api/ai';
+import { aiApi, type TimelineSummaryResult, type FeedbackRequest } from '@/api/ai';
 
 export default function ContactDetailPage() {
   const { id } = useParams();
@@ -55,6 +56,7 @@ export default function ContactDetailPage() {
   const [communicationSummary, setCommunicationSummary] = useState<CommunicationSummaryType | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [summaryRefreshKey, setSummaryRefreshKey] = useState(0);
   const [form, setForm] = useState({
     fullName: '',
     phone: '',
@@ -134,7 +136,17 @@ export default function ContactDetailPage() {
     };
 
     loadCommunicationSummary();
-  }, [contact, isAiOperationalIntelligenceEnabled]);
+  }, [contact, isAiOperationalIntelligenceEnabled, summaryRefreshKey]);
+
+  const handleAiFeedback = async (feedback: FeedbackRequest) => {
+    await aiApi.submitFeedback(feedback);
+  };
+
+  const refreshCommunicationSummary = () => {
+    if (!contact || !isAiOperationalIntelligenceEnabled) return;
+    setSummaryError(null);
+    setSummaryRefreshKey((current) => current + 1);
+  };
 
   const resetEditForm = () => {
     if (!contact) {
@@ -276,17 +288,27 @@ export default function ContactDetailPage() {
         </Card>
 
         {/* Release 2 - Communication Summary */}
-        {isAiOperationalIntelligenceEnabled && communicationSummary && (
-          <CommunicationSummary
-            summary={communicationSummary}
-            targetType="contact"
-            targetId={Number(contact.id)}
-            onRefresh={() => {
-              // Refresh logic would go here
-            }}
-            loading={summaryLoading}
-            error={summaryError}
-          />
+        {isAiOperationalIntelligenceEnabled && (
+          <div className="space-y-4">
+            <CommunicationSummary
+              summary={communicationSummary || undefined}
+              targetType="contact"
+              targetId={Number(contact.id)}
+              onRefresh={refreshCommunicationSummary}
+              loading={summaryLoading}
+              error={summaryError}
+            />
+            {communicationSummary?.aiRequestId && (
+              <AiFeedbackControls
+                targetType="contact"
+                targetId={Number(contact.id)}
+                feature="timeline_summary"
+                aiRequestId={communicationSummary.aiRequestId}
+                disabled={summaryLoading}
+                onFeedbackSubmit={handleAiFeedback}
+              />
+            )}
+          </div>
         )}
 
         {isLmsBridgeEnabled && canViewLmsTechnicalFields() && bridgeData && (

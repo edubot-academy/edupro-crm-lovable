@@ -62,7 +62,7 @@ function getFieldLabel(field: string): string {
   return fieldLabels[field] || field;
 }
 
-function getCurrentFieldValue(field: string, item: Lead | Deal): string {
+function getCurrentFieldValue(field: string, item: Lead): string {
   switch (field) {
     case 'courseInterest':
       return 'interestedCourseId' in item ? (item.interestedCourseId || '') : '';
@@ -113,6 +113,7 @@ export default function LeadDetailPage() {
   const [isSuggestionReviewOpen, setIsSuggestionReviewOpen] = useState(false);
   const [intelligenceLoading, setIntelligenceLoading] = useState(false);
   const [intelligenceError, setIntelligenceError] = useState<string | null>(null);
+  const [intelligenceRefreshKey, setIntelligenceRefreshKey] = useState(0);
 
   // Use tenant-configured lead sources if available, otherwise use hardcoded sources
   const leadSourceOptions = useMemo(() => {
@@ -329,15 +330,11 @@ export default function LeadDetailPage() {
     };
 
     loadIntelligenceData();
-  }, [lead, isAiOperationalIntelligenceEnabled]);
+  }, [lead, isAiOperationalIntelligenceEnabled, intelligenceRefreshKey]);
 
   // Handle AI feedback submission
   const handleAiFeedback = async (feedback: FeedbackRequest) => {
-    try {
-      await aiApi.submitFeedback(feedback);
-    } catch (error) {
-      throw error; // Let the component handle the error display
-    }
+    await aiApi.submitFeedback(feedback);
   };
 
   // Handle next best action execution
@@ -427,9 +424,8 @@ export default function LeadDetailPage() {
   // Refresh intelligence data
   const refreshIntelligenceData = () => {
     if (lead && isAiOperationalIntelligenceEnabled) {
-      // Trigger the useEffect to reload data
       setIntelligenceError(null);
-      // The useEffect will automatically reload when lead changes
+      setIntelligenceRefreshKey((current) => current + 1);
     }
   };
 
@@ -644,14 +640,26 @@ export default function LeadDetailPage() {
             )}
 
             <div className="grid gap-4 xl:grid-cols-2">
-              <NextBestActionCard
-                action={nextBestAction}
-                targetType="lead"
-                targetId={Number(lead.id)}
-                onActionExecute={handleNextBestAction}
-                loading={intelligenceLoading}
-                error={intelligenceError}
-              />
+              <div className="space-y-4">
+                <NextBestActionCard
+                  action={nextBestAction}
+                  targetType="lead"
+                  targetId={Number(lead.id)}
+                  onActionExecute={handleNextBestAction}
+                  loading={intelligenceLoading}
+                  error={intelligenceError}
+                />
+                {nextBestAction?.aiRequestId && (
+                  <AiFeedbackControls
+                    targetType="lead"
+                    targetId={Number(lead.id)}
+                    feature="next_best_action"
+                    aiRequestId={nextBestAction.aiRequestId}
+                    disabled={intelligenceLoading}
+                    onFeedbackSubmit={handleAiFeedback}
+                  />
+                )}
+              </div>
 
               <div className="space-y-4">
                 {communicationSummary && (

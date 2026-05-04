@@ -68,23 +68,26 @@ export interface RiskReason {
 export interface NextBestActionResult {
   targetId: number;
   targetType: 'lead' | 'deal';
+  actionKey: string;
   action:
-    | 'call'
-    | 'whatsapp'
-    | 'schedule_trial'
-    | 'send_reminder'
-    | 'follow_up'
-    | 'escalate'
-    | 'reschedule_trial'
-    | 'confirm_payment_intent'
-    | 'complete_enrollment'
-    | 'payment_reminder'
-    | 're_engage'
-    | 'send_offer'
-    | 'complete_open_task';
+  | 'call'
+  | 'whatsapp'
+  | 'schedule_trial'
+  | 'send_reminder'
+  | 'follow_up'
+  | 'escalate'
+  | 'reschedule_trial'
+  | 'confirm_payment_intent'
+  | 'complete_enrollment'
+  | 'payment_reminder'
+  | 're_engage'
+  | 'send_offer'
+  | 'complete_open_task';
+  actionText: string;
   reasoning: string;
   priority: 'high' | 'medium' | 'low';
   aiGenerated: boolean;
+  knownAction: boolean;
   suggestedAt: string;
   prerequisites?: string[];
   aiRequestId?: string | null;
@@ -113,6 +116,15 @@ export interface ExtractionResult {
   confidence: number;
   promptVersion: string;
   model: string | null;
+  aiRequestId?: string | null;
+}
+
+interface NextBestActionApiResponse {
+  actionKey: string;
+  action: string;
+  explanation: string;
+  urgency: 'low' | 'normal' | 'high' | 'urgent';
+  guidanceType: 'ai' | 'rule' | 'system';
   aiRequestId?: string | null;
 }
 
@@ -161,6 +173,14 @@ const normalizeNextBestActionKey = (
   }
 };
 
+const isKnownNextBestActionKey = (actionKey: string | undefined): boolean => {
+  if (!actionKey) {
+    return false;
+  }
+
+  return normalizeNextBestActionKey(actionKey) === actionKey;
+};
+
 export const aiApi = {
   // Release 1 - AI Follow-up Drafts
   draftFollowup: (data: DraftFollowupRequest): Promise<DraftFollowupResponse> => {
@@ -177,14 +197,19 @@ export const aiApi = {
   },
 
   getNextBestAction: async (targetType: 'lead' | 'deal', targetId: number): Promise<NextBestActionResult> => {
-    const result = await apiClient.post('/ai/next-best-action', { targetType, targetId, useAi: 'true', store: 'true' });
+    const result = await apiClient.post<NextBestActionApiResponse>('/ai/next-best-action', { targetType, targetId, useAi: 'true', store: 'true' });
+    const knownAction = isKnownNextBestActionKey(result.actionKey);
+
     return {
       targetId,
       targetType,
+      actionKey: result.actionKey,
       action: normalizeNextBestActionKey(result.actionKey),
+      actionText: result.action,
       reasoning: result.explanation,
       priority: urgencyToPriority(result.urgency),
       aiGenerated: result.guidanceType === 'ai',
+      knownAction,
       suggestedAt: new Date().toISOString(),
       aiRequestId: result.aiRequestId ?? null,
     };

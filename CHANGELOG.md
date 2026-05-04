@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Version bumps are classified by delivery scale; see `VERSIONING.md`.
 
+## [2.3.1] - 2026-05-05
+
+### Fixed
+- AI API: Fixed TypeScript error by adding proper typing for NextBestActionApiResponse interface
+- AI API: Added `actionKey`, `actionText`, and `knownAction` fields to NextBestActionResult interface
+- LeadDetail: Removed unnecessary try/catch wrapper in handleAiFeedback function
+- LeadDetail: Added intelligence refresh mechanism for better data reloading
+
+### Changed
+- NextBestActionCard: Enhanced to handle unknown action types with fallback labels and descriptions
+- NextBestActionCard: Added display of suggested action text from AI response
+- ContactDetail: Added feedback controls for communication summaries with refresh functionality
+- DealDetail: Added communication summary component with feedback controls
+- Detail Pages: Improved AI feedback integration across all detail pages
+- AI Components: Enhanced error handling and loading states for better user experience
+
 ## [2.3.0] - 2026-05-05
 
 ### Added
