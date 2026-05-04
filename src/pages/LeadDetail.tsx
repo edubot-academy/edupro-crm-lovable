@@ -533,21 +533,22 @@ export default function LeadDetailPage() {
       <PageHeader
         title={lead.fullName}
         actions={
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => navigate('/leads')}>
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <Button className="w-full sm:w-auto" variant="outline" onClick={() => navigate('/leads')}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               {ky.common.back}
             </Button>
-            <Button variant="outline" onClick={() => setIsEditOpen(true)}>
+            <Button className="w-full sm:w-auto" variant="outline" onClick={() => setIsEditOpen(true)}>
               {ky.common.edit}
             </Button>
             {isAiDraftsEnabled ? (
-              <Button variant="outline" onClick={() => setIsAiDraftOpen(true)}>
+              <Button className="w-full sm:w-auto" variant="outline" onClick={() => setIsAiDraftOpen(true)}>
                 <Sparkles className="mr-2 h-4 w-4" />
                 AI жооп сунушу
               </Button>
             ) : null}
             <Button
+              className="w-full sm:w-auto"
               variant="outline"
               onClick={() => {
                 const params = new URLSearchParams({
@@ -566,11 +567,11 @@ export default function LeadDetailPage() {
             >
               Келишим түзүү
             </Button>
-            <Button variant="outline" onClick={() => setIsScheduleOpen(true)}>
+            <Button className="w-full sm:w-auto" variant="outline" onClick={() => setIsScheduleOpen(true)}>
               <Calendar className="mr-2 h-4 w-4" />
               Пландоо
             </Button>
-            <Button onClick={handleConvertToContact} disabled={isConverting || !!lead.contactId}>
+            <Button className="w-full sm:w-auto" onClick={handleConvertToContact} disabled={isConverting || !!lead.contactId}>
               {isConverting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {lead.contactId ? 'Байланышка айланган' : ky.leads.convertToContact}
             </Button>
@@ -578,7 +579,7 @@ export default function LeadDetailPage() {
         }
       />
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid items-start gap-6 lg:grid-cols-3">
         {aiDraftMessage ? (
           <AiDraftHandoffCard
             value={aiDraftMessage}
@@ -615,7 +616,7 @@ export default function LeadDetailPage() {
                 <div className="rounded-2xl bg-white p-2 shadow-sm">
                   <Sparkles className="h-5 w-5 text-orange-500" />
                 </div>
-                <div className="space-y-1">
+                <div className="min-w-0 space-y-1">
                   <h2 className="text-base font-semibold text-foreground">AI жардамчысы</h2>
                   <p className="text-sm text-muted-foreground">
                     Бул блок приоритетти, тобокелдикти жана кийинки кадамды тез түшүнүүгө жардам берет. Сунуштар маалыматтык мүнөздө.
@@ -744,7 +745,7 @@ export default function LeadDetailPage() {
           />
         )}
 
-        <div className="space-y-4">
+        <div className="space-y-4 lg:col-span-1">
           <Card className="shadow-card border-border/50">
             <CardHeader>
               <CardTitle className="text-base">{ky.common.tags}</CardTitle>
@@ -946,13 +947,13 @@ export default function LeadDetailPage() {
 
 function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
   return (
-    <div className="flex items-start gap-3">
+    <div className="flex min-w-0 items-start gap-3">
       <div className="rounded-md bg-muted p-2">
         <Icon className="h-4 w-4 text-muted-foreground" />
       </div>
-      <div>
+      <div className="min-w-0">
         <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-sm font-medium">{value}</p>
+        <p className="break-words text-sm font-medium">{value}</p>
       </div>
     </div>
   );

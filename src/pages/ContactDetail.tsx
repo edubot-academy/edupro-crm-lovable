@@ -248,25 +248,25 @@ export default function ContactDetailPage() {
       <PageHeader
         title={contact.fullName}
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => navigate('/contacts')}>
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <Button className="w-full sm:w-auto" variant="outline" onClick={() => navigate('/contacts')}>
               <ArrowLeft className="mr-2 h-4 w-4" />{ky.common.back}
             </Button>
-            <Button variant="outline" onClick={() => setIsEditOpen(true)}>{ky.common.edit}</Button>
+            <Button className="w-full sm:w-auto" variant="outline" onClick={() => setIsEditOpen(true)}>{ky.common.edit}</Button>
             {isAiDraftsEnabled ? (
-              <Button variant="outline" onClick={() => setIsAiDraftOpen(true)}>
+              <Button className="w-full sm:w-auto" variant="outline" onClick={() => setIsAiDraftOpen(true)}>
                 <Sparkles className="mr-2 h-4 w-4" />
                 AI жооп сунушу
               </Button>
             ) : null}
-            <Button variant="outline" onClick={() => setIsScheduleOpen(true)}>
+            <Button className="w-full sm:w-auto" variant="outline" onClick={() => setIsScheduleOpen(true)}>
               <Calendar className="mr-2 h-4 w-4" />
               Пландоо
             </Button>
           </div>
         }
       />
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid items-start gap-6 lg:grid-cols-3">
         {aiDraftMessage ? (
           <AiDraftHandoffCard
             value={aiDraftMessage}
@@ -289,7 +289,7 @@ export default function ContactDetailPage() {
 
         {/* Release 2 - Communication Summary */}
         {isAiOperationalIntelligenceEnabled && (
-          <div className="space-y-4">
+          <div className="space-y-4 lg:col-span-1">
             <CommunicationSummary
               summary={communicationSummary || undefined}
               targetType="contact"
@@ -319,7 +319,7 @@ export default function ContactDetailPage() {
           />
         )}
 
-        <div className="space-y-4">
+        <div className="space-y-4 lg:col-span-1">
           <Card className="shadow-card border-border/50">
             <CardHeader><CardTitle className="text-base">{ky.common.notes}</CardTitle></CardHeader>
             <CardContent>
@@ -394,8 +394,8 @@ export default function ContactDetailPage() {
                       {studentSummary.enrollments?.length ? (
                         studentSummary.enrollments.map((enrollment) => (
                           <div key={enrollment.enrollmentId} className="rounded-md border p-3 space-y-2">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <div>
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="min-w-0">
                                 <p className="text-sm font-medium">{enrollment.courseName || enrollment.courseId}</p>
                                 <p className="text-xs text-muted-foreground">
                                   {enrollment.groupName || enrollment.groupId || 'Топсуз каттоо'}
@@ -435,12 +435,13 @@ export default function ContactDetailPage() {
 
           {isLmsBridgeEnabled && canViewIntegrationHistory() && bridgeData?.lmsStudentId && (
             <Card className="shadow-card border-border/50">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                <CardTitle className="text-base flex items-center gap-2">
+              <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-start sm:justify-between">
+                <CardTitle className="flex items-center gap-2 text-base leading-tight">
                   <Workflow className="h-4 w-4" />
                   LMS окуялары
                 </CardTitle>
                 <Button
+                  className="w-full sm:w-auto"
                   variant="outline"
                   size="sm"
                   onClick={() => navigate(`/enrollments?crmContactId=${contact.id}${bridgeData?.lmsStudentId ? `&studentId=${encodeURIComponent(bridgeData.lmsStudentId)}` : ''}`)}
@@ -459,8 +460,8 @@ export default function ContactDetailPage() {
                 ) : (
                   historyData.data.map((item) => (
                     <div key={item.id} className="rounded-md border p-3 space-y-2">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
                           <p className="text-sm font-medium">
                             {item.source === 'outbound' ? 'CRM → LMS' : 'LMS → CRM'}
                           </p>
@@ -573,11 +574,11 @@ export default function ContactDetailPage() {
 
 function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
   return (
-    <div className="flex items-start gap-3">
+    <div className="flex min-w-0 items-start gap-3">
       <div className="rounded-md bg-muted p-2"><Icon className="h-4 w-4 text-muted-foreground" /></div>
-      <div>
+      <div className="min-w-0">
         <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-sm font-medium">{value}</p>
+        <p className="break-words text-sm font-medium">{value}</p>
       </div>
     </div>
   );

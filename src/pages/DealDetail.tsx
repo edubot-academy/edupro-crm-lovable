@@ -379,22 +379,22 @@ export default function DealDetailPage() {
         title={`Келишим #${deal.id}`}
         description={isLmsBridgeEnabled ? (deal.lmsMapping?.courseNameSnapshot || 'Окуу байланышы көрсөтүлгөн эмес') : undefined}
         actions={
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => navigate('/deals')}>
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <Button className="w-full sm:w-auto" variant="outline" onClick={() => navigate('/deals')}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Артка
             </Button>
             {isAiDraftsEnabled ? (
-              <Button variant="outline" onClick={() => setIsAiDraftOpen(true)}>
+              <Button className="w-full sm:w-auto" variant="outline" onClick={() => setIsAiDraftOpen(true)}>
                 <Sparkles className="mr-2 h-4 w-4" />
                 AI жооп сунушу
               </Button>
             ) : null}
-            <Button variant="outline" onClick={() => navigate(`/payments?create=1&dealId=${deal.id}`)}>
+            <Button className="w-full sm:w-auto" variant="outline" onClick={() => navigate(`/payments?create=1&dealId=${deal.id}`)}>
               Төлөм кошуу
             </Button>
             {isLmsBridgeEnabled ? (
-              <Button variant="outline" onClick={() => setEditOpen(true)}>
+              <Button className="w-full sm:w-auto" variant="outline" onClick={() => setEditOpen(true)}>
                 <Pencil className="mr-2 h-4 w-4" />
                 Продукт маалыматты оңдоо
               </Button>
@@ -403,7 +403,7 @@ export default function DealDetailPage() {
         }
       />
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid items-start gap-6 lg:grid-cols-3">
         {aiDraftMessage ? (
           <AiDraftHandoffCard
             value={aiDraftMessage}
@@ -420,7 +420,7 @@ export default function DealDetailPage() {
             {(priorityScore || riskScore) && (
               <Card className="shadow-card border-border/50">
                 <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-base">
                     <Sparkles className="w-4 h-4 text-orange-500" />
                     AI анализ
                   </CardTitle>
@@ -480,7 +480,7 @@ export default function DealDetailPage() {
             {extractionSuggestions && (
               <Card className="shadow-card border-border/50">
                 <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-base">
                     <Sparkles className="w-4 h-4 text-orange-500" />
                     AI сунуштары
                   </CardTitle>
@@ -526,10 +526,10 @@ export default function DealDetailPage() {
           />
         ) : null}
 
-        <div className="space-y-4">
+        <div className="space-y-4 lg:col-span-1">
           <Card className="shadow-card border-border/50">
             <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-base">
                 <CreditCard className="h-4 w-4" />
                 Төлөмдөр
               </CardTitle>
@@ -553,7 +553,7 @@ export default function DealDetailPage() {
               ) : (
                 payments.map((payment) => (
                   <div key={payment.id} className="space-y-2 rounded-md border p-3">
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-sm font-medium">{payment.amount.toLocaleString()} сом</p>
                       <PaymentStatusBadge status={payment.paymentStatus || payment.status} />
                     </div>
@@ -569,12 +569,13 @@ export default function DealDetailPage() {
 
           {isLmsBridgeEnabled && canViewIntegrationHistory() && contactBridgeData?.lmsStudentId ? (
             <Card className="shadow-card border-border/50">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                <CardTitle className="text-base flex items-center gap-2">
+              <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-start sm:justify-between">
+                <CardTitle className="flex items-center gap-2 text-base leading-tight">
                   <Workflow className="h-4 w-4" />
                   Интеграция тарыхы
                 </CardTitle>
                 <Button
+                  className="w-full sm:w-auto"
                   variant="outline"
                   size="sm"
                   onClick={() => navigate(`/enrollments?crmDealId=${deal.id}${contactBridgeData.lmsStudentId ? `&studentId=${encodeURIComponent(contactBridgeData.lmsStudentId)}` : ''}`)}
@@ -597,7 +598,7 @@ export default function DealDetailPage() {
       </div>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Окуу маалыматын оңдоо</DialogTitle>
           </DialogHeader>

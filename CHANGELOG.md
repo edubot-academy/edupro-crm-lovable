@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Version bumps are classified by delivery scale; see `VERSIONING.md`.
 
+## [2.3.2] - 2026-05-05
+
+### Fixed
+- LeadDetail: Fixed text overflow in InfoRow component with `break-words` class
+- LeadDetail: Improved responsive layout for action buttons with `w-full sm:w-auto` classes
+- ContactDetail: Enhanced responsive button layout with proper flex wrapping
+- DealDetail: Improved responsive design for dialog content and card layouts
+- Detail Pages: Fixed min-width constraints and flex alignment for better mobile experience
+
+### Changed
+- LeadDetail: Added `min-w-0` containers to prevent layout collapse on small screens
+- ContactDetail: Improved flex direction and gap handling for responsive layouts
+- DealDetail: Enhanced dialog content sizing with better viewport handling
+- UI Components: Consistent responsive button sizing across all detail pages
+- Text Layout: Improved word breaking and text overflow handling in data displays
+
 ## [2.3.1] - 2026-05-05
 
 ### Fixed
