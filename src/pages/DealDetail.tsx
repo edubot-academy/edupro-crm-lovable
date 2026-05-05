@@ -28,7 +28,7 @@ import { NextBestActionCard, NextBestAction } from '@/components/ai/NextBestActi
 import { CommunicationSummary, CommunicationSummary as CommunicationSummaryType } from '@/components/ai/CommunicationSummary';
 import { StructuredSuggestionReview, SuggestionSet, FieldSuggestion } from '@/components/ai/StructuredSuggestionReview';
 import { AiFeedbackControls } from '@/components/ai/AiFeedbackControls';
-import { aiApi, type LeadPriorityScoreResult, type NextBestActionResult, type RiskScoreResult, type TimelineSummaryResult, type ExtractionResult, type FeedbackRequest } from '@/api/ai';
+import { aiApi, type FeedbackRequest } from '@/api/ai';
 import { RecordWhatsAppTimelineCard } from '@/components/whatsapp/RecordWhatsAppTimelineCard';
 
 type DealEditLmsFormState = {
@@ -71,7 +71,7 @@ export default function DealDetailPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isFeatureEnabled } = useFeatureFlags();
-  const { canViewIntegrationHistory } = useRolePermissions();
+  const { canViewIntegrationHistory, canViewLmsTechnicalFields, canViewStudentSummary } = useRolePermissions();
   const { isLmsBridgeEnabled } = useLmsBridge();
   const isAiDraftsEnabled =
     isFeatureEnabled('ai_assist_enabled') && isFeatureEnabled('ai_followup_drafts_enabled');
@@ -132,14 +132,18 @@ export default function DealDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    if (!contact || !isLmsBridgeEnabled) {
+    if (
+      !contact
+      || !isLmsBridgeEnabled
+      || (!canViewIntegrationHistory() && !canViewLmsTechnicalFields() && !canViewStudentSummary())
+    ) {
       setContactBridgeData(null);
       return;
     }
     bridgeApi.getContactBridgeData(contact.id)
       .then((data) => setContactBridgeData(data))
       .catch(() => setContactBridgeData(null));
-  }, [contact, isLmsBridgeEnabled]);
+  }, [canViewIntegrationHistory, canViewLmsTechnicalFields, canViewStudentSummary, contact, isLmsBridgeEnabled]);
 
   useEffect(() => {
     if (!id) return;
@@ -295,11 +299,7 @@ export default function DealDetailPage() {
   };
 
   const handleAiFeedback = async (feedback: FeedbackRequest) => {
-    try {
-      await aiApi.submitFeedback(feedback);
-    } catch (error) {
-      throw error;
-    }
+    await aiApi.submitFeedback(feedback);
   };
 
   const refreshIntelligenceData = () => {

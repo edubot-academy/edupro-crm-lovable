@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/PageShell';
 import { DataTable, type Column } from '@/components/DataTable';
 import { StatusBadge, getPaymentStatusVariant } from '@/components/StatusBadge';
@@ -26,18 +26,29 @@ import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
 const emptyForm = { dealId: '', amount: '', kind: 'regular' as Payment['kind'], method: '' as string };
 
 export default function PaymentsPage() {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const { canViewLmsTechnicalFields } = useRolePermissions();
   const { tenantConfig } = useTenantConfig();
   const { isLmsBridgeEnabled } = useLmsBridge();
   const [searchParams, setSearchParams] = useSearchParams();
+  const getSearchParam = (key: string, fallback = '') => searchParams.get(key) ?? fallback;
+  const getPageParam = () => {
+    const value = Number(searchParams.get('page'));
+    return Number.isFinite(value) && value > 0 ? Math.floor(value) : 1;
+  };
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(() => getSearchParam('q'));
   const [totalItems, setTotalItems] = useState(0);
-  const [statusFilter, setStatusFilter] = useState<'all' | Payment['status']>('all');
+  const [page, setPage] = useState(() => getPageParam());
+  const [totalPages, setTotalPages] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<'all' | Payment['status']>(() => {
+    const value = getSearchParam('status', 'all');
+    return value === 'submitted' || value === 'confirmed' || value === 'failed' || value === 'refunded' || value === 'overdue'
+      ? value
+      : 'all';
+  });
   const [confirmTarget, setConfirmTarget] = useState<Payment | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
@@ -46,12 +57,11 @@ export default function PaymentsPage() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [dealsLoading, setDealsLoading] = useState(false);
   const [dealBridgeData, setDealBridgeData] = useState<DealWithCourseMapping | null>(null);
+  const [selectedDealSummary, setSelectedDealSummary] = useState<Payment['dealPaymentSummary']>(null);
   const { toast } = useToast();
   const prefillDealId = searchParams.get('dealId') || '';
   const shouldOpenCreate = searchParams.get('create') === '1';
   const selectedDeal = deals.find((deal) => String(deal.id) === form.dealId);
-  const selectedDealPayments = payments.filter((payment) => String(payment.dealId) === form.dealId);
-  const selectedDealSummary = selectedDealPayments[0]?.dealPaymentSummary ?? null;
   const canConfirmPayments = user?.role !== 'sales';
 
   const clearPrefillParams = () => {
@@ -72,29 +82,77 @@ export default function PaymentsPage() {
   const fetchPayments = useCallback(() => {
     setIsLoading(true);
     setLoadError(null);
-    paymentsApi.list({ search: search || undefined, paymentStatus: statusFilter === 'all' ? undefined : statusFilter })
+    paymentsApi.list({
+      search: search || undefined,
+      paymentStatus: statusFilter === 'all' ? undefined : statusFilter,
+      page,
+      limit: 20,
+    })
       .then((res) => {
-        if (Array.isArray(res)) {
-          setPayments(res ?? []);
-          setTotalItems(res?.length || 0);
-          return;
-        }
-
         setPayments(res.items ?? []);
         setTotalItems(res.total || 0);
+        setTotalPages(Math.max(res.totalPages || 1, 1));
       })
       .catch((error: unknown) => {
         const friendly = getFriendlyError(error, { fallbackTitle: 'Төлөмдөрдү жүктөө ишке ашкан жок' });
         setPayments([]);
         setTotalItems(0);
+        setTotalPages(1);
         setLoadError(friendly.description || friendly.title);
       })
       .finally(() => setIsLoading(false));
-  }, [search, statusFilter]);
+  }, [page, search, statusFilter]);
 
   useEffect(() => {
     fetchPayments();
   }, [fetchPayments]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter]);
+
+  useEffect(() => {
+    const nextSearch = searchParams.get('q') ?? '';
+    const nextPage = getPageParam();
+    const nextStatus = searchParams.get('status') ?? 'all';
+
+    if (nextSearch !== search) setSearch(nextSearch);
+    if (nextPage !== page) setPage(nextPage);
+    if (nextStatus !== statusFilter && (nextStatus === 'all' || nextStatus === 'submitted' || nextStatus === 'confirmed' || nextStatus === 'failed' || nextStatus === 'refunded' || nextStatus === 'overdue')) {
+      setStatusFilter(nextStatus);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  useEffect(() => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+
+      if (search) next.set('q', search);
+      else next.delete('q');
+
+      if (statusFilter !== 'all') next.set('status', statusFilter);
+      else next.delete('status');
+
+      if (page > 1) next.set('page', String(page));
+      else next.delete('page');
+
+      return next.toString() === current.toString() ? current : next;
+    }, { replace: true });
+  }, [page, search, setSearchParams, statusFilter]);
+
+  const fetchAllDeals = useCallback(async () => {
+    const firstPage = await dealsApi.list({ page: 1, limit: 100 });
+    const allDeals = [...firstPage.items];
+    const pageCount = Math.max(firstPage.totalPages || 1, 1);
+
+    for (let pageNumber = 2; pageNumber <= pageCount; pageNumber += 1) {
+      const response = await dealsApi.list({ page: pageNumber, limit: 100 });
+      allDeals.push(...response.items);
+    }
+
+    return allDeals;
+  }, []);
 
   useEffect(() => {
     if (!shouldOpenCreate) return;
@@ -104,11 +162,11 @@ export default function PaymentsPage() {
   useEffect(() => {
     if (!showCreate) return;
     setDealsLoading(true);
-    dealsApi.list({ page: 1, limit: 100 })
-      .then((res) => setDeals(res.items))
+    fetchAllDeals()
+      .then((items) => setDeals(items))
       .catch(() => setDeals([]))
       .finally(() => setDealsLoading(false));
-  }, [showCreate]);
+  }, [fetchAllDeals, showCreate]);
 
   useEffect(() => {
     if (!showCreate || !prefillDealId) return;
@@ -116,14 +174,30 @@ export default function PaymentsPage() {
   }, [showCreate, prefillDealId]);
 
   useEffect(() => {
-    if (!selectedDeal || !isLmsBridgeEnabled) {
+    if (!showCreate || form.method || tenantConfig.paymentMethods.length === 0) return;
+    setForm((prev) => ({ ...prev, method: tenantConfig.paymentMethods[0].methodKey }));
+  }, [form.method, showCreate, tenantConfig.paymentMethods]);
+
+  useEffect(() => {
+    if (!selectedDeal || !isLmsBridgeEnabled || !canViewLmsTechnicalFields()) {
       setDealBridgeData(null);
       return;
     }
     bridgeApi.getDealBridgeData(selectedDeal.id)
       .then((data) => setDealBridgeData(data))
       .catch(() => setDealBridgeData(null));
-  }, [selectedDeal, isLmsBridgeEnabled]);
+  }, [canViewLmsTechnicalFields, selectedDeal, isLmsBridgeEnabled]);
+
+  useEffect(() => {
+    if (!showCreate || !form.dealId) {
+      setSelectedDealSummary(null);
+      return;
+    }
+
+    paymentsApi.list({ dealId: form.dealId, page: 1, limit: 1 })
+      .then((res) => setSelectedDealSummary(res.items[0]?.dealPaymentSummary ?? null))
+      .catch(() => setSelectedDealSummary(null));
+  }, [form.dealId, showCreate]);
 
   const handleCreate = async () => {
     if (!form.dealId || !form.amount) return;
@@ -132,7 +206,7 @@ export default function PaymentsPage() {
       const payload = {
         dealId: Number(form.dealId),
         amount: Number(form.amount),
-        method: form.method as Payment['method'],
+        method: form.method,
         paymentStatus: 'submitted' as Payment['status'],
       };
       if (form.kind === 'deposit') {
@@ -306,7 +380,10 @@ export default function PaymentsPage() {
         onRetry={fetchPayments}
         searchValue={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Төлөм издөө..."
+        searchPlaceholder="Төлөмдү студент, телефон, сумма, ыкма, ID же келишим ID менен издөө..."
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
         headerActions={headerActions}
         emptyMessage={ky.common.noData}
         activeFilters={activeFilters}
@@ -397,7 +474,7 @@ export default function PaymentsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={resetCreateForm}>{ky.common.cancel}</Button>
-            <Button onClick={handleCreate} disabled={isCreating || !form.dealId || !form.amount}>
+            <Button onClick={handleCreate} disabled={isCreating || !form.dealId || !form.amount || !form.method}>
               {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {form.kind === 'deposit' ? ky.payments.depositPayment : ky.common.create}
             </Button>

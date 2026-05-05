@@ -65,6 +65,7 @@ export interface TenantConfig {
   companyName?: string | null;
   logoUrl?: string | null;
   primaryColor?: string | null;
+  supportEmail?: string | null;
   branding?: BrandingConfig;
   leadSources: TenantLeadSource[];
   paymentMethods: TenantPaymentMethod[];
@@ -189,20 +190,20 @@ export interface SystemUser {
   company?: CompanyRef;
 }
 
-export interface CreatedUserResponse extends SystemUser {
-  inviteUrl?: string;
+export interface CreatedUserResponse {
+  userId: number;
+  inviteLink?: string;
   inviteToken?: string;
 }
 
 export interface AssignableUser {
   id: number;
   fullName: string;
-  email: string;
   role: UserRole;
 }
 
 // ==================== LEADS ====================
-export type LeadSource = 'instagram' | 'telegram' | 'whatsapp' | 'website' | 'phone_call' | 'referral' | 'other';
+export type LeadSource = 'instagram' | 'telegram' | 'whatsapp' | 'website' | 'phone_call' | 'referral';
 
 /**
  * CRM-native lead statuses
@@ -224,6 +225,8 @@ export interface Lead {
   tags?: string[];
   assignedManager?: { id: number; fullName: string };
   assignedManagerId?: number;
+  lastContactedAt?: string | null;
+  nextFollowUpAt?: string | null;
   interestedCourseId?: string | null;
   interestedGroupId?: string | null;
   courseType?: import('@/types/lms').LmsCourseType | null;
@@ -240,6 +243,8 @@ export interface LeadWritePayload {
   source?: LeadSource;
   status?: LeadStatus;
   assignedManagerId?: number | null;
+  lastContactedAt?: string | null;
+  nextFollowUpAt?: string | null;
   tags?: string[];
   notes?: string;
   interestedCourseId?: string | null;
@@ -249,20 +254,22 @@ export interface LeadWritePayload {
 }
 
 // ==================== CONTACTS / STUDENTS ====================
-export type ContactSource = 'instagram' | 'telegram' | 'whatsapp' | 'website' | 'phone_call' | 'referral';
-
 export interface Contact {
   id: number;
   fullName: string;
   phone: string;
   email: string;
-  source?: ContactSource;
-  sourceProvider?: string;
   notes?: string;
-  status?: string;
   company?: CompanyRef;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ContactWritePayload {
+  fullName?: string;
+  phone?: string;
+  email?: string;
+  notes?: string;
 }
 
 export interface ContactNote {
@@ -281,7 +288,6 @@ export interface ContactNote {
 export type DealStage =
   | 'new_lead'
   | 'contacted'
-  | 'qualified'
   | 'offer_sent'
   | 'negotiation'
   | 'payment_pending'
@@ -291,7 +297,6 @@ export type DealStage =
 export type DealPipelineStage =
   | 'new'
   | 'consultation'
-  | 'trial'
   | 'negotiation'
   | 'payment_pending'
   | 'won'
@@ -337,8 +342,8 @@ export interface CreateDealPayload {
 }
 
 export interface UpdateDealPayload {
-  contactId?: number;
-  leadId?: number;
+  contactId?: number | null;
+  leadId?: number | null;
   amount?: number;
   currency?: string;
   stage?: DealStage;
@@ -389,7 +394,7 @@ export interface TrialLessonWritePayload {
 
 // ==================== PAYMENTS ====================
 export type PaymentStatus = 'submitted' | 'confirmed' | 'failed' | 'refunded' | 'overdue';
-export type PaymentMethod = 'card' | 'qr' | 'bank' | 'manual';
+export type PaymentMethod = string;
 export type PaymentKind = 'regular' | 'deposit';
 
 export interface Payment {
@@ -434,15 +439,29 @@ export interface Task {
   status: TaskStatus;
   workflowStatus?: TaskWorkflowStatus;
   dueAt?: string;
-  leadId?: number;
-  contactId?: number;
-  dealId?: number;
-  retentionCaseId?: number;
+  leadId?: number | null;
+  contactId?: number | null;
+  dealId?: number | null;
+  retentionCaseId?: number | null;
   assignedTo?: { id: number; fullName: string };
-  assignedToId?: number;
+  assignedToId?: number | null;
+  contact?: { id: number; fullName: string; phone?: string; email?: string };
   company?: CompanyRef;
   createdAt: string;
   updatedAt?: string;
+}
+
+export interface TaskWritePayload {
+  title?: string;
+  description?: string;
+  status?: TaskStatus;
+  workflowStatus?: TaskWorkflowStatus;
+  dueAt?: string | null;
+  assignedToId?: number | null;
+  leadId?: number | null;
+  contactId?: number | null;
+  dealId?: number | null;
+  retentionCaseId?: number | null;
 }
 
 // ==================== COMMUNICATION TIMELINE ====================
@@ -450,13 +469,18 @@ export type TimelineEventType = string;
 
 export interface TimelineEvent {
   id: number;
-  leadId?: number;
-  contactId?: number;
-  dealId?: number;
-  retentionCaseId?: number;
+  leadId?: number | null;
+  contactId?: number | null;
+  dealId?: number | null;
+  retentionCaseId?: number | null;
   type: TimelineEventType;
   message: string;
   meta?: Record<string, unknown>;
+  lead?: { id: number; fullName: string } | null;
+  contact?: { id: number; fullName: string; phone?: string; email?: string } | null;
+  deal?: { id: number; contactName?: string | null } | null;
+  creatorUserId?: number | null;
+  creatorUserName?: string | null;
   company?: CompanyRef;
   createdAt: string;
 }
@@ -607,9 +631,9 @@ export type RetentionCaseStatus = 'open' | 'contacted' | 'monitoring' | 'resolve
 
 export interface RetentionCase {
   id: number;
-  leadId?: number;
-  contactId?: number;
-  dealId?: number;
+  leadId?: number | null;
+  contactId?: number | null;
+  dealId?: number | null;
   issueType: IssueType;
   severity: RiskSeverity;
   status: RetentionCaseStatus;
@@ -617,10 +641,24 @@ export interface RetentionCase {
   metrics?: Record<string, unknown>;
   lastActivityAt?: string;
   assignedTo?: { id: number; fullName: string };
-  assignedToId?: number;
+  assignedToId?: number | null;
+  contact?: { id: number; fullName: string; phone?: string; email?: string } | null;
+  deal?: { id: number; contactName?: string | null } | null;
   company?: CompanyRef;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface RetentionCaseWritePayload {
+  leadId?: number | null;
+  contactId?: number | null;
+  dealId?: number | null;
+  issueType?: IssueType;
+  severity?: RiskSeverity;
+  status?: RetentionCaseStatus;
+  summary?: string;
+  metrics?: Record<string, unknown>;
+  assignedToId?: number | null;
 }
 
 // ==================== NOTIFICATIONS (Telegram) ====================
@@ -678,8 +716,8 @@ export interface DashboardStatsQueryParams {
   from?: string;
   to?: string;
   source?: string;
-  managerId?: string;
-  courseId?: string;
+  manager?: string;
+  course?: string;
 }
 
 export type FunnelStageKey =

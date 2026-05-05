@@ -79,14 +79,17 @@ export default function ContactDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    if (!contact || !isLmsBridgeEnabled) {
+    const canReadBridgeData =
+      canViewStudentSummary() || canViewIntegrationHistory() || canViewLmsTechnicalFields();
+
+    if (!contact || !isLmsBridgeEnabled || !canReadBridgeData) {
       setBridgeData(null);
       return;
     }
     bridgeApi.getContactBridgeData(contact.id)
       .then((data) => setBridgeData(data))
       .catch(() => setBridgeData(null));
-  }, [contact, isLmsBridgeEnabled]);
+  }, [contact, isLmsBridgeEnabled, canViewIntegrationHistory, canViewLmsTechnicalFields, canViewStudentSummary]);
 
   const {
     data: studentSummary,

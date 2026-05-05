@@ -10,12 +10,24 @@ export interface TenantConfigResponse {
   companyName: string | null;
   logoUrl: string | null;
   primaryColor: string | null;
+  supportEmail?: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface TenantConfigUpdatePayload extends Partial<TenantConfigResponse> {
   branding?: BrandingConfig;
+}
+
+export interface TenantApprovalRuleResponse {
+  id: number;
+  tenantId: string;
+  ruleKey: string;
+  ruleName: string;
+  entityType: string;
+  condition: Record<string, unknown> | null;
+  requiredRoles: Record<string, unknown> | null;
+  enabled: boolean;
 }
 
 export interface TenantLeadSourceResponse {
@@ -170,8 +182,8 @@ export const tenantConfigApi = {
   },
 
   // Payment Methods
-  getPaymentMethods: async (): Promise<TenantPaymentMethodResponse[]> => {
-    return apiClient.get<TenantPaymentMethodResponse[]>('/tenant-config/payment-methods');
+  getPaymentMethods: async (params?: { includeDisabled?: boolean }): Promise<TenantPaymentMethodResponse[]> => {
+    return apiClient.get<TenantPaymentMethodResponse[]>('/tenant-config/payment-methods', params as Record<string, string | number | undefined>);
   },
 
   createPaymentMethod: async (data: { methodKey: string; methodName: string; methodType: 'card' | 'qr' | 'bank' | 'manual' | 'other'; config?: Record<string, unknown>; enabled?: boolean; displayOrder?: number }): Promise<TenantPaymentMethodResponse> => {
@@ -184,5 +196,22 @@ export const tenantConfigApi = {
 
   deletePaymentMethod: async (methodKey: string): Promise<void> => {
     return apiClient.delete<void>(`/tenant-config/payment-methods/${methodKey}`);
+  },
+
+  // Approval Rules
+  getApprovalRules: async (): Promise<TenantApprovalRuleResponse[]> => {
+    return apiClient.get<TenantApprovalRuleResponse[]>('/tenant-config/approval-rules');
+  },
+
+  createApprovalRule: async (data: { ruleKey: string; ruleName: string; entityType: string; condition?: Record<string, unknown>; requiredRoles?: Record<string, unknown>; enabled?: boolean }): Promise<TenantApprovalRuleResponse> => {
+    return apiClient.post<TenantApprovalRuleResponse>('/tenant-config/approval-rules', data);
+  },
+
+  updateApprovalRule: async (ruleKey: string, updates: Partial<TenantApprovalRuleResponse>): Promise<TenantApprovalRuleResponse> => {
+    return apiClient.put<TenantApprovalRuleResponse>(`/tenant-config/approval-rules/${ruleKey}`, updates);
+  },
+
+  deleteApprovalRule: async (ruleKey: string): Promise<void> => {
+    return apiClient.delete<void>(`/tenant-config/approval-rules/${ruleKey}`);
   },
 };

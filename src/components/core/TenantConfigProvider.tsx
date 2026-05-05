@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode, useState, useEffect, useMemo } from 'react';
+import { createContext, useContext, ReactNode, useState, useEffect, useMemo, useCallback } from 'react';
 import type { TenantConfig } from '@/types';
 import { tenantConfigApi, type TenantConfigUpdatePayload } from '@/api/tenant-config';
 import { setFormattingConfig } from '@/lib/formatting';
@@ -6,7 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 
 interface TenantConfigContextValue {
   tenantConfig: TenantConfig;
-  updateTenantConfig: (config: Partial<TenantConfig>) => Promise<void>;
+  updateTenantConfig: (config: TenantConfigUpdatePayload) => Promise<void>;
+  refreshTenantConfig: () => Promise<void>;
   isLoading: boolean;
 }
 
@@ -28,6 +29,7 @@ const defaultTenantConfig: TenantConfig = {
 const TenantConfigContext = createContext<TenantConfigContextValue>({
   tenantConfig: defaultTenantConfig,
   updateTenantConfig: async () => {},
+  refreshTenantConfig: async () => {},
   isLoading: false,
 });
 
@@ -58,8 +60,7 @@ export function TenantConfigProvider({
 
   // Load tenant config from API when authenticated
   const { isAuthenticated, tenantId } = useAuth();
-  useEffect(() => {
-    const loadTenantConfig = async () => {
+  const loadTenantConfig = useCallback(async () => {
       setIsLoading(true);
       try {
         const [config, leadSources, roles, pipelineStages, notificationChannels, leadStatuses, dealStatuses, paymentMethods] = await Promise.all([
@@ -80,6 +81,7 @@ export function TenantConfigProvider({
           companyName: config.companyName || undefined,
           logoUrl: config.logoUrl || undefined,
           primaryColor: config.primaryColor || undefined,
+          supportEmail: config.supportEmail || undefined,
           branding: {
             companyName: config.companyName || undefined,
             logoUrl: config.logoUrl || undefined,
@@ -146,8 +148,9 @@ export function TenantConfigProvider({
       } finally {
         setIsLoading(false);
       }
-    };
+    }, []);
 
+  useEffect(() => {
     if (isAuthenticated) {
       loadTenantConfig();
     } else {
@@ -159,9 +162,9 @@ export function TenantConfigProvider({
       );
       setIsLoading(false);
     }
-  }, [initialTenantConfig, isAuthenticated, tenantId]);
+  }, [initialTenantConfig, isAuthenticated, tenantId, loadTenantConfig]);
 
-  const updateTenantConfig = async (config: Partial<TenantConfig>) => {
+  const updateTenantConfig = async (config: TenantConfigUpdatePayload) => {
     const previousState = tenantConfig;
     setTenantConfig((prev) => ({ ...prev, ...config }));
     try {
@@ -184,6 +187,7 @@ export function TenantConfigProvider({
   const contextValue: TenantConfigContextValue = {
     tenantConfig,
     updateTenantConfig,
+    refreshTenantConfig: loadTenantConfig,
     isLoading,
   };
 
@@ -198,6 +202,7 @@ export function TenantConfigProvider({
  * Hook to access tenant configuration
  * @returns Object with tenantConfig, updateTenantConfig, and isLoading
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useTenantConfig() {
   const context = useContext(TenantConfigContext);
   return context;

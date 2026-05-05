@@ -10,8 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ky } from '@/lib/i18n';
 import { Phone, Mail, MessageSquare, FileText, Calendar, Monitor, Search, Plus, Loader2 } from 'lucide-react';
-import type { TimelineEvent } from '@/types';
-import { timelineApi } from '@/api/modules';
+import type { Contact, Deal, Lead, PaginatedResponse, TimelineEvent } from '@/types';
+import { contactApi, dealsApi, leadsApi, timelineApi } from '@/api/modules';
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
 import { toDateTimeLocalValue, toIsoFromDateTimeLocal } from '@/lib/datetime';
@@ -31,6 +31,7 @@ const iconMap: Record<string, React.ElementType> = {
 };
 
 const emptyForm = { type: 'note', message: '', scheduledAt: '', leadId: '', contactId: '', dealId: '' };
+const pageSize = 20;
 
 export default function TimelinePage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -39,13 +40,19 @@ export default function TimelinePage() {
   const isWhatsAppEnabled = isFeatureEnabled('whatsapp_integration_enabled');
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState('all');
   const [showCreate, setShowCreate] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [optionsLoading, setOptionsLoading] = useState(false);
+  const [totalItems, setTotalItems] = useState(0);
   const isSchedulableType = form.type === 'call' || form.type === 'meeting';
   const shouldOpenCreate = searchParams.get('create') === '1';
+  const search = searchParams.get('q') || '';
+  const typeFilter = searchParams.get('typeFilter') || 'all';
+  const currentPage = Math.max(1, Number(searchParams.get('page') || '1'));
   const prefillType = searchParams.get('type') || '';
   const prefillLeadId = searchParams.get('leadId') || '';
   const prefillContactId = searchParams.get('contactId') || '';
@@ -78,37 +85,99 @@ export default function TimelinePage() {
     const load = async () => {
       if (typeFilter !== 'whatsapp_release3') {
         const requestedType = typeFilter === 'all' ? undefined : typeFilter;
-        const res = await timelineApi.list({ search, type: requestedType });
-        return res.items;
+        const res = await timelineApi.list({
+          search: search || undefined,
+          type: requestedType,
+          page: currentPage,
+          limit: pageSize,
+        });
+        return {
+          items: res.items,
+          total: res.total,
+        };
       }
 
-      const pageSize = 100;
-      let page = 1;
+      let sourcePage = 1;
       let totalPages = 1;
       const collected: TimelineEvent[] = [];
 
       do {
-        const res = await timelineApi.list({ search, page, limit: pageSize });
+        const res = await timelineApi.list({ search: search || undefined, page: sourcePage, limit: 100 });
         collected.push(...res.items.filter(isWhatsAppTimelineEvent));
         totalPages = res.totalPages;
-        page += 1;
-      } while (page <= totalPages);
+        sourcePage += 1;
+      } while (sourcePage <= totalPages);
 
-      return collected;
+      const total = collected.length;
+      const start = (currentPage - 1) * pageSize;
+      return {
+        items: collected.slice(start, start + pageSize),
+        total,
+      };
     };
 
     load()
-      .then((items) => setEvents(items))
-      .catch(() => setEvents([]))
+      .then((result) => {
+        setEvents(result.items);
+        setTotalItems(result.total);
+      })
+      .catch(() => {
+        setEvents([]);
+        setTotalItems(0);
+      })
       .finally(() => setIsLoading(false));
-  }, [search, typeFilter]);
+  }, [currentPage, search, typeFilter]);
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
+
+  const loadAllPages = useCallback(async <T,>(
+    loader: (params: { page: number; limit: number }) => Promise<PaginatedResponse<T>>,
+  ) => {
+    const firstPage = await loader({ page: 1, limit: 100 });
+    const items = [...firstPage.items];
+
+    for (let page = 2; page <= firstPage.totalPages; page += 1) {
+      const nextPage = await loader({ page, limit: 100 });
+      items.push(...nextPage.items);
+    }
+
+    return items;
+  }, []);
 
   useEffect(() => {
     if (!shouldOpenCreate) return;
     setShowCreate(true);
   }, [shouldOpenCreate]);
+
+  useEffect(() => {
+    if (!showCreate) return;
+    let cancelled = false;
+    setOptionsLoading(true);
+    Promise.all([
+      loadAllPages((params) => leadsApi.list(params)),
+      loadAllPages((params) => contactApi.list(params)),
+      loadAllPages((params) => dealsApi.list(params)),
+    ])
+      .then(([allLeads, allContacts, allDeals]) => {
+        if (cancelled) return;
+        setLeads(allLeads);
+        setContacts(allContacts);
+        setDeals(allDeals);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLeads([]);
+        setContacts([]);
+        setDeals([]);
+      })
+      .finally(() => {
+        if (!cancelled) setOptionsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadAllPages, showCreate]);
 
   useEffect(() => {
     if (!showCreate) return;
@@ -122,6 +191,45 @@ export default function TimelinePage() {
       scheduledAt: prefillScheduledAt || prev.scheduledAt,
     }));
   }, [showCreate, prefillType, prefillLeadId, prefillContactId, prefillDealId, prefillMessage, prefillScheduledAt]);
+
+  useEffect(() => {
+    if (!form.dealId) return;
+    const selectedDeal = deals.find((deal) => String(deal.id) === form.dealId);
+    if (!selectedDeal?.contactId) return;
+
+    setForm((prev) => (
+      prev.contactId === String(selectedDeal.contactId)
+        ? prev
+        : { ...prev, contactId: String(selectedDeal.contactId) }
+    ));
+  }, [deals, form.dealId]);
+
+  useEffect(() => {
+    if (!form.leadId) return;
+    const selectedLead = leads.find((lead) => String(lead.id) === form.leadId);
+    if (!selectedLead?.contactId) return;
+
+    setForm((prev) => (
+      prev.contactId === String(selectedLead.contactId)
+        ? prev
+        : { ...prev, contactId: String(selectedLead.contactId) }
+    ));
+  }, [form.leadId, leads]);
+
+  const setQueryParam = (key: string, value?: string) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      if (value && value.trim()) {
+        next.set(key, value);
+      } else {
+        next.delete(key);
+      }
+      if (key !== 'page') {
+        next.set('page', '1');
+      }
+      return next;
+    }, { replace: true });
+  };
 
   const handleCreate = async () => {
     const trimmedMessage = form.message.trim();
@@ -176,9 +284,9 @@ export default function TimelinePage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder={ky.common.search} aria-label="Байланыш тарыхын издөө" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+          <Input placeholder={ky.common.search} aria-label="Байланыш тарыхын издөө" value={search} onChange={(e) => setQueryParam('q', e.target.value)} className="pl-9" />
         </div>
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
+        <Select value={typeFilter} onValueChange={(value) => setQueryParam('typeFilter', value === 'all' ? '' : value)}>
           <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{ky.common.all}</SelectItem>
@@ -191,54 +299,76 @@ export default function TimelinePage() {
       {isLoading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : events.length === 0 ? <PageEmpty /> : (
-        <div className="relative ml-4 border-l-2 border-border pl-6 space-y-4">
-          {events.map((event) => {
-            const Icon = iconMap[event.type] || FileText;
-            return (
-              <div key={event.id} className="relative">
-                <div className="absolute -left-[calc(1.5rem+9px)] top-1 flex h-5 w-5 items-center justify-center rounded-full bg-card border-2 border-primary">
-                  <Icon className="h-2.5 w-2.5 text-primary" />
-                </div>
-                <Card className="shadow-soft border-border/50">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        {isWhatsAppTimelineEvent(event) ? (
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge variant="secondary">WhatsApp</Badge>
-                            <Badge variant={getWhatsAppEventDirection(event) === 'inbound' ? 'default' : getWhatsAppEventDirection(event) === 'outbound' ? 'outline' : 'secondary'}>
-                              {getWhatsAppEventDirection(event) === 'inbound'
-                                ? 'Кирген'
-                                : getWhatsAppEventDirection(event) === 'outbound'
-                                  ? 'Чыккан'
-                                  : 'Статус'}
-                            </Badge>
-                            <Badge variant="outline">{getWhatsAppEventLabel(event)}</Badge>
-                            <Badge variant="outline">{formatWhatsAppMessageType(event.meta?.messageType)}</Badge>
-                          </div>
-                        ) : null}
-                        <p className="text-sm font-medium">{event.message}</p>
-                        {typeof event.meta?.scheduledAt === 'string' && event.meta.scheduledAt && (
-                          <p className="text-xs text-primary">
-                            Пландалган убакыт: {new Date(event.meta.scheduledAt).toLocaleString('ky-KG', { dateStyle: 'short', timeStyle: 'short' })}
-                          </p>
-                        )}
+        <div className="space-y-4">
+          <div className="relative ml-4 border-l-2 border-border pl-6 space-y-4">
+            {events.map((event) => {
+              const Icon = iconMap[event.type] || FileText;
+              return (
+                <div key={event.id} className="relative">
+                  <div className="absolute -left-[calc(1.5rem+9px)] top-1 flex h-5 w-5 items-center justify-center rounded-full bg-card border-2 border-primary">
+                    <Icon className="h-2.5 w-2.5 text-primary" />
+                  </div>
+                  <Card className="shadow-soft border-border/50">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          {isWhatsAppTimelineEvent(event) ? (
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="secondary">WhatsApp</Badge>
+                              <Badge variant={getWhatsAppEventDirection(event) === 'inbound' ? 'default' : getWhatsAppEventDirection(event) === 'outbound' ? 'outline' : 'secondary'}>
+                                {getWhatsAppEventDirection(event) === 'inbound'
+                                  ? 'Кирген'
+                                  : getWhatsAppEventDirection(event) === 'outbound'
+                                    ? 'Чыккан'
+                                    : 'Статус'}
+                              </Badge>
+                              <Badge variant="outline">{getWhatsAppEventLabel(event)}</Badge>
+                              <Badge variant="outline">{formatWhatsAppMessageType(event.meta?.messageType)}</Badge>
+                            </div>
+                          ) : null}
+                          <p className="text-sm font-medium">{event.message}</p>
+                          {typeof event.meta?.scheduledAt === 'string' && event.meta.scheduledAt && (
+                            <p className="text-xs text-primary">
+                              Пландалган убакыт: {new Date(event.meta.scheduledAt).toLocaleString('ky-KG', { dateStyle: 'short', timeStyle: 'short' })}
+                            </p>
+                          )}
+                          {event.creatorUserName ? (
+                            <p className="text-xs text-muted-foreground">
+                              Автор: {event.creatorUserName}
+                            </p>
+                          ) : null}
+                        </div>
+                        <span className="shrink-0 text-xs text-muted-foreground ml-4">
+                          {new Date(event.createdAt).toLocaleString('ky-KG', { dateStyle: 'short', timeStyle: 'short' })}
+                        </span>
                       </div>
-                      <span className="shrink-0 text-xs text-muted-foreground ml-4">
-                        {new Date(event.createdAt).toLocaleString('ky-KG', { dateStyle: 'short', timeStyle: 'short' })}
-                      </span>
-                    </div>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {isWhatsAppTimelineEvent(event) ? getWhatsAppEventLabel(event) : ky.timelineType[event.type]}
-                      {event.leadId ? ` • Лид #${event.leadId}` : ''}
-                      {event.contactId ? ` • Байланыш #${event.contactId}` : ''}
-                      {event.dealId ? ` • Келишим #${event.dealId}` : ''}
-                    </p>
-                  </CardContent>
-                </Card>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {isWhatsAppTimelineEvent(event) ? getWhatsAppEventLabel(event) : ky.timelineType[event.type]}
+                        {event.lead ? ` • Лид: ${event.lead.fullName}` : event.leadId ? ` • Лид #${event.leadId}` : ''}
+                        {event.contact ? ` • Байланыш: ${event.contact.fullName}` : event.contactId ? ` • Байланыш #${event.contactId}` : ''}
+                        {event.deal ? ` • Келишим: #${event.deal.id}${event.deal.contactName ? ` (${event.deal.contactName})` : ''}` : event.dealId ? ` • Келишим #${event.dealId}` : ''}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+              );
+            })}
+          </div>
+          {totalItems > pageSize ? (
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, totalItems)} / {totalItems}
               </div>
-            );
-          })}
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setQueryParam('page', String(Math.max(1, currentPage - 1)))} disabled={currentPage === 1}>
+                  Артка
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setQueryParam('page', String(currentPage + 1))} disabled={currentPage * pageSize >= totalItems}>
+                  Алга
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -283,16 +413,64 @@ export default function TimelinePage() {
             )}
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-2">
-                <Label>Лид ID</Label>
-                <Input type="number" value={form.leadId} onChange={(e) => setForm({ ...form, leadId: e.target.value })} placeholder="Лид ID" />
+                <Label>Лид</Label>
+                <Select
+                  value={form.leadId || '__none__'}
+                  onValueChange={(value) => setForm((prev) => ({ ...prev, leadId: value === '__none__' ? '' : value }))}
+                  disabled={optionsLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={optionsLoading ? 'Жүктөлүүдө...' : 'Лидди тандаңыз'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Тандалган эмес</SelectItem>
+                    {leads.map((lead) => (
+                      <SelectItem key={lead.id} value={String(lead.id)}>
+                        {lead.fullName} {lead.phone ? `• ${lead.phone}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
-                <Label>Байланыш ID</Label>
-                <Input type="number" value={form.contactId} onChange={(e) => setForm({ ...form, contactId: e.target.value })} placeholder="Байланыш ID" />
+                <Label>Байланыш</Label>
+                <Select
+                  value={form.contactId || '__none__'}
+                  onValueChange={(value) => setForm((prev) => ({ ...prev, contactId: value === '__none__' ? '' : value }))}
+                  disabled={optionsLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={optionsLoading ? 'Жүктөлүүдө...' : 'Байланышты тандаңыз'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Тандалган эмес</SelectItem>
+                    {contacts.map((contact) => (
+                      <SelectItem key={contact.id} value={String(contact.id)}>
+                        {contact.fullName} {contact.phone ? `• ${contact.phone}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
-                <Label>Келишим ID</Label>
-                <Input type="number" value={form.dealId} onChange={(e) => setForm({ ...form, dealId: e.target.value })} placeholder="Келишим ID" />
+                <Label>Келишим</Label>
+                <Select
+                  value={form.dealId || '__none__'}
+                  onValueChange={(value) => setForm((prev) => ({ ...prev, dealId: value === '__none__' ? '' : value }))}
+                  disabled={optionsLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={optionsLoading ? 'Жүктөлүүдө...' : 'Келишимди тандаңыз'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Тандалган эмес</SelectItem>
+                    {deals.map((deal) => (
+                      <SelectItem key={deal.id} value={String(deal.id)}>
+                        #{deal.id} {deal.contact?.fullName ? `• ${deal.contact.fullName}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/PageShell';
 import { DataTable, type Column } from '@/components/DataTable';
@@ -25,10 +25,17 @@ export default function ContactsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const { canViewLmsTechnicalFields } = useRolePermissions();
+  const getSearchParam = (key: string, fallback = '') => searchParams.get(key) ?? fallback;
+  const getPageParam = () => {
+    const value = Number(searchParams.get('page'));
+    return Number.isFinite(value) && value > 0 ? Math.floor(value) : 1;
+  };
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(() => getSearchParam('q'));
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [page, setPage] = useState(() => getPageParam());
+  const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -52,17 +59,19 @@ export default function ContactsPage() {
     setShowCreate(false);
   };
 
-  const fetchContacts = () => {
+  const fetchContacts = useCallback(() => {
     setIsLoading(true);
     setLoadError(null);
-    contactApi.list({ search })
+    contactApi.list({ search, page, limit: 20 })
       .then((res) => {
         setContacts(res.items);
         setTotalItems(res.total || 0);
+        setTotalPages(Math.max(res.totalPages || 1, 1));
       })
       .catch(() => {
         setContacts([]);
         setTotalItems(0);
+        setTotalPages(1);
         setLoadError('Интернет байланышын текшерип, кайра аракет кылыңыз');
         toast({
           title: 'Тизмени жүктөө мүмкүн болгон жок',
@@ -71,9 +80,36 @@ export default function ContactsPage() {
         });
       })
       .finally(() => setIsLoading(false));
-  };
+  }, [page, search, toast]);
 
-  useEffect(() => { fetchContacts(); }, [search]);
+  useEffect(() => { fetchContacts(); }, [fetchContacts]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  useEffect(() => {
+    const nextSearch = searchParams.get('q') ?? '';
+    const nextPage = getPageParam();
+
+    if (nextSearch !== search) setSearch(nextSearch);
+    if (nextPage !== page) setPage(nextPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  useEffect(() => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+
+      if (search) next.set('q', search);
+      else next.delete('q');
+
+      if (page > 1) next.set('page', String(page));
+      else next.delete('page');
+
+      return next.toString() === current.toString() ? current : next;
+    }, { replace: true });
+  }, [search, page, setSearchParams]);
 
   useEffect(() => {
     if (shouldOpenCreate) {
@@ -202,7 +238,7 @@ export default function ContactsPage() {
           setShowCreate(true);
         }}><Plus className="mr-2 h-4 w-4" />{ky.contacts.newContact}</Button>}
       />
-      <DataTable columns={columns} data={contacts} isLoading={isLoading} errorMessage={loadError || undefined} onRetry={fetchContacts} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Байланыш издөө..." activeFilters={activeFilters} totalItems={totalItems} totalItemsLabel="байланыш" stickyHeader onRowClick={(c) => navigate(`/contacts/${c.id}`)} renderMobileCard={renderMobileCard} />
+      <DataTable columns={columns} data={contacts} isLoading={isLoading} errorMessage={loadError || undefined} onRetry={fetchContacts} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Байланыш издөө..." activeFilters={activeFilters} totalItems={totalItems} totalItemsLabel="байланыш" page={page} totalPages={totalPages} onPageChange={setPage} stickyHeader onRowClick={(c) => navigate(`/contacts/${c.id}`)} renderMobileCard={renderMobileCard} />
 
       <Dialog open={showCreate} onOpenChange={(open) => {
         setShowCreate(open);

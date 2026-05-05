@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { PageHeader } from '@/components/PageShell';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRolePermissions } from '@/hooks/use-role-permissions';
+import { useFeatureFlags } from '@/components/core/FeatureFlagProvider';
 import { useNavigate } from 'react-router-dom';
 import type { InAppNotification } from '@/types';
 import { Badge } from '@/components/ui/badge';
@@ -20,7 +21,9 @@ export default function NotificationsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { canAccessAdminPanel } = useRolePermissions();
+  const { isFeatureEnabled } = useFeatureFlags();
   const isSystemAdmin = canAccessAdminPanel();
+  const isTelegramEnabled = isFeatureEnabled('telegram_notifications_enabled');
   const [activeTab, setActiveTab] = useState<'all' | 'approvals'>('all');
   const [isLinked, setIsLinked] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
@@ -28,35 +31,49 @@ export default function NotificationsPage() {
   const [isLoadingLink, setIsLoadingLink] = useState(false);
   const [isSendingTest, setIsSendingTest] = useState(false);
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalNotifications, setTotalNotifications] = useState(0);
+  const [approvalTotal, setApprovalTotal] = useState(0);
+  const pageSize = 20;
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(true);
   const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
 
-  // Filter notifications based on active tab
-  const filteredNotifications = useMemo(() => {
-    if (activeTab === 'approvals') {
-      return notifications.filter(
-        (n) => n.type === 'payment_pending_approval' || n.type === 'enrollment_pending_approval'
-      );
-    }
-    return notifications;
-  }, [notifications, activeTab]);
-
-  const approvalCount = useMemo(
-    () => notifications.filter((n) => n.type === 'payment_pending_approval' || n.type === 'enrollment_pending_approval').length,
-    [notifications]
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil((activeTab === 'approvals' ? approvalTotal : totalNotifications) / pageSize)),
+    [activeTab, approvalTotal, totalNotifications]
   );
 
-  const fetchInAppNotifications = () => {
+  const fetchInAppNotifications = useCallback(() => {
     setIsLoadingNotifications(true);
-    notificationsApi.listInApp({ page: 1, limit: 30 })
-      .then((res) => setNotifications(res.items))
+    const category = activeTab === 'approvals' ? 'approvals' : undefined;
+    Promise.all([
+      notificationsApi.listInApp({ page, limit: pageSize, category }),
+      isSystemAdmin
+        ? notificationsApi.listInApp({ page: 1, limit: 1, category: 'approvals' })
+        : Promise.resolve(null),
+    ])
+      .then(([res, approvalRes]) => {
+        setNotifications(res.items);
+        if (activeTab === 'approvals') {
+          setApprovalTotal(res.total);
+        } else {
+          setTotalNotifications(res.total);
+        }
+        if (approvalRes) {
+          setApprovalTotal(approvalRes.total);
+        }
+      })
       .catch(() => setNotifications([]))
       .finally(() => setIsLoadingNotifications(false));
-  };
+  }, [activeTab, page, isSystemAdmin]);
 
   useEffect(() => {
     fetchInAppNotifications();
-  }, []);
+  }, [fetchInAppNotifications]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab]);
 
   useEffect(() => {
     if (!isSystemAdmin) {
@@ -155,7 +172,7 @@ export default function NotificationsPage() {
               <Bell className="h-5 w-5 text-primary" />
               <h3 className="text-base font-semibold">CRM билдирүүлөрү</h3>
             </div>
-            <Button variant="outline" size="sm" onClick={handleMarkAllRead} disabled={isMarkingAllRead || notifications.every((item) => item.isRead)}>
+            <Button variant="outline" size="sm" onClick={handleMarkAllRead} disabled={isMarkingAllRead || notifications.length === 0 || notifications.every((item) => item.isRead)}>
               {isMarkingAllRead && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Баарын окулду кылуу
             </Button>
@@ -164,9 +181,9 @@ export default function NotificationsPage() {
           {isSystemAdmin && (
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'all' | 'approvals')}>
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="all">Бардыгы ({notifications.length})</TabsTrigger>
+                <TabsTrigger value="all">Бардыгы ({totalNotifications})</TabsTrigger>
                 <TabsTrigger value="approvals">
-                  Бекитүү күтүү ({approvalCount})
+                  Бекитүү күтүү ({approvalTotal})
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -174,13 +191,13 @@ export default function NotificationsPage() {
 
           {isLoadingNotifications ? (
             <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-          ) : filteredNotifications.length === 0 ? (
+          ) : notifications.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               {activeTab === 'approvals' ? 'Бекитүү күтүүчү билдирүүлөр жок.' : 'CRM ичинде билдирүү жок.'}
             </p>
           ) : (
             <div className="space-y-3">
-              {filteredNotifications.map((notification) => {
+              {notifications.map((notification) => {
                 const isApproval = notification.type === 'payment_pending_approval' || notification.type === 'enrollment_pending_approval';
                 return (
                   <button
@@ -212,12 +229,25 @@ export default function NotificationsPage() {
                   </button>
                 );
               })}
+              <div className="flex items-center justify-between pt-2">
+                <p className="text-xs text-muted-foreground">
+                  Бет {page} / {totalPages}
+                </p>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setPage((prev) => Math.max(1, prev - 1))} disabled={page <= 1}>
+                    Артка
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))} disabled={page >= totalPages}>
+                    Алга
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {isSystemAdmin && (
+      {isSystemAdmin && isTelegramEnabled && (
         <Card className="shadow-card border-border/50">
           <CardContent className="p-6 space-y-6">
             <div className="flex items-center gap-3">

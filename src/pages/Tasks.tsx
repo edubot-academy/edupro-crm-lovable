@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/PageShell';
 import { DataTable, type Column } from '@/components/DataTable';
@@ -13,24 +13,25 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Card, CardContent } from '@/components/ui/card';
 import { ky } from '@/lib/i18n';
 import { formatDate } from '@/lib/formatting';
-import type { Contact, Deal, Task, TaskWorkflowStatus } from '@/types';
+import type { AssignableUser, Contact, Deal, PaginatedResponse, Task, TaskWorkflowStatus } from '@/types';
 import { getTaskWorkflowStatus } from '@/lib/crm-status';
-import { contactApi, dealsApi, tasksApi } from '@/api/modules';
+import { contactApi, dealsApi, tasksApi, usersApi } from '@/api/modules';
 import { Plus, CheckCircle, Trash2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
+import { useRolePermissions } from '@/hooks/use-role-permissions';
 
-const emptyForm = { title: '', description: '', dueAt: '', contactId: '', dealId: '' };
+const pageSize = 20;
+const emptyForm = { title: '', description: '', dueAt: '', contactId: '', dealId: '', assignedToId: '' };
 
 export default function TasksPage() {
   const { toast } = useToast();
+  const { hasRole } = useRolePermissions();
   const [searchParams, setSearchParams] = useSearchParams();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [search, setSearch] = useState('');
   const [loadError, setLoadError] = useState<string | null>(null);
   const [totalItems, setTotalItems] = useState(0);
-  const [statusFilter, setStatusFilter] = useState('all');
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
@@ -39,8 +40,28 @@ export default function TasksPage() {
   const [form, setForm] = useState(emptyForm);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
+  const [assignableUsers, setAssignableUsers] = useState<AssignableUser[]>([]);
   const [optionsLoading, setOptionsLoading] = useState(false);
   const shouldOpenCreate = searchParams.get('create') === '1';
+  const search = searchParams.get('q') || '';
+  const statusFilter = searchParams.get('status') || 'all';
+  const currentPage = Math.max(1, Number(searchParams.get('page') || '1'));
+  const canDeleteTasks = hasRole('manager');
+
+  const setQueryParam = (key: string, value?: string) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      if (value && value.trim()) {
+        next.set(key, value);
+      } else {
+        next.delete(key);
+      }
+      if (key !== 'page') {
+        next.set('page', '1');
+      }
+      return next;
+    }, { replace: true });
+  };
 
   const clearCreateParam = () => {
     setSearchParams((current) => {
@@ -56,10 +77,15 @@ export default function TasksPage() {
     setShowCreate(false);
   };
 
-  const fetchTasks = () => {
+  const fetchTasks = useCallback(() => {
     setIsLoading(true);
     setLoadError(null);
-    tasksApi.list({ search, workflowStatus: statusFilter === 'all' ? undefined : statusFilter })
+    tasksApi.list({
+      page: currentPage,
+      limit: pageSize,
+      search: search || undefined,
+      workflowStatus: statusFilter === 'all' ? undefined : statusFilter,
+    })
       .then((res) => {
         setTasks(res.items);
         setTotalItems(res.total || 0);
@@ -75,26 +101,52 @@ export default function TasksPage() {
         });
       })
       .finally(() => setIsLoading(false));
+  }, [currentPage, search, statusFilter, toast]);
+
+  const loadAllPages = async <T,>(
+    loader: (params: { page: number; limit: number }) => Promise<PaginatedResponse<T>>,
+  ) => {
+    const firstPage = await loader({ page: 1, limit: 100 });
+    const items = [...firstPage.items];
+
+    for (let page = 2; page <= firstPage.totalPages; page += 1) {
+      const nextPage = await loader({ page, limit: 100 });
+      items.push(...nextPage.items);
+    }
+
+    return items;
   };
 
-  useEffect(() => { fetchTasks(); }, [search, statusFilter]);
+  useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
   useEffect(() => {
     if (!showCreate) return;
+    let cancelled = false;
     setOptionsLoading(true);
     Promise.all([
-      contactApi.list({ page: 1, limit: 100 }),
-      dealsApi.list({ page: 1, limit: 100 }),
+      loadAllPages((params) => contactApi.list(params)),
+      loadAllPages((params) => dealsApi.list(params)),
+      usersApi.assignables(),
     ])
-      .then(([contactsRes, dealsRes]) => {
-        setContacts(contactsRes.items);
-        setDeals(dealsRes.items);
+      .then(([allContacts, allDeals, users]) => {
+        if (cancelled) return;
+        setContacts(allContacts);
+        setDeals(allDeals);
+        setAssignableUsers(users);
       })
       .catch(() => {
+        if (cancelled) return;
         setContacts([]);
         setDeals([]);
+        setAssignableUsers([]);
       })
-      .finally(() => setOptionsLoading(false));
+      .finally(() => {
+        if (!cancelled) setOptionsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [showCreate]);
 
   useEffect(() => {
@@ -123,6 +175,7 @@ export default function TasksPage() {
         title: form.title,
         description: form.description || undefined,
         dueAt: form.dueAt || undefined,
+        assignedToId: form.assignedToId ? Number(form.assignedToId) : undefined,
         contactId: form.contactId ? Number(form.contactId) : undefined,
         dealId: form.dealId ? Number(form.dealId) : undefined,
       });
@@ -169,7 +222,6 @@ export default function TasksPage() {
     }
   };
 
-  const filtered = tasks.filter((t) => statusFilter === 'all' || getTaskWorkflowStatus(t) === statusFilter);
   const mobileBoardColumns = Object.entries(ky.taskWorkflowStatus)
     .filter(([value]) => statusFilter === 'all' || value === statusFilter)
     .map(([value, label]) => ({ id: value, title: label }));
@@ -178,14 +230,14 @@ export default function TasksPage() {
       ? [{
         key: 'search',
         label: `Издөө: ${search.trim()}`,
-        onRemove: () => setSearch(''),
+        onRemove: () => setQueryParam('q'),
       }]
       : []),
     ...(statusFilter !== 'all'
       ? [{
         key: 'status',
         label: `Статус: ${ky.taskWorkflowStatus[statusFilter as TaskWorkflowStatus]}`,
-        onRemove: () => setStatusFilter('all'),
+        onRemove: () => setQueryParam('status'),
       }]
       : []),
   ];
@@ -193,22 +245,13 @@ export default function TasksPage() {
     <div className="flex flex-wrap items-end gap-2">
       <div className="space-y-1">
         <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Статус</p>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <Select value={statusFilter} onValueChange={(value) => setQueryParam('status', value === 'all' ? '' : value)}>
           <SelectTrigger className="h-9 w-[180px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Бардык статус</SelectItem>
             {Object.entries(ky.taskWorkflowStatus).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
           </SelectContent>
         </Select>
-      </div>
-      <div className="hidden items-center gap-2 text-xs text-muted-foreground xl:flex">
-        <span className="rounded-full bg-secondary px-2.5 py-1">{totalItems} тапшырма</span>
-        <span className="rounded-full bg-secondary px-2.5 py-1">
-          {tasks.filter((task) => getTaskWorkflowStatus(task) === 'pending').length} күтүлүүдө
-        </span>
-        <span className="rounded-full bg-secondary px-2.5 py-1">
-          {tasks.filter((task) => getTaskWorkflowStatus(task) === 'overdue').length} мөөнөтү өттү
-        </span>
       </div>
     </div>
   );
@@ -223,7 +266,17 @@ export default function TasksPage() {
       )
     },
     { key: 'assignedTo', header: ky.tasks.assignedUser, render: (t) => t.assignedTo?.fullName || '—' },
-    { key: 'relatedTo', header: ky.tasks.relatedTo, render: (t) => `Байланыш: ${t.contactId || '—'} / Келишим: ${t.dealId || '—'}`, className: 'hidden lg:table-cell' },
+    {
+      key: 'relatedTo',
+      header: ky.tasks.relatedTo,
+      render: (t) => (
+        <div className="space-y-1">
+          <div>{t.contact ? t.contact.fullName : `Байланыш: ${t.contactId || '—'}`}</div>
+          <div className="text-xs text-muted-foreground">Келишим: {t.dealId ? `#${t.dealId}` : '—'}</div>
+        </div>
+      ),
+      className: 'hidden lg:table-cell'
+    },
     { key: 'dueAt', header: ky.tasks.dueAt, render: (t) => t.dueAt ? formatDate(t.dueAt) : '—' },
     {
       key: 'status', header: ky.common.status, render: (t) => (
@@ -239,9 +292,11 @@ export default function TasksPage() {
     },
     {
       key: 'actions', header: '', render: (t) => (
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(t); }}>
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        canDeleteTasks ? (
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(t); }}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        ) : null
       ),
     },
   ];
@@ -281,9 +336,11 @@ export default function TasksPage() {
               Аткарылды деп белгилөө
             </Button>
           ) : <span />}
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(task); }}>
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          {canDeleteTasks ? (
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(task); }}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          ) : <span />}
         </div>
       </CardContent>
     </Card>
@@ -297,13 +354,20 @@ export default function TasksPage() {
       }}><Plus className="mr-2 h-4 w-4" />{ky.tasks.newTask}</Button>} />
       <DataTable
         columns={columns}
-        data={filtered}
+        data={tasks}
         isLoading={isLoading}
         errorMessage={loadError || undefined}
         onRetry={fetchTasks}
         searchValue={search}
-        onSearchChange={setSearch}
+        onSearchChange={(value) => setQueryParam('q', value)}
         searchPlaceholder="Тапшырманы издөө..."
+        page={currentPage}
+        totalPages={Math.max(1, Math.ceil(totalItems / pageSize))}
+        onPageChange={(page) => setSearchParams((current) => {
+          const next = new URLSearchParams(current);
+          next.set('page', String(page));
+          return next;
+        }, { replace: true })}
         headerActions={headerActions}
         activeFilters={activeFilters}
         totalItems={totalItems}
@@ -337,6 +401,26 @@ export default function TasksPage() {
             <div className="space-y-2">
               <Label>{ky.tasks.dueAt}</Label>
               <Input type="datetime-local" value={form.dueAt} onChange={(e) => setForm({ ...form, dueAt: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>{ky.tasks.assignedUser}</Label>
+              <Select
+                value={form.assignedToId || '__none__'}
+                onValueChange={(value) => setForm((prev) => ({ ...prev, assignedToId: value === '__none__' ? '' : value }))}
+                disabled={optionsLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={optionsLoading ? 'Жүктөлүүдө...' : 'Аткаруучуну тандаңыз'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Тандалган эмес</SelectItem>
+                  {assignableUsers.map((user) => (
+                    <SelectItem key={user.id} value={String(user.id)}>
+                      {user.fullName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">

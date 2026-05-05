@@ -14,7 +14,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
 import { useApproveEnrollment, useEnrollmentHistory, usePendingEnrollments } from '@/hooks/use-enrollments';
-import { useAuth } from '@/contexts/AuthContext';
 import { useRolePermissions } from '@/hooks/use-role-permissions';
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
@@ -58,9 +57,9 @@ interface EnrollmentHistoryItem {
 export default function EnrollmentsPage() {
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
-  const { user } = useAuth();
   const { canAccessAdminPanel } = useRolePermissions();
   const isApprovalAdmin = canAccessAdminPanel();
+  const pendingPageSize = 20;
   const [activeTab, setActiveTab] = useState('pending');
   const [selectedEnrollment, setSelectedEnrollment] = useState<PendingEnrollment | null>(null);
   const [approvalNotes, setApprovalNotes] = useState('');
@@ -68,6 +67,7 @@ export default function EnrollmentsPage() {
   const [historyDetailOpen, setHistoryDetailOpen] = useState(false);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<EnrollmentHistoryItem | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'requested' | 'pending_approval' | 'approved' | 'activated' | 'failed' | 'cancelled'>('all');
+  const [pendingPage, setPendingPage] = useState(1);
   const [historyPage, setHistoryPage] = useState(0);
   const initialStudentId = searchParams.get('studentId') || undefined;
   const initialHistoryFilters = {
@@ -79,7 +79,10 @@ export default function EnrollmentsPage() {
 
   const coursesQuery = useLmsCourses();
   const groupsQuery = useLmsGroups();
-  const pendingQuery = usePendingEnrollments(isApprovalAdmin);
+  const pendingQuery = usePendingEnrollments({
+    limit: pendingPageSize,
+    offset: (pendingPage - 1) * pendingPageSize,
+  }, isApprovalAdmin && activeTab === 'pending');
   const historyQuery = useEnrollmentHistory({
     status: statusFilter === 'all' ? undefined : statusFilter,
     limit: 20,
@@ -88,8 +91,9 @@ export default function EnrollmentsPage() {
   const approveMutation = useApproveEnrollment();
   const courses = coursesQuery.data?.items ?? [];
   const groups = groupsQuery.data?.items ?? [];
-  const pendingEnrollments = pendingQuery.data?.pending ?? [];
-  const historyItems = historyQuery.data?.enrollments ?? [];
+  const pendingEnrollments = useMemo(() => pendingQuery.data?.pending ?? [], [pendingQuery.data?.pending]);
+  const pendingTotal = pendingQuery.data?.total ?? 0;
+  const historyItems = useMemo(() => historyQuery.data?.enrollments ?? [], [historyQuery.data?.enrollments]);
   const pendingLoading = pendingQuery.isLoading || pendingQuery.isFetching;
   const historyLoading = historyQuery.isLoading || historyQuery.isFetching;
   const historyTotal = historyQuery.data?.total ?? 0;
@@ -346,7 +350,7 @@ export default function EnrollmentsPage() {
               <TabsList>
                 <TabsTrigger value="pending">
                   Бекитүүнү күткөндөр
-                  {pendingEnrollments.length > 0 ? <Badge className="ml-2" variant="secondary">{pendingEnrollments.length}</Badge> : null}
+                  {pendingTotal > 0 ? <Badge className="ml-2" variant="secondary">{pendingTotal}</Badge> : null}
                 </TabsTrigger>
                 <TabsTrigger value="history">Тарых</TabsTrigger>
               </TabsList>
@@ -368,7 +372,15 @@ export default function EnrollmentsPage() {
                     <p>Бекитүүнү күткөн түз каттоолор жок.</p>
                   </div>
                 ) : (
-                  <DataTable columns={pendingColumns} data={pendingData} />
+                  <DataTable
+                    columns={pendingColumns}
+                    data={pendingData}
+                    page={pendingPage}
+                    totalPages={Math.max(1, Math.ceil(pendingTotal / pendingPageSize))}
+                    onPageChange={setPendingPage}
+                    totalItems={pendingTotal}
+                    totalItemsLabel="каттоо"
+                  />
                 )}
               </TabsContent>
 

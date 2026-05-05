@@ -6,6 +6,60 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Version bumps are classified by delivery scale; see `VERSIONING.md`.
 
+## [3.0.0] - 2026-05-06
+
+### Breaking Changes
+- **Courses Module Removal**: Complete removal of courses functionality and `/courses` route
+- **Permission System Simplification**: Removed `canViewLmsTechnicalFields` permission checks throughout the application
+- **Pipeline Stage Changes**: Removed 'qualified' and 'trial' stages from deal pipeline
+- **Lead Source Changes**: Removed 'other' option from lead sources
+- **API Type System Overhaul**: Major changes to TypeScript interfaces affecting API contracts
+
+### Removed
+- Courses Page: Complete removal of `CoursesPage` component and `/courses` route
+- LMS Technical Fields Permission: Removed `canViewLmsTechnicalFields` from role permission system
+- Lead Source Option: Removed 'other' as a lead source option
+- Deal Pipeline Stages: Removed 'qualified' and 'trial' stages
+- Contact Source Types: Simplified contact source handling by removing enum constraints
+
+### Added
+- Enhanced Entity Relationships: Added embedded entity data in timeline events, tasks, and retention cases
+- Lead Follow-up Tracking: Added `lastContactedAt` and `nextFollowUpAt` fields to Lead entity
+- Tenant Support Email: Added `supportEmail` field to TenantConfig
+- User Creation Response: Updated `CreatedUserResponse` with `userId` and `inviteLink` fields
+- Write Payload Interfaces: Added `ContactWritePayload`, `TaskWritePayload`, `RetentionCaseWritePayload` for better API type safety
+- Timeline Event Enhancements: Added creator information and embedded entity references
+- Task Entity Relations: Added embedded contact information in Task entities
+- Retention Case Relations: Added embedded contact and deal information
+- Tenant Approval Rules: Added `TenantApprovalRuleResponse` interface and approval rules API endpoints
+- Tenant Config Refresh: Added `refreshTenantConfig` function to TenantConfigProvider
+- Enhanced Timeline Pagination: Added multi-page loading for scheduled timeline events
+- Enrollment Enhancements: Added `dealId` and `notes` parameters to enrollment creation
+- Payment Method Filtering: Added `includeDisabled` parameter to payment methods API
+
+### Changed
+- **API Type System**: Major overhaul of TypeScript interfaces for better type safety and flexibility
+  - `PaymentMethod` changed from enum to string for dynamic payment methods
+  - All entity relationship fields changed to nullable types (e.g., `leadId?: number | null`)
+  - Enhanced write payload interfaces with proper typing
+- **API Client Improvements**: 
+  - Enhanced pagination support in enrollments API with limit/offset parameters
+  - Improved type safety in payments API with flexible payment method handling
+  - Better parameter handling in retention and tasks APIs
+- **Permission System**: Simplified role-based access by removing LMS technical field checks
+- **Navigation Updates**: Removed courses navigation from sidebar and route definitions
+- **Timeline Enhancements**: Added creator user information and embedded entity data
+- **Dashboard Query Parameters**: Updated `managerId` to `manager` and `courseId` to `course` for consistency
+- **Tenant Config Provider**: Improved performance with useCallback and proper dependency management
+- **Scheduled Timeline Events**: Enhanced to load all pages for complete event coverage
+- **Enrollment Hooks**: Updated to support pagination parameters and enhanced mutation payload
+- **WhatsApp Timeline Integration**: Updated to work with simplified permission system
+
+### Fixed
+- **Type Safety**: Improved null handling throughout the application with proper nullable types
+- **API Consistency**: Standardized parameter naming across all API endpoints
+- **Entity Relationships**: Fixed relationship handling between CRM entities with proper null checks
+
 ## [2.4.1] - 2026-05-06
 
 ### Removed

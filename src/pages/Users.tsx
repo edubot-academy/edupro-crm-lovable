@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/PageShell';
 import { DataTable, type Column } from '@/components/DataTable';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -12,80 +13,116 @@ import { Textarea } from '@/components/ui/textarea';
 import { ky } from '@/lib/i18n';
 import type { CreatedUserResponse, SystemUser, UserRole } from '@/types';
 import { usersApi } from '@/api/modules';
-import { Plus, Trash2, Mail, Loader2, Copy, Send } from 'lucide-react';
+import { Plus, Mail, Loader2, Copy, Send, Pencil, UserCheck, UserX } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { authApi } from '@/api/auth';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFriendlyError } from '@/lib/error-messages';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 
-const emptyForm = {
+const emptyCreateForm = {
   fullName: '',
   email: '',
   role: 'sales' as UserRole,
 };
 
+const emptyEditForm = {
+  fullName: '',
+  email: '',
+  isActive: true,
+};
+
 export default function UsersPage() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [users, setUsers] = useState<SystemUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(() => searchParams.get('q') ?? '');
+  const [page, setPage] = useState(() => {
+    const value = Number(searchParams.get('page'));
+    return Number.isFinite(value) && value > 0 ? Math.floor(value) : 1;
+  });
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const [showCreate, setShowCreate] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [form, setForm] = useState(emptyForm);
+  const [createForm, setCreateForm] = useState(emptyCreateForm);
   const [inviteInfo, setInviteInfo] = useState<{ email: string; inviteUrl?: string } | null>(null);
   const [isResendingInvite, setIsResendingInvite] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<SystemUser | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [editTarget, setEditTarget] = useState<SystemUser | null>(null);
+  const [editForm, setEditForm] = useState(emptyEditForm);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
-  // Tenant users only - exclude SUPERADMIN from tenant CRM
-  // Platform users (superadmin) must be created through Platform Admin
   const creatableRoles = Object.entries(ky.userRole).filter(([role]) =>
-    role !== 'superadmin' // SUPERADMIN is platform-only, not tenant-creatable
+    role !== 'superadmin'
   );
 
   const resetCreateForm = () => {
-    setForm(emptyForm);
+    setCreateForm(emptyCreateForm);
     setShowCreate(false);
   };
 
-  const fetchUsers = () => {
+  const fetchUsers = useCallback(() => {
     setIsLoading(true);
-    usersApi.list({ search })
-      .then((res) => setUsers(res.items ?? []))
-      .catch(() => setUsers([]))
+    usersApi.list({ search, page, limit: 20 })
+      .then((res) => {
+        setUsers(res.items ?? []);
+        setTotalItems(res.total ?? 0);
+        setTotalPages(Math.max(res.totalPages ?? 1, 1));
+      })
+      .catch(() => {
+        setUsers([]);
+        setTotalItems(0);
+        setTotalPages(1);
+      })
       .finally(() => setIsLoading(false));
-  };
+  }, [page, search]);
 
-  useEffect(() => { fetchUsers(); }, [search]);
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  useEffect(() => {
+    const nextSearch = searchParams.get('q') ?? '';
+    const nextPageRaw = Number(searchParams.get('page'));
+    const nextPage = Number.isFinite(nextPageRaw) && nextPageRaw > 0 ? Math.floor(nextPageRaw) : 1;
+
+    if (nextSearch !== search) setSearch(nextSearch);
+    if (nextPage !== page) setPage(nextPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  useEffect(() => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+
+      if (search) next.set('q', search);
+      else next.delete('q');
+
+      if (page > 1) next.set('page', String(page));
+      else next.delete('page');
+
+      return next.toString() === current.toString() ? current : next;
+    }, { replace: true });
+  }, [search, page, setSearchParams]);
 
   const handleCreate = async () => {
-    if (!form.fullName || !form.email || !form.role) return;
+    if (!createForm.fullName || !createForm.email || !createForm.role) return;
 
-    // Additional security validation: prevent role escalation
-    if (form.role === 'superadmin') {
+    if (createForm.role === 'superadmin') {
       toast({ title: 'Бул ролду бул жерден кошууга болбойт', description: 'Бул роль уюм ичиндеги колдонуучулар үчүн жеткиликтүү эмес.', variant: 'destructive' });
-      return;
-    }
-
-    // Validate that current user has permission to create this role
-    const currentUserRole = user?.role;
-    if (currentUserRole !== 'admin' && form.role === 'admin') {
-      toast({ title: 'Уруксат жок', description: 'Админ ролундагы колдонуучуну кошууга админ гана укуктуу.', variant: 'destructive' });
       return;
     }
 
     setIsCreating(true);
     try {
-      const createdUser = await usersApi.create(form) as CreatedUserResponse;
-      const inviteUrl = createdUser.inviteUrl || (createdUser.inviteToken ? `${window.location.origin}/accept-invite?token=${createdUser.inviteToken}` : undefined);
+      const createdUser = await usersApi.create(createForm) as CreatedUserResponse;
+      const inviteUrl = createdUser.inviteLink || (createdUser.inviteToken ? `${window.location.origin}/accept-invite?token=${createdUser.inviteToken}` : undefined);
       toast({ title: 'Колдонуучу ийгиликтүү кошулду' });
       setShowCreate(false);
-      setForm(emptyForm);
-      setInviteInfo({ email: createdUser.email || form.email, inviteUrl });
+      setCreateForm(emptyCreateForm);
+      setInviteInfo({ email: createForm.email, inviteUrl });
       fetchUsers();
     } catch (error) {
       const friendly = getFriendlyError(error, { fallbackTitle: 'Колдонуучуну сактоо ишке ашкан жок' });
@@ -115,19 +152,32 @@ export default function UsersPage() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    setIsDeleting(true);
+  const openEditDialog = (target: SystemUser) => {
+    setEditTarget(target);
+    setEditForm({
+      fullName: target.fullName,
+      email: target.email,
+      isActive: target.isActive !== false,
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editTarget) return;
+    setIsSavingEdit(true);
     try {
-      await usersApi.softDelete({ ids: [deleteTarget.id] });
-      toast({ title: ky.users.deleteSuccess });
-      setDeleteTarget(null);
+      await usersApi.update(editTarget.id, {
+        fullName: editForm.fullName.trim(),
+        email: editForm.email.trim(),
+        isActive: editForm.isActive,
+      });
+      toast({ title: 'Колдонуучу ийгиликтүү жаңыртылды' });
+      setEditTarget(null);
       fetchUsers();
     } catch (error) {
-      const friendly = getFriendlyError(error, { fallbackTitle: ky.users.deleteError });
+      const friendly = getFriendlyError(error, { fallbackTitle: 'Колдонуучуну жаңыртуу ишке ашкан жок' });
       toast({ title: friendly.title, description: friendly.description, variant: 'destructive' });
     } finally {
-      setIsDeleting(false);
+      setIsSavingEdit(false);
     }
   };
 
@@ -136,30 +186,46 @@ export default function UsersPage() {
     { key: 'email', header: ky.common.email },
     { key: 'role', header: ky.users.role, render: (u) => <StatusBadge variant="primary">{ky.userRole[u.role]}</StatusBadge> },
     {
-      key: 'id', header: ky.common.actions, render: (u) => (
-        <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(u)} className="text-destructive hover:text-destructive">
-          <Trash2 className="h-4 w-4" />
+      key: 'isActive',
+      header: 'Статус',
+      render: (u) => (
+        <StatusBadge variant={u.isActive === false ? 'warning' : 'success'}>
+          {u.isActive === false ? 'Өчүк' : 'Активдүү'}
+        </StatusBadge>
+      ),
+    },
+    {
+      key: 'id',
+      header: ky.common.actions,
+      render: (u) => (
+        <Button variant="ghost" size="icon" onClick={() => openEditDialog(u)}>
+          <Pencil className="h-4 w-4" />
         </Button>
       ),
     },
   ];
 
-  const renderMobileCard = (user: SystemUser) => (
+  const renderMobileCard = (row: SystemUser) => (
     <Card className="shadow-card border-border/50">
       <CardContent className="space-y-3 p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="truncate font-semibold">{user.fullName}</p>
+            <p className="truncate font-semibold">{row.fullName}</p>
             <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
               <Mail className="h-3.5 w-3.5" />
-              <span className="truncate">{user.email}</span>
+              <span className="truncate">{row.email}</span>
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setDeleteTarget(user); }} className="h-8 w-8 text-destructive hover:text-destructive">
-            <Trash2 className="h-4 w-4" />
+          <Button variant="ghost" size="icon" onClick={() => openEditDialog(row)}>
+            <Pencil className="h-4 w-4" />
           </Button>
         </div>
-        <StatusBadge variant="primary">{ky.userRole[user.role]}</StatusBadge>
+        <div className="flex items-center gap-2">
+          <StatusBadge variant="primary">{ky.userRole[row.role]}</StatusBadge>
+          <StatusBadge variant={row.isActive === false ? 'warning' : 'success'}>
+            {row.isActive === false ? 'Өчүк' : 'Активдүү'}
+          </StatusBadge>
+        </div>
       </CardContent>
     </Card>
   );
@@ -167,7 +233,20 @@ export default function UsersPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader title={ky.users.title} actions={<Button onClick={() => setShowCreate(true)}><Plus className="mr-2 h-4 w-4" />{ky.users.newUser}</Button>} />
-      <DataTable columns={columns} data={users} isLoading={isLoading} searchValue={search} onSearchChange={setSearch} searchPlaceholder="Колдонуучу издөө..." renderMobileCard={renderMobileCard} />
+      <DataTable
+        columns={columns}
+        data={users}
+        isLoading={isLoading}
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Колдонуучу издөө..."
+        renderMobileCard={renderMobileCard}
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        totalItems={totalItems}
+        totalItemsLabel="колдонуучу"
+      />
 
       <Dialog open={showCreate} onOpenChange={(open) => {
         if (!open) {
@@ -183,15 +262,15 @@ export default function UsersPage() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>{ky.common.name} *</Label>
-              <Input value={form.fullName} onChange={(e) => setForm((prev) => ({ ...prev, fullName: e.target.value }))} placeholder={ky.common.fullNamePlaceholder} />
+              <Input value={createForm.fullName} onChange={(e) => setCreateForm((prev) => ({ ...prev, fullName: e.target.value }))} placeholder={ky.common.fullNamePlaceholder} />
             </div>
             <div className="space-y-2">
               <Label>{ky.common.email} *</Label>
-              <Input type="email" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} placeholder={ky.common.emailPlaceholder} />
+              <Input type="email" value={createForm.email} onChange={(e) => setCreateForm((prev) => ({ ...prev, email: e.target.value }))} placeholder={ky.common.emailPlaceholder} />
             </div>
             <div className="space-y-2">
               <Label>{ky.users.role}</Label>
-              <Select value={form.role} onValueChange={(value) => setForm((prev) => ({ ...prev, role: value as UserRole }))}>
+              <Select value={createForm.role} onValueChange={(value) => setCreateForm((prev) => ({ ...prev, role: value as UserRole }))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -205,7 +284,7 @@ export default function UsersPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={resetCreateForm}>{ky.common.cancel}</Button>
-            <Button onClick={handleCreate} disabled={isCreating || !form.fullName || !form.email}>
+            <Button onClick={handleCreate} disabled={isCreating || !createForm.fullName || !createForm.email}>
               {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {ky.common.create}
             </Button>
@@ -252,22 +331,57 @@ export default function UsersPage() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{ky.users.deleteConfirmTitle}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {deleteTarget?.fullName} — {ky.users.deleteConfirmDesc}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>{ky.common.cancel}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              {ky.common.delete}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Dialog open={!!editTarget} onOpenChange={(open) => {
+        if (!open) {
+          setEditTarget(null);
+          setEditForm(emptyEditForm);
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Колдонуучуну түзөтүү</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{ky.common.name}</Label>
+              <Input value={editForm.fullName} onChange={(e) => setEditForm((prev) => ({ ...prev, fullName: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>{ky.common.email}</Label>
+              <Input type="email" value={editForm.email} onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Статус</Label>
+              <Select
+                value={editForm.isActive ? 'active' : 'inactive'}
+                onValueChange={(value) => setEditForm((prev) => ({ ...prev, isActive: value === 'active' }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">
+                    <span className="inline-flex items-center gap-2"><UserCheck className="h-4 w-4" />Активдүү</span>
+                  </SelectItem>
+                  <SelectItem value="inactive">
+                    <span className="inline-flex items-center gap-2"><UserX className="h-4 w-4" />Өчүк</span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="rounded-md bg-muted/60 p-3 text-sm text-muted-foreground">
+              Роль бул экрандан өзгөртүлбөйт. Учурдагы роль: {editTarget ? ky.userRole[editTarget.role] : '—'}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditTarget(null)}>{ky.common.cancel}</Button>
+            <Button onClick={handleSaveEdit} disabled={isSavingEdit || !editForm.fullName.trim() || !editForm.email.trim()}>
+              {isSavingEdit && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {ky.common.save}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

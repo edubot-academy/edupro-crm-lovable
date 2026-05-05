@@ -43,7 +43,6 @@ export function AppLayout() {
           deals: ky.nav.deals,
           pipeline: ky.nav.pipeline,
           'trial-lessons': ky.nav.trialLessons,
-          courses: ky.nav.courses,
           payments: ky.nav.payments,
           enrollments: ky.nav.enrollments,
           tasks: ky.nav.tasks,

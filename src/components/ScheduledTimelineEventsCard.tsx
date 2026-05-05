@@ -70,14 +70,27 @@ export function ScheduledTimelineEventsCard({
     }
 
     setIsLoading(true);
-    timelineApi.list({
-      leadId,
-      contactId,
-      limit: 50,
-    })
-      .then((res) => {
+    const loadAllPages = async () => {
+      const firstPage = await timelineApi.list({
+        leadId,
+        contactId,
+        page: 1,
+        limit: 100,
+      });
+      const items = [...firstPage.items];
+
+      for (let page = 2; page <= firstPage.totalPages; page += 1) {
+        const nextPage = await timelineApi.list({ leadId, contactId, page, limit: 100 });
+        items.push(...nextPage.items);
+      }
+
+      return items;
+    };
+
+    loadAllPages()
+      .then((items) => {
         const now = Date.now();
-        const scheduled = res.items
+        const scheduled = items
           .filter((event) => event.type === 'call' || event.type === 'meeting')
           .filter((event) => getScheduledAt(event))
           .map((event) => ({ event, scheduledAt: getScheduledAt(event)! }))

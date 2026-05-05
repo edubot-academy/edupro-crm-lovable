@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, UserCheck, Handshake, GitBranch,
   GraduationCap, CreditCard, CheckSquare, MessageSquare,
-  AlertTriangle, BarChart3, Bell, Settings, UserCog, LogOut, BookOpen,
+  AlertTriangle, BarChart3, Bell, Settings, UserCog, LogOut,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,7 +26,6 @@ import {
 const mainNav = [
   { title: ky.nav.dashboard, url: '/', icon: LayoutDashboard },
   { title: ky.nav.leads, url: '/leads', icon: Users },
-  { title: ky.nav.courses, url: '/courses', icon: BookOpen },
   { title: ky.nav.contacts, url: '/contacts', icon: UserCheck },
   { title: ky.nav.deals, url: '/deals', icon: Handshake },
   { title: ky.nav.pipeline, url: '/pipeline', icon: GitBranch },
@@ -93,7 +92,7 @@ export function AppSidebar() {
   const collapsed = state === 'collapsed';
   const { user, logout } = useAuth();
   const tenantBranding = useTenantBranding();
-  const { canViewLmsTechnicalFields, canViewRetentionCases, canManageUsers, canManageSettings, canAccessAdminPanel } = useRolePermissions();
+  const { canViewRetentionCases, canManageUsers, canManageSettings, canAccessAdminPanel } = useRolePermissions();
   const { isFeatureEnabled } = useFeatureFlags();
 
   const brandingName = tenantBranding.displayName;
@@ -101,8 +100,6 @@ export function AppSidebar() {
 
   // Filter mainNav based on LMS permissions and feature flags
   const visibleMainNav = mainNav.filter((item) => {
-    if (item.url === '/courses' && !canViewLmsTechnicalFields()) return false;
-    if (item.url === '/courses' && !isFeatureEnabled('lms_bridge_enabled')) return false;
     if (item.url === '/trial-lessons' && !isFeatureEnabled('trial_lessons_enabled')) return false;
     return true;
   });
@@ -110,7 +107,6 @@ export function AppSidebar() {
   // Filter operationsNav based on permissions and feature flags
   const visibleOperationsNav = operationsNav.filter((item) => {
     if (item.url === '/payments' && !isFeatureEnabled('payments_enabled')) return false;
-    if (item.url === '/enrollments' && !canViewLmsTechnicalFields()) return false;
     if (item.url === '/enrollments' && !isFeatureEnabled('lms_bridge_enabled')) return false;
     if (item.url === '/retention' && !canViewRetentionCases()) return false;
     if (item.url === '/retention' && !isFeatureEnabled('retention_enabled')) return false;

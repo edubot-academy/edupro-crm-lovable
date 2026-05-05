@@ -61,6 +61,7 @@ export default function LeadsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState(() => getSearchParam('q'));
   const [statusFilter, setStatusFilter] = useState<string>(() => getSearchParam('status', 'all'));
+  const [managerFilter, setManagerFilter] = useState<string>(() => getSearchParam('manager', 'all'));
 
   // Release 2 - Priority and risk data for leads
   const [leadPriorities, setLeadPriorities] = useState<Record<number, PriorityScore>>({});
@@ -75,11 +76,14 @@ export default function LeadsPage() {
         label: source.sourceName,
       }));
     }
-    // Fallback to hardcoded sources
-    return Object.entries(ky.leadSource).map(([value, label]) => ({
-      value: value as LeadSource,
-      label,
-    }));
+    return [
+      { value: 'instagram' as LeadSource, label: ky.leadSource.instagram },
+      { value: 'telegram' as LeadSource, label: ky.leadSource.telegram },
+      { value: 'whatsapp' as LeadSource, label: ky.leadSource.whatsapp },
+      { value: 'website' as LeadSource, label: ky.leadSource.website },
+      { value: 'phone_call' as LeadSource, label: ky.leadSource.phone_call },
+      { value: 'referral' as LeadSource, label: ky.leadSource.referral },
+    ];
   }, [tenantConfig.leadSources]);
 
   // Use tenant-configured lead statuses if available, otherwise use hardcoded statuses
@@ -90,12 +94,15 @@ export default function LeadsPage() {
         label: status.label,
       }));
     }
-    // Fallback to hardcoded statuses
     return [
       { value: 'new', label: 'Жаңы' },
+      { value: 'no_response', label: 'Жооп жок' },
       { value: 'contacted', label: 'Байланыш түзүлдү' },
       { value: 'interested', label: 'Кызыкты' },
-      { value: 'no_response', label: 'Жооп жок' },
+      { value: 'offer_sent', label: 'Сунуш жөнөтүлдү' },
+      { value: 'negotiation', label: 'Сүйлөшүү жүрүп жатат' },
+      { value: 'payment_pending', label: 'Төлөм күтүлүүдө' },
+      { value: 'won', label: 'Ийгиликтүү' },
       { value: 'lost', label: 'Жабылды' },
     ];
   }, [tenantConfig.leadStatuses]);
@@ -112,6 +119,7 @@ export default function LeadsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [managers, setManagers] = useState<AssignableUser[]>([]);
+  const [managerFilterOptions, setManagerFilterOptions] = useState<AssignableUser[]>([]);
   const emptyLeadForm: LeadFormState = {
     fullName: '',
     phone: '',
@@ -148,11 +156,12 @@ export default function LeadsPage() {
     leadsApi.list({
       search,
       status: statusFilter === 'all' ? undefined : statusFilter,
+      assignedManagerId: managerFilter === 'all' ? undefined : Number(managerFilter),
       dateRange: dateFilter === 'custom' || dateFilter === 'all' ? undefined : dateFilter,
       fromDate: dateFilter === 'custom' && customFromDate ? customFromDate : undefined,
       toDate: dateFilter === 'custom' && customToDate ? customToDate : undefined,
       page,
-      limit: 10,
+      limit: 20,
     })
       .then(async (res) => {
         setLeads(res.items);
@@ -215,7 +224,7 @@ export default function LeadsPage() {
         setError('Лиддерди жүктөө мүмкүн болгон жок. Тармакты же фильтрлерди текшериңиз.');
       })
       .finally(() => setIsLoading(false));
-  }, [page, search, statusFilter, dateFilter, customFromDate, customToDate, isAiOperationalIntelligenceEnabled]);
+  }, [page, search, statusFilter, managerFilter, dateFilter, customFromDate, customToDate, isAiOperationalIntelligenceEnabled]);
 
   useEffect(() => {
     fetchLeads();
@@ -227,11 +236,12 @@ export default function LeadsPage() {
       return;
     }
     setPage(1);
-  }, [search, statusFilter, dateFilter, customFromDate, customToDate]);
+  }, [search, statusFilter, managerFilter, dateFilter, customFromDate, customToDate]);
 
   useEffect(() => {
     const nextSearch = searchParams.get('q') ?? '';
     const nextStatus = searchParams.get('status') ?? 'all';
+    const nextManager = searchParams.get('manager') ?? 'all';
     const nextDate = searchParams.get('date') ?? 'all';
     const nextFrom = searchParams.get('from') ?? '';
     const nextTo = searchParams.get('to') ?? '';
@@ -239,6 +249,7 @@ export default function LeadsPage() {
 
     if (nextSearch !== search) setSearch(nextSearch);
     if (nextStatus !== statusFilter) setStatusFilter(nextStatus);
+    if (nextManager !== managerFilter) setManagerFilter(nextManager);
     if (nextDate !== dateFilter) setDateFilter(nextDate);
     if (nextFrom !== customFromDate) setCustomFromDate(nextFrom);
     if (nextTo !== customToDate) setCustomToDate(nextTo);
@@ -256,6 +267,9 @@ export default function LeadsPage() {
       if (statusFilter !== 'all') next.set('status', statusFilter);
       else next.delete('status');
 
+      if (managerFilter !== 'all') next.set('manager', managerFilter);
+      else next.delete('manager');
+
       if (dateFilter !== 'all') next.set('date', dateFilter);
       else next.delete('date');
 
@@ -270,12 +284,12 @@ export default function LeadsPage() {
 
       return next.toString() === current.toString() ? current : next;
     }, { replace: true });
-  }, [search, statusFilter, dateFilter, customFromDate, customToDate, page, setSearchParams]);
+  }, [search, statusFilter, managerFilter, dateFilter, customFromDate, customToDate, page, setSearchParams]);
 
   useEffect(() => {
     if (!createOpen) return;
     if (!canAssignToSales) {
-      setManagers(user ? [{ id: user.id, fullName: user.fullName || user.email, email: user.email, role: user.role }] : []);
+      setManagers(user ? [{ id: user.id, fullName: user.fullName || user.email, role: user.role }] : []);
       return;
     }
     usersApi.assignables({ roles: 'sales' })
@@ -288,11 +302,36 @@ export default function LeadsPage() {
         const hasCurrentUser = items.some((item) => item.id === user.id);
         const nextManagers = hasCurrentUser
           ? items
-          : [{ id: user.id, fullName: user.fullName || user.email, email: user.email, role: user.role }, ...items];
+          : [{ id: user.id, fullName: user.fullName || user.email, role: user.role }, ...items];
         setManagers(nextManagers);
       })
       .catch(() => setManagers([]));
   }, [createOpen, canAssignToSales, user]);
+
+  useEffect(() => {
+    if (!user) {
+      setManagerFilterOptions([]);
+      return;
+    }
+
+    if (!canAssignToSales) {
+      setManagerFilterOptions([{ id: user.id, fullName: user.fullName || user.email, role: user.role }]);
+      return;
+    }
+
+    usersApi.assignables({ roles: 'sales' })
+      .then((items) => {
+        const hasCurrentUser = items.some((item) => item.id === user.id);
+        setManagerFilterOptions(
+          hasCurrentUser
+            ? items
+            : [{ id: user.id, fullName: user.fullName || user.email, role: user.role }, ...items],
+        );
+      })
+      .catch(() => {
+        setManagerFilterOptions([{ id: user.id, fullName: user.fullName || user.email, role: user.role }]);
+      });
+  }, [canAssignToSales, user]);
 
   const checkForDuplicates = useCallback(async (phone: string, email?: string) => {
     const normalizedPhone = phone.trim();
@@ -405,6 +444,7 @@ export default function LeadsPage() {
         phone: newLead.phone.trim(),
         email: newLead.email.trim() || undefined,
         source: newLead.source || undefined,
+        status: newLead.status || undefined,
         assignedManagerId: newLead.assignedManagerId || user?.id,
         tags: newLead.tags.length > 0 ? newLead.tags : undefined,
         notes: newLead.notes || undefined,
@@ -503,6 +543,13 @@ export default function LeadsPage() {
         key: 'status',
         label: `Статус: ${leadStatusOptions.find(opt => opt.value === statusFilter)?.label || statusFilter}`,
         onRemove: () => setStatusFilter('all'),
+      }]
+      : []),
+    ...(managerFilter !== 'all'
+      ? [{
+        key: 'manager',
+        label: `Менеджер: ${managerFilterOptions.find((manager) => String(manager.id) === managerFilter)?.fullName || managerFilter}`,
+        onRemove: () => setManagerFilter('all'),
       }]
       : []),
     ...(dateFilter !== 'all'
@@ -734,6 +781,20 @@ export default function LeadsPage() {
           </SelectContent>
         </Select>
       </div>
+      <div className="space-y-1">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Менеджер</p>
+        <Select value={managerFilter} onValueChange={setManagerFilter}>
+          <SelectTrigger className="h-9 w-[180px]">
+            <SelectValue placeholder={ky.leads.assignedManager} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Баары</SelectItem>
+            {managerFilterOptions.map((manager) => (
+              <SelectItem key={manager.id} value={String(manager.id)}>{manager.fullName}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       {dateFilter === 'custom' && (
         <>
           <div className="space-y-1">
@@ -762,7 +823,7 @@ export default function LeadsPage() {
           {leads.filter((lead) => !lead.assignedManager?.fullName).length} дайындалбаган
         </span>
         <span className="rounded-full bg-secondary px-2.5 py-1">
-          {leads.filter((lead) => lead.status === 'qualified').length} квалификацияланган
+          {leads.filter((lead) => lead.status === 'interested').length} кызыккандар
         </span>
       </div>
     </div>
@@ -771,13 +832,14 @@ export default function LeadsPage() {
   const clearAllFilters = () => {
     setSearch('');
     setStatusFilter('all');
+    setManagerFilter('all');
     setDateFilter('all');
     setCustomFromDate('');
     setCustomToDate('');
     setPage(1);
   };
 
-  const hasActiveFilters = search.trim() !== '' || statusFilter !== 'all' || dateFilter !== 'all';
+  const hasActiveFilters = search.trim() !== '' || statusFilter !== 'all' || managerFilter !== 'all' || dateFilter !== 'all';
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -802,7 +864,7 @@ export default function LeadsPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Лид издөө..."
+              placeholder="Аты, телефон, email, тег, менеджер..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 h-9"
@@ -810,7 +872,7 @@ export default function LeadsPage() {
           </div>
 
           {/* Filter controls row */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="h-9 flex-1">
                 <SelectValue placeholder="Статус" />
@@ -832,6 +894,17 @@ export default function LeadsPage() {
                 <SelectItem value="week">Бул жума</SelectItem>
                 <SelectItem value="month">Бул ай</SelectItem>
                 <SelectItem value="custom">Өзүңүз тандаңыз</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={managerFilter} onValueChange={setManagerFilter}>
+              <SelectTrigger className="h-9 flex-1">
+                <SelectValue placeholder={ky.leads.assignedManager} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Баары</SelectItem>
+                {managerFilterOptions.map((manager) => (
+                  <SelectItem key={manager.id} value={String(manager.id)}>{manager.fullName}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
             {hasActiveFilters && (
@@ -900,7 +973,7 @@ export default function LeadsPage() {
         onRetry={fetchLeads}
         searchValue={!isMobile ? search : undefined}
         onSearchChange={!isMobile ? setSearch : undefined}
-        searchPlaceholder="Лид издөө..."
+        searchPlaceholder="Аты, телефон, email, тег, менеджер..."
         headerActions={!isMobile ? headerActions : undefined}
         page={page}
         totalPages={totalPages}

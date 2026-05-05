@@ -45,12 +45,40 @@ type LeadDetailFormState = {
   source: LeadSource | '';
   status: string;
   assignedManagerId: string;
+  lastContactedAt: string;
+  nextFollowUpAt: string;
+  tags: string;
   notes: string;
   interestedCourseId: string;
   interestedGroupId: string;
   courseType: LmsCourseType | '';
   interestLevel: 'low' | 'medium' | 'high' | '';
 };
+
+function formatDateTimeLocal(value?: string | Date | null): string {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function toIsoOrNull(value: string): string | null {
+  if (!value.trim()) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function formatDisplayDateTime(value?: string | Date | null): string {
+  if (!value) return '—';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString();
+}
 
 // Helper functions for extraction mapping
 function getFieldLabel(field: string): string {
@@ -125,11 +153,14 @@ export default function LeadDetailPage() {
         label: source.sourceName,
       }));
     }
-    // Fallback to hardcoded sources
-    return Object.entries(ky.leadSource).map(([value, label]) => ({
-      value: value as LeadSource,
-      label,
-    }));
+    return [
+      { value: 'instagram' as LeadSource, label: ky.leadSource.instagram },
+      { value: 'telegram' as LeadSource, label: ky.leadSource.telegram },
+      { value: 'whatsapp' as LeadSource, label: ky.leadSource.whatsapp },
+      { value: 'website' as LeadSource, label: ky.leadSource.website },
+      { value: 'phone_call' as LeadSource, label: ky.leadSource.phone_call },
+      { value: 'referral' as LeadSource, label: ky.leadSource.referral },
+    ];
   }, [tenantConfig.leadSources]);
 
   // Use tenant-configured lead statuses if available, otherwise use hardcoded statuses
@@ -140,12 +171,15 @@ export default function LeadDetailPage() {
         label: status.label,
       }));
     }
-    // Fallback to hardcoded statuses
     return [
       { value: 'new', label: 'New' },
+      { value: 'no_response', label: 'No Response' },
       { value: 'contacted', label: 'Contacted' },
       { value: 'interested', label: 'Interested' },
-      { value: 'no_response', label: 'No Response' },
+      { value: 'offer_sent', label: 'Offer Sent' },
+      { value: 'negotiation', label: 'Negotiation' },
+      { value: 'payment_pending', label: 'Payment Pending' },
+      { value: 'won', label: 'Won' },
       { value: 'lost', label: 'Lost' },
     ];
   }, [tenantConfig.leadStatuses]);
@@ -157,6 +191,9 @@ export default function LeadDetailPage() {
     source: '' as LeadSource | '',
     status: 'new',
     assignedManagerId: '',
+    lastContactedAt: '',
+    nextFollowUpAt: '',
+    tags: '',
     notes: '',
     interestedCourseId: '',
     interestedGroupId: '',
@@ -176,6 +213,11 @@ export default function LeadDetailPage() {
   const groups = groupsData?.items ?? [];
   const leadCourseName = courses.find((course) => course.id === lead?.interestedCourseId)?.name;
   const leadGroupName = groups.find((group) => group.id === lead?.interestedGroupId)?.name;
+  const sourceLabel = lead ? (
+    leadSourceOptions.find((option) => option.value === lead.source)?.label ||
+    ky.leadSource[lead.source] ||
+    lead.source
+  ) : '—';
 
   useEffect(() => {
     if (!id || id === 'new') return;
@@ -197,6 +239,9 @@ export default function LeadDetailPage() {
       source: lead.source,
       status: lead.status,
       assignedManagerId: lead.assignedManager?.id ? String(lead.assignedManager.id) : '',
+      lastContactedAt: formatDateTimeLocal(lead.lastContactedAt),
+      nextFollowUpAt: formatDateTimeLocal(lead.nextFollowUpAt),
+      tags: (lead.tags || []).join(', '),
       notes: lead.notes || '',
       interestedCourseId: lead.interestedCourseId || '',
       interestedGroupId: lead.interestedGroupId || '',
@@ -208,12 +253,12 @@ export default function LeadDetailPage() {
   useEffect(() => {
     if (!isEditOpen) return;
     if (!canAssignToSales) {
-      setManagers(user ? [{ id: user.id, fullName: user.fullName || user.email, email: user.email, role: user.role }] : []);
+      setManagers(user ? [{ id: user.id, fullName: user.fullName || user.email, role: user.role }] : []);
       setManagersLoading(false);
       return;
     }
     setManagersLoading(true);
-    usersApi.assignables({ roles: 'sales' })
+    usersApi.assignables()
       .then((items) => {
         if (!user) {
           setManagers(items);
@@ -223,7 +268,7 @@ export default function LeadDetailPage() {
         const hasCurrentUser = items.some((item) => item.id === user.id);
         const nextManagers = hasCurrentUser
           ? items
-          : [{ id: user.id, fullName: user.fullName || user.email, email: user.email, role: user.role }, ...items];
+          : [{ id: user.id, fullName: user.fullName || user.email, role: user.role }, ...items];
         setManagers(nextManagers);
       })
       .catch(() => setManagers([]))
@@ -444,6 +489,9 @@ export default function LeadDetailPage() {
       source: lead.source,
       status: lead.status,
       assignedManagerId: lead.assignedManager?.id ? String(lead.assignedManager.id) : '',
+      lastContactedAt: formatDateTimeLocal(lead.lastContactedAt),
+      nextFollowUpAt: formatDateTimeLocal(lead.nextFollowUpAt),
+      tags: (lead.tags || []).join(', '),
       notes: lead.notes || '',
       interestedCourseId: lead.interestedCourseId || '',
       interestedGroupId: lead.interestedGroupId || '',
@@ -475,6 +523,12 @@ export default function LeadDetailPage() {
         assignedManagerId: canAssignToSales
           ? (form.assignedManagerId ? Number(form.assignedManagerId) : null)
           : undefined,
+        lastContactedAt: toIsoOrNull(form.lastContactedAt),
+        nextFollowUpAt: toIsoOrNull(form.nextFollowUpAt),
+        tags: form.tags
+          .split(',')
+          .map((tag) => tag.trim())
+          .filter(Boolean),
         notes: form.notes || undefined,
         interestedCourseId: isLmsBridgeEnabled ? form.interestedCourseId : undefined,
         interestedGroupId: isLmsBridgeEnabled ? form.interestedGroupId : undefined,
@@ -544,26 +598,24 @@ export default function LeadDetailPage() {
               <Button className="h-9" variant="outline" onClick={() => setIsEditOpen(true)}>
                 {ky.common.edit}
               </Button>
-              {lead.contactId ? (
-                <Button
-                  className="h-9"
-                  onClick={() => {
-                    const params = new URLSearchParams({
-                      create: '1',
-                      leadId: String(lead.id),
-                    });
-                    if (lead.contactId) params.set('contactId', String(lead.contactId));
-                    if (lead.interestedCourseId) params.set('courseId', lead.interestedCourseId);
-                    if (lead.interestedGroupId) params.set('groupId', lead.interestedGroupId);
-                    if (lead.courseType) params.set('courseType', lead.courseType);
-                    if (leadCourseName) params.set('courseName', leadCourseName);
-                    if (leadGroupName) params.set('groupName', leadGroupName);
-                    navigate(`/deals?${params.toString()}`);
-                  }}
-                >
-                  Келишим түзүү
-                </Button>
-              ) : null}
+              <Button
+                className="h-9"
+                onClick={() => {
+                  const params = new URLSearchParams({
+                    create: '1',
+                    leadId: String(lead.id),
+                  });
+                  if (lead.contactId) params.set('contactId', String(lead.contactId));
+                  if (lead.interestedCourseId) params.set('courseId', lead.interestedCourseId);
+                  if (lead.interestedGroupId) params.set('groupId', lead.interestedGroupId);
+                  if (lead.courseType) params.set('courseType', lead.courseType);
+                  if (leadCourseName) params.set('courseName', leadCourseName);
+                  if (leadGroupName) params.set('groupName', leadGroupName);
+                  navigate(`/deals?${params.toString()}`);
+                }}
+              >
+                Келишим түзүү
+              </Button>
             </div>
 
             <DropdownMenu>
@@ -619,7 +671,6 @@ export default function LeadDetailPage() {
                   if (leadGroupName) params.set('groupName', leadGroupName);
                   navigate(`/deals?${params.toString()}`);
                 }}
-                disabled={!lead.contactId}
               >
                 Келишим түзүү
               </Button>
@@ -655,8 +706,10 @@ export default function LeadDetailPage() {
               <InfoRow icon={User} label={ky.common.name} value={lead.fullName} />
               <InfoRow icon={Phone} label={ky.common.phone} value={lead.phone} />
               <InfoRow icon={Mail} label={ky.common.email} value={lead.email} />
-              <InfoRow icon={MessageSquare} label={ky.leads.source} value={ky.leadSource[lead.source]} />
+              <InfoRow icon={MessageSquare} label={ky.leads.source} value={sourceLabel} />
               <InfoRow icon={User} label={ky.leads.assignedManager} value={lead.assignedManager?.fullName || '—'} />
+              <InfoRow icon={Calendar} label="Акыркы байланыш" value={formatDisplayDateTime(lead.lastContactedAt)} />
+              <InfoRow icon={Calendar} label="Кийинки follow-up" value={formatDisplayDateTime(lead.nextFollowUpAt)} />
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground mb-1">{ky.common.status}</p>
@@ -895,7 +948,7 @@ export default function LeadDetailPage() {
                 {canAssignToSales ? (
                   <Select value={form.assignedManagerId || '__none__'} onValueChange={(value) => setForm((prev) => ({ ...prev, assignedManagerId: value === '__none__' ? '' : value }))} disabled={managersLoading}>
                     <SelectTrigger>
-                      <SelectValue placeholder={managersLoading ? 'Жүктөлүүдө...' : 'Жооптуу sales тандаңыз'} />
+                      <SelectValue placeholder={managersLoading ? 'Жүктөлүүдө...' : 'Жооптуу колдонуучуну тандаңыз'} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none__">Тандалган эмес</SelectItem>
@@ -912,6 +965,31 @@ export default function LeadDetailPage() {
                   </div>
                 )}
               </div>
+              <div className="space-y-2">
+                <Label>Акыркы байланыш</Label>
+                <Input
+                  type="datetime-local"
+                  value={form.lastContactedAt}
+                  onChange={(e) => setForm((prev) => ({ ...prev, lastContactedAt: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Кийинки follow-up</Label>
+                <Input
+                  type="datetime-local"
+                  value={form.nextFollowUpAt}
+                  onChange={(e) => setForm((prev) => ({ ...prev, nextFollowUpAt: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>{ky.common.tags}</Label>
+              <Input
+                value={form.tags}
+                onChange={(e) => setForm((prev) => ({ ...prev, tags: e.target.value }))}
+                placeholder="vip, urgent, scholarship"
+              />
+              <p className="text-xs text-muted-foreground">Тегдерди үтүр менен бөлүп жазыңыз.</p>
             </div>
             <div className="space-y-2">
               <Label>{ky.common.notes}</Label>

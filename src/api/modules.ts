@@ -3,10 +3,12 @@ import type {
   LmsCourse, LmsGroup, Payment, TrialLesson, Task,
   TimelineEvent, RetentionCase, DashboardStats, DashboardStatsQueryParams,
   CrmDashboardStats, EducationDashboardStats,
-  FunnelReport, SystemUser, CreatedUserResponse, AssignableUser, Lead, LeadWritePayload, Contact, ContactNote, Deal, CreateDealPayload, UpdateDealPayload, PaginatedResponse,
+  FunnelReport, SystemUser, CreatedUserResponse, AssignableUser, Lead, LeadWritePayload, Contact, ContactNote, ContactWritePayload, Deal, CreateDealPayload, UpdateDealPayload, PaginatedResponse,
   TelegramLinkResponse, TelegramStatusResponse,
   InAppNotification, UnreadNotificationsResponse,
   TrialLessonWritePayload,
+  TaskWritePayload,
+  RetentionCaseWritePayload,
   WhatsAppConversationStats,
   WhatsAppConversationDetail,
   WhatsAppConversationSummary,
@@ -21,7 +23,6 @@ import type {
   LeadWithCourseInterest,
   DealWithCourseMapping,
   PaymentWithEnrollment,
-  RetentionCaseWithLmsData
 } from '@/types/bridge';
 import type {
   LmsCourseListParams, LmsGroupListParams,
@@ -51,9 +52,9 @@ export const paymentsApi = {
   list: (params?: Record<string, string | number | undefined>) =>
     apiClient.get<PaginatedResponse<Payment>>('/payment', params),
   get: (id: number) => apiClient.get<Payment>(`/payment/${id}`),
-  create: (data: { dealId: number; amount: number; method: import('@/types').PaymentMethod; status?: import('@/types').PaymentStatus; paymentStatus?: import('@/types').PaymentStatus; verified?: boolean }) =>
+  create: (data: { dealId: number; amount: number; method: string; status?: import('@/types').PaymentStatus; paymentStatus?: import('@/types').PaymentStatus; verified?: boolean }) =>
     apiClient.post<Payment>('/payment', data),
-  createDeposit: (data: { dealId: number; amount: number; method: import('@/types').PaymentMethod; status?: import('@/types').PaymentStatus; paymentStatus?: import('@/types').PaymentStatus; verified?: boolean }) =>
+  createDeposit: (data: { dealId: number; amount: number; method: string; status?: import('@/types').PaymentStatus; paymentStatus?: import('@/types').PaymentStatus; verified?: boolean }) =>
     apiClient.post<Payment>('/payment/deposit', data),
   update: (id: number, data: { status?: import('@/types').PaymentStatus; paymentStatus?: import('@/types').PaymentStatus }) =>
     apiClient.patch<Payment>(`/payment/${id}`, data),
@@ -77,7 +78,7 @@ export const leadsApi = {
 };
 
 export const enrollmentsApi = {
-  create: (data: { leadId: number; courseId: string; courseType: 'video' | 'offline' | 'online_live'; groupId?: string; recreateExistingAccount?: boolean }) =>
+  create: (data: { leadId: number; dealId?: number; courseId: string; courseType: 'video' | 'offline' | 'online_live'; groupId?: string; recreateExistingAccount?: boolean; notes?: string }) =>
     apiClient.post<{
       success: boolean;
       enrollmentId: string;
@@ -94,7 +95,7 @@ export const enrollmentsApi = {
       status: string;
       message: string;
     }>(`/enrollments/${id}/approve`, data ?? {}),
-  getPending: () =>
+  getPending: (params?: { limit?: number; offset?: number }) =>
     apiClient.get<{
       pending: Array<{
         enrollmentId: string;
@@ -111,7 +112,9 @@ export const enrollmentsApi = {
         requestId: string;
       }>;
       total: number;
-    }>('/enrollments/pending'),
+      limit: number;
+      offset: number;
+    }>('/enrollments/pending', params as Record<string, string | number | undefined>),
   getHistory: (params?: { status?: string; limit?: number; offset?: number }) =>
     apiClient.get<{
       enrollments: Array<{
@@ -144,8 +147,8 @@ export const contactApi = {
   list: (params?: Record<string, string | number | undefined>) =>
     apiClient.get<PaginatedResponse<Contact>>('/contact', params),
   get: (id: number) => apiClient.get<Contact>(`/contact/${id}`),
-  create: (data: Partial<Contact>) => apiClient.post<Contact>('/contact', data),
-  update: (id: number, data: Partial<Contact>) => apiClient.patch<Contact>(`/contact/${id}`, data),
+  create: (data: ContactWritePayload) => apiClient.post<Contact>('/contact', data),
+  update: (id: number, data: ContactWritePayload) => apiClient.patch<Contact>(`/contact/${id}`, data),
   delete: (id: number) => apiClient.delete<{ success: boolean }>(`/contact/${id}`),
 };
 
@@ -198,8 +201,8 @@ export const tasksApi = {
   list: (params?: Record<string, string | number | undefined>) =>
     apiClient.get<PaginatedResponse<Task>>('/tasks', params),
   get: (id: number) => apiClient.get<Task>(`/tasks/${id}`),
-  create: (data: Partial<Task> & { title: string }) => apiClient.post<Task>('/tasks', data),
-  update: (id: number, data: Partial<Task>) => apiClient.patch<Task>(`/tasks/${id}`, data),
+  create: (data: TaskWritePayload & { title: string }) => apiClient.post<Task>('/tasks', data),
+  update: (id: number, data: TaskWritePayload) => apiClient.patch<Task>(`/tasks/${id}`, data),
   delete: (id: number) => apiClient.delete<{ success: boolean }>(`/tasks/${id}`),
 };
 
@@ -265,9 +268,9 @@ export const retentionApi = {
   list: (params?: Record<string, string | number | undefined>) =>
     apiClient.get<PaginatedResponse<RetentionCase>>('/retention-cases', params),
   get: (id: number) => apiClient.get<RetentionCase>(`/retention-cases/${id}`),
-  create: (data: { issueType: import('@/types').IssueType; severity: import('@/types').RiskSeverity; summary: string; leadId?: number; contactId?: number; dealId?: number; status?: string; metrics?: Record<string, unknown>; assignedToId?: number }) =>
+  create: (data: RetentionCaseWritePayload & { issueType: import('@/types').IssueType; severity: import('@/types').RiskSeverity; summary: string }) =>
     apiClient.post<RetentionCase>('/retention-cases', data),
-  update: (id: number, data: { leadId?: number; contactId?: number; dealId?: number; issueType?: import('@/types').IssueType; severity?: import('@/types').RiskSeverity; status?: string; summary?: string; metrics?: Record<string, unknown>; assignedToId?: number }) =>
+  update: (id: number, data: RetentionCaseWritePayload) =>
     apiClient.patch<RetentionCase>(`/retention-cases/${id}`, data),
   delete: (id: number) => apiClient.delete<{ success: boolean }>(`/retention-cases/${id}`),
   contact: (id: number) =>

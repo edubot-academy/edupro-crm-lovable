@@ -35,6 +35,13 @@ const emptyEducationStats: EducationDashboardStats = {
   popularCourses: [],
 };
 
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -55,19 +62,19 @@ export default function DashboardPage() {
 
     if (dateFilter === 'today') {
       const today = new Date();
-      params.from = today.toISOString().split('T')[0];
-      params.to = today.toISOString().split('T')[0];
+      params.from = formatLocalDate(today);
+      params.to = formatLocalDate(today);
     } else if (dateFilter === 'week') {
       const today = new Date();
       const startOfWeek = new Date(today);
       startOfWeek.setDate(today.getDate() - today.getDay());
-      params.from = startOfWeek.toISOString().split('T')[0];
-      params.to = today.toISOString().split('T')[0];
+      params.from = formatLocalDate(startOfWeek);
+      params.to = formatLocalDate(today);
     } else if (dateFilter === 'month') {
       const today = new Date();
       const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-      params.from = startOfMonth.toISOString().split('T')[0];
-      params.to = today.toISOString().split('T')[0];
+      params.from = formatLocalDate(startOfMonth);
+      params.to = formatLocalDate(today);
     } else if (dateFilter === 'custom') {
       if (customFromDate) params.from = customFromDate;
       if (customToDate) params.to = customToDate;
@@ -109,7 +116,7 @@ export default function DashboardPage() {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return 'Жаңы жаңылган';
+    if (diffMins < 1) return 'Жаңы жаңыланды';
     if (diffMins < 60) return `${diffMins} мүнөт мурда`;
     if (diffHours < 24) return `${diffHours} саат мурда`;
     return `${diffDays} күн мурда`;
@@ -120,12 +127,12 @@ export default function DashboardPage() {
       key: 'new-leads',
       title: 'Жаңы лиддер',
       value: stats.newLeads,
-      description: 'Бүгүн биринчи байланыш же квалификация күтүп жаткан жаңы суроо-талаптар.',
+      description: 'Тандалган мезгилде түзүлгөн жаңы лиддер.',
       actionLabel: 'Лиддерди ачуу',
       onClick: () => navigate('/leads'),
       tone: 'border-info/40 bg-info/5',
     },
-    {
+    ...(isFeatureEnabled('payments_enabled') ? [{
       key: 'payments',
       title: ky.dashboard.paymentPending,
       value: stats.paymentPendingCount,
@@ -133,7 +140,7 @@ export default function DashboardPage() {
       actionLabel: 'Төлөмдөргө өтүү',
       onClick: () => navigate('/payments'),
       tone: 'border-warning/40 bg-warning/5',
-    },
+    }] : []),
     ...(isFeatureEnabled('retention_enabled') ? [{
       key: 'retention' as const,
       title: ky.dashboard.openRetention,
@@ -274,10 +281,15 @@ export default function DashboardPage() {
         <StatCard title={ky.dashboard.totalLeads} value={stats.totalLeads} icon={Users} variant="primary" />
         <StatCard title={ky.dashboard.newLeads} value={stats.newLeads} icon={UserPlus} variant="info" />
         <StatCard title={ky.dashboard.conversionRate} value={`${stats.conversionRate}%`} icon={TrendingUp} variant="success" />
-        <StatCard title={ky.dashboard.paymentPending} value={stats.paymentPendingCount} icon={CreditCard} variant="warning" />
+        {isFeatureEnabled('payments_enabled') && (
+          <StatCard title={ky.dashboard.paymentPending} value={stats.paymentPendingCount} icon={CreditCard} variant="warning" />
+        )}
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard title={ky.dashboard.wonDeals} value={stats.wonDeals} icon={Trophy} variant="success" />
+        {isLmsBridgeEnabled && (
+          <StatCard title="Сыноодон сатууга өтүү" value={`${stats.trialToSaleConversion}%`} icon={Target} variant="info" />
+        )}
         {isFeatureEnabled('retention_enabled') && (
           <StatCard title={ky.dashboard.openRetention} value={stats.openRetentionCases} icon={AlertTriangle} variant="destructive" />
         )}

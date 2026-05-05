@@ -8,14 +8,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Send } from 'lucide-react';
-import { useLmsCourses, useLmsGroups, useLmsStudentSummary, useCreateStudentOnboardingLink } from '@/hooks/use-lms';
+import { useLmsCourses, useLmsGroups, useLmsStudentSummary } from '@/hooks/use-lms';
 import { useCreateManagedEnrollment } from '@/hooks/use-enrollments';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRolePermissions } from '@/hooks/use-role-permissions';
 import { useToast } from '@/hooks/use-toast';
 import { useLmsBridge } from '@/components/lms/LmsBridgeProvider';
 import { contactApi, dealsApi, leadsApi, lmsApi, bridgeApi } from '@/api/modules';
-import type { Contact, Deal, Lead } from '@/types';
+import type { Contact, Deal, Lead, PaginatedResponse } from '@/types';
 import type { ContactWithStudentMapping, DealWithCourseMapping } from '@/types/bridge';
 import type { LmsCourseType, LmsEnrollmentResponse } from '@/types/lms';
 import { getFriendlyError } from '@/lib/error-messages';
@@ -36,7 +36,7 @@ const courseTypeBadgeClass: Record<LmsCourseType, string> = {
 export function EnrollmentForm() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-  const { canManageUsers } = useRolePermissions();
+  const { canManageUsers, canViewLmsTechnicalFields } = useRolePermissions();
   const { isLmsBridgeEnabled } = useLmsBridge();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -58,9 +58,10 @@ export function EnrollmentForm() {
   const [submitError, setSubmitError] = useState('');
   const [onboardingInfo, setOnboardingInfo] = useState<LmsEnrollmentResponse['onboarding'] | null>(null);
   const { toast } = useToast();
+  const canViewBridgeData = canViewLmsTechnicalFields();
 
   const { data: coursesData, isLoading: coursesLoading } = useLmsCourses({ isActive: 'true' });
-  const courses = coursesData?.items ?? [];
+  const courses = useMemo(() => coursesData?.items ?? [], [coursesData?.items]);
 
   const selectedCourse = useMemo(
     () => courses.find((c) => c.id === courseId),
@@ -72,7 +73,7 @@ export function EnrollmentForm() {
   const { data: groupsData, isLoading: groupsLoading } = useLmsGroups(
     needsGroup ? { courseId } : undefined
   );
-  const groups = groupsData?.items ?? [];
+  const groups = useMemo(() => groupsData?.items ?? [], [groupsData?.items]);
   const selectedGroup = useMemo(
     () => groups.find((group) => group.id === groupId),
     [groups, groupId]
@@ -92,30 +93,30 @@ export function EnrollmentForm() {
   const prefillDealId = searchParams.get('crmDealId') || '';
 
   useEffect(() => {
-    if (!linkedContact || !isLmsBridgeEnabled) {
+    if (!linkedContact || !isLmsBridgeEnabled || !canViewBridgeData) {
       setContactBridgeData(null);
       return;
     }
     bridgeApi.getContactBridgeData(linkedContact.id)
       .then((data) => setContactBridgeData(data))
       .catch(() => setContactBridgeData(null));
-  }, [linkedContact, isLmsBridgeEnabled]);
+  }, [linkedContact, isLmsBridgeEnabled, canViewBridgeData]);
 
   useEffect(() => {
-    if (!selectedDeal || !isLmsBridgeEnabled) {
+    if (!selectedDeal) {
       setDealBridgeData(null);
-      // Clear prefill fields immediately to prevent stale data
-      setCourseId('');
-      setGroupId('');
       return;
     }
-    // Clear prefill fields immediately when deal changes
+    if (!isLmsBridgeEnabled || !canViewBridgeData) {
+      setDealBridgeData(null);
+      return;
+    }
     setCourseId('');
     setGroupId('');
     bridgeApi.getDealBridgeData(selectedDeal.id)
       .then((data) => setDealBridgeData(data))
       .catch(() => setDealBridgeData(null));
-  }, [selectedDeal, isLmsBridgeEnabled]);
+  }, [selectedDeal, isLmsBridgeEnabled, canViewBridgeData]);
 
   // Apply course/group prefill from dealBridgeData when it becomes available
   useEffect(() => {
@@ -133,6 +134,20 @@ export function EnrollmentForm() {
   const { data: existingStudentSummary } = useLmsStudentSummary(lmsStudentId);
   const createManagedEnrollment = useCreateManagedEnrollment();
 
+  const loadAllPages = async <T,>(
+    loader: (params: { page: number; limit: number }) => Promise<PaginatedResponse<T>>,
+  ) => {
+    const firstPage = await loader({ page: 1, limit: 100 });
+    const items = [...firstPage.items];
+
+    for (let page = 2; page <= firstPage.totalPages; page += 1) {
+      const nextPage = await loader({ page, limit: 100 });
+      items.push(...nextPage.items);
+    }
+
+    return items;
+  };
+
   const fillStudentFields = (next: { fullName?: string | null; phone?: string | null; email?: string | null }) => {
     setStudentName(next.fullName?.trim() || '');
     setStudentPhone(next.phone?.trim() || '');
@@ -140,17 +155,35 @@ export function EnrollmentForm() {
   };
 
   useEffect(() => {
+    let cancelled = false;
+
     setLeadsLoading(true);
-    leadsApi.list({ page: 1, limit: 100 })
-      .then((res) => setLeads(res.items))
-      .catch(() => setLeads([]))
-      .finally(() => setLeadsLoading(false));
+    loadAllPages((params) => leadsApi.list(params))
+      .then((items) => {
+        if (!cancelled) setLeads(items);
+      })
+      .catch(() => {
+        if (!cancelled) setLeads([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLeadsLoading(false);
+      });
 
     setDealsLoading(true);
-    dealsApi.list({ page: 1, limit: 100 })
-      .then((res) => setDeals(res.items))
-      .catch(() => setDeals([]))
-      .finally(() => setDealsLoading(false));
+    loadAllPages((params) => dealsApi.list(params))
+      .then((items) => {
+        if (!cancelled) setDeals(items);
+      })
+      .catch(() => {
+        if (!cancelled) setDeals([]);
+      })
+      .finally(() => {
+        if (!cancelled) setDealsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -317,10 +350,12 @@ export function EnrollmentForm() {
   const submitManagedEnrollment = async (options?: { recreateExistingAccount?: boolean }) => {
     const response = await createManagedEnrollment.mutateAsync({
       leadId: Number(leadId),
+      dealId: dealId ? Number(dealId) : undefined,
       courseId,
       courseType: selectedCourse?.courseType || 'video',
       groupId: isVideo ? undefined : groupId,
       recreateExistingAccount: options?.recreateExistingAccount,
+      notes: notes.trim() || undefined,
     });
 
     let onboarding: LmsEnrollmentResponse['onboarding'] | null = null;

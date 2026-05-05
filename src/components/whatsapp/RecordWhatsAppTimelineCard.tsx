@@ -66,15 +66,34 @@ export function RecordWhatsAppTimelineCard({
     let isMounted = true;
 
     setIsLoading(true);
-    timelineApi.list({
-      leadId,
-      contactId,
-      dealId,
-      limit: 20,
-    })
-      .then((response) => {
+    const loadAllPages = async () => {
+      const firstPage = await timelineApi.list({
+        leadId,
+        contactId,
+        dealId,
+        page: 1,
+        limit: 100,
+      });
+      const items = [...firstPage.items];
+
+      for (let page = 2; page <= firstPage.totalPages; page += 1) {
+        const nextPage = await timelineApi.list({
+          leadId,
+          contactId,
+          dealId,
+          page,
+          limit: 100,
+        });
+        items.push(...nextPage.items);
+      }
+
+      return items;
+    };
+
+    loadAllPages()
+      .then((items) => {
         if (!isMounted) return;
-        setEvents(response.items.filter(isWhatsAppTimelineEvent));
+        setEvents(items.filter(isWhatsAppTimelineEvent));
       })
       .catch(() => {
         if (!isMounted) return;
@@ -148,12 +167,29 @@ export function RecordWhatsAppTimelineCard({
       const [detail, messagesResponse] = await Promise.all([
         whatsappApi.getConversation(Number(selectedConversationId)),
         whatsappApi.getConversationMessages(Number(selectedConversationId), { limit: 20, offset: 0 }),
-        timelineApi.list({
-          leadId,
-          contactId,
-          dealId,
-          limit: 20,
-        }).then((timelineResponse) => setEvents(timelineResponse.items.filter(isWhatsAppTimelineEvent))),
+        (async () => {
+          const firstPage = await timelineApi.list({
+            leadId,
+            contactId,
+            dealId,
+            page: 1,
+            limit: 100,
+          });
+          const items = [...firstPage.items];
+
+          for (let page = 2; page <= firstPage.totalPages; page += 1) {
+            const nextPage = await timelineApi.list({
+              leadId,
+              contactId,
+              dealId,
+              page,
+              limit: 100,
+            });
+            items.push(...nextPage.items);
+          }
+
+          setEvents(items.filter(isWhatsAppTimelineEvent));
+        })(),
       ]);
 
       setConversationDetail(detail);

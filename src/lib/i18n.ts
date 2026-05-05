@@ -120,7 +120,6 @@ export const ky = {
     website: 'Веб-сайт',
     phone_call: 'Телефон чалуу',
     referral: 'Сунуштоо',
-    other: 'Башка',
   },
   // Lead statuses (CRM-native)
   leadStatus: {

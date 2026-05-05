@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/PageShell';
 import { DataTable, type Column } from '@/components/DataTable';
@@ -25,7 +25,7 @@ import { LmsCourseContextFields } from '@/components/lms/LmsCourseContextFields'
 import { useLmsCourses, useLmsGroups } from '@/hooks/use-lms';
 import { ListPriorityIndicator, PriorityScore, RiskScore } from '@/components/ai/PriorityIndicator';
 import { useFeatureFlags } from '@/components/core/FeatureFlagProvider';
-import { aiApi, type LeadPriorityScoreResult, type RiskScoreResult } from '@/api/ai';
+import { aiApi } from '@/api/ai';
 
 type DealCreateFormState = {
   leadId: string;
@@ -75,6 +75,11 @@ export default function DealsPage() {
   const { isLmsBridgeEnabled } = useLmsBridge();
   const { tenantConfig } = useTenantConfig();
   const { isFeatureEnabled } = useFeatureFlags();
+  const getSearchParam = (key: string, fallback = '') => searchParams.get(key) ?? fallback;
+  const getPageParam = () => {
+    const value = Number(searchParams.get('page'));
+    return Number.isFinite(value) && value > 0 ? Math.floor(value) : 1;
+  };
   const isAiOperationalIntelligenceEnabled = isFeatureEnabled('ai_assist_enabled') && isFeatureEnabled('ai_operator_guidance_enabled');
   const [deals, setDeals] = useState<Deal[]>([]);
   const [totalItems, setTotalItems] = useState(0);
@@ -84,7 +89,9 @@ export default function DealsPage() {
   const [contactsLoading, setContactsLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(() => getSearchParam('q'));
+  const [page, setPage] = useState(() => getPageParam());
+  const [totalPages, setTotalPages] = useState(1);
   const [updatingDealId, setUpdatingDealId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Deal | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -95,7 +102,6 @@ export default function DealsPage() {
   // Release 2 - Priority and risk data for deals
   const [dealPriorities, setDealPriorities] = useState<Record<number, PriorityScore>>({});
   const [dealRisks, setDealRisks] = useState<Record<number, RiskScore>>({});
-  const [priorityLoading, setPriorityLoading] = useState(false);
   const prefillLeadId = searchParams.get('leadId') || '';
   const prefillContactId = searchParams.get('contactId') || '';
   const prefillTrialLessonId = searchParams.get('trialLessonId') || '';
@@ -106,14 +112,14 @@ export default function DealsPage() {
   const prefillGroupName = searchParams.get('groupName') || '';
   const shouldOpenCreate = searchParams.get('create') === '1';
   const { data: coursesData } = useLmsCourses(isLmsBridgeEnabled ? { isActive: 'true' } : undefined);
-  const courses = coursesData?.items ?? [];
+  const courses = useMemo(() => coursesData?.items ?? [], [coursesData?.items]);
   const selectedFormCourse = courses.find((course) => course.id === form.lmsCourseId) ?? null;
   const { data: groupsData } = useLmsGroups(
     isLmsBridgeEnabled && form.lmsCourseId && selectedFormCourse?.courseType !== 'video'
       ? { courseId: form.lmsCourseId, limit: 100 }
       : undefined,
   );
-  const groups = groupsData?.items ?? [];
+  const groups = useMemo(() => groupsData?.items ?? [], [groupsData?.items]);
 
   // Use tenant-configured pipeline stages if available, otherwise use hardcoded stages
   const pipelineStageOptions = useMemo(() => {
@@ -152,17 +158,17 @@ export default function DealsPage() {
     setShowCreate(false);
   };
 
-  const fetchDeals = async () => {
+  const fetchDeals = useCallback(() => {
     setIsLoading(true);
     setLoadError(null);
-    dealsApi.list({ search })
+    dealsApi.list({ search, page, limit: 20 })
       .then(async (res) => {
         setDeals(res.items);
         setTotalItems(res.total || 0);
+        setTotalPages(Math.max(res.totalPages || 1, 1));
 
         // Load priority and risk data if AI operational intelligence is enabled
         if (isAiOperationalIntelligenceEnabled && res.items.length > 0) {
-          setPriorityLoading(true);
           const priorities: Record<number, PriorityScore> = {};
           const risks: Record<number, RiskScore> = {};
 
@@ -186,12 +192,12 @@ export default function DealsPage() {
 
           setDealPriorities(priorities);
           setDealRisks(risks);
-          setPriorityLoading(false);
         }
       })
       .catch(() => {
         setDeals([]);
         setTotalItems(0);
+        setTotalPages(1);
         setDealPriorities({});
         setDealRisks({});
         setLoadError('Интернет байланышын текшерип, кайра аракет кылыңыз');
@@ -202,22 +208,64 @@ export default function DealsPage() {
         });
       })
       .finally(() => setIsLoading(false));
-  };
+  }, [isAiOperationalIntelligenceEnabled, page, search, toast]);
 
-  useEffect(() => { fetchDeals(); }, [search]);
+  useEffect(() => { fetchDeals(); }, [fetchDeals]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  useEffect(() => {
+    const nextSearch = searchParams.get('q') ?? '';
+    const nextPage = getPageParam();
+
+    if (nextSearch !== search) setSearch(nextSearch);
+    if (nextPage !== page) setPage(nextPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  useEffect(() => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+
+      if (search) next.set('q', search);
+      else next.delete('q');
+
+      if (page > 1) next.set('page', String(page));
+      else next.delete('page');
+
+      return next.toString() === current.toString() ? current : next;
+    }, { replace: true });
+  }, [page, search, setSearchParams]);
+
+  const fetchAllPages = useCallback(async function fetchAllPages<T>(
+    fetchPage: (pageNumber: number) => Promise<{ items: T[]; totalPages?: number }>
+  ): Promise<T[]> {
+    const firstPage = await fetchPage(1);
+    const collectedItems = [...firstPage.items];
+    const pageCount = Math.max(firstPage.totalPages || 1, 1);
+
+    for (let pageNumber = 2; pageNumber <= pageCount; pageNumber += 1) {
+      const response = await fetchPage(pageNumber);
+      collectedItems.push(...response.items);
+    }
+
+    return collectedItems;
+  }, []);
 
   useEffect(() => {
     if (!showCreate) return;
     setContactsLoading(true);
     Promise.all([
-      contactApi.list({ page: 1, limit: 100 }),
-      leadsApi.list({ page: 1, limit: 100 }),
-      trialLessonsApi.list({ page: 1, limit: 100 }),
+      fetchAllPages((pageNumber) => contactApi.list({ page: pageNumber, limit: 100 })),
+      fetchAllPages((pageNumber) => leadsApi.list({ page: pageNumber, limit: 100 })),
+      fetchAllPages((pageNumber) => trialLessonsApi.list({ page: pageNumber, limit: 100 })),
     ])
-      .then(([contactsRes, leadsRes, trialsRes]) => {
-        setContacts(contactsRes.items);
-        setLeads(leadsRes.items);
-        setTrialLessons(trialsRes.items);
+      .then(([allContacts, allLeads, allTrials]) => {
+        setContacts(allContacts);
+        setLeads(allLeads);
+        setTrialLessons(allTrials);
       })
       .catch(() => {
         setContacts([]);
@@ -225,7 +273,7 @@ export default function DealsPage() {
         setTrialLessons([]);
       })
       .finally(() => setContactsLoading(false));
-  }, [showCreate]);
+  }, [fetchAllPages, showCreate]);
 
   useEffect(() => {
     if (!shouldOpenCreate) return;
@@ -586,7 +634,10 @@ export default function DealsPage() {
         onRetry={fetchDeals}
         searchValue={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Келишим издөө..."
+        searchPlaceholder="Келишимди аты, телефон, email, сумма, ID же эскертүү менен издөө..."
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
         headerActions={headerActions}
         activeFilters={activeFilters}
         totalItems={totalItems}
@@ -668,7 +719,7 @@ export default function DealsPage() {
                 <Select value={form.pipelineStage} onValueChange={(v) => setForm({ ...form, pipelineStage: v as DealPipelineStage })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {Object.entries(ky.dealPipelineStage).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                    {pipelineStageOptions.map(({ value, label }) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

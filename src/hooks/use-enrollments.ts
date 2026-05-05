@@ -10,10 +10,13 @@ function invalidateEnrollmentQueries(queryClient: ReturnType<typeof useQueryClie
   ]);
 }
 
-export function usePendingEnrollments(enabled = true) {
+export function usePendingEnrollments(
+  params: { limit?: number; offset?: number } = {},
+  enabled = true,
+) {
   return useQuery({
-    queryKey: ['enrollments', 'pending'],
-    queryFn: () => enrollmentsApi.getPending(),
+    queryKey: ['enrollments', 'pending', params],
+    queryFn: () => enrollmentsApi.getPending(params),
     enabled,
     staleTime: 15_000,
   });
@@ -36,7 +39,7 @@ export function useCreateManagedEnrollment() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: (data: { leadId: number; courseId: string; courseType: 'video' | 'offline' | 'online_live'; groupId?: string; recreateExistingAccount?: boolean }) =>
+    mutationFn: (data: { leadId: number; dealId?: number; courseId: string; courseType: 'video' | 'offline' | 'online_live'; groupId?: string; recreateExistingAccount?: boolean; notes?: string }) =>
       enrollmentsApi.create(data),
     onSuccess: async () => {
       await invalidateEnrollmentQueries(queryClient);

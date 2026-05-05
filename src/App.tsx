@@ -21,7 +21,6 @@ const ResetPasswordPage = lazy(() => import("./pages/ResetPassword"));
 const AcceptInvitePage = lazy(() => import("./pages/AcceptInvite"));
 const DashboardPage = lazy(() => import("./pages/Dashboard"));
 const LeadsPage = lazy(() => import("./pages/Leads"));
-const CoursesPage = lazy(() => import("./pages/Courses"));
 const LeadDetailPage = lazy(() => import("./pages/LeadDetail"));
 const DealDetailPage = lazy(() => import("./pages/DealDetail"));
 const ContactsPage = lazy(() => import("./pages/Contacts"));
@@ -57,7 +56,7 @@ function AuthRedirect({ children }: { children: React.ReactNode }) {
 }
 
 function AppContent() {
-  const { canViewLmsTechnicalFields, canViewRetentionCases, canAccessAdminPanel, canManageUsers, canManageSettings } = useRolePermissions();
+  const { canViewRetentionCases, canAccessAdminPanel, canManageUsers, canManageSettings } = useRolePermissions();
 
   return (
     <LmsBridgeProvider>
@@ -93,18 +92,6 @@ function AppContent() {
 
             {/* LMS-dependent routes - protected by feature flag and role permissions */}
             <Route
-              path="/courses"
-              element={
-                <ModuleGuard
-                  requiredFeature="lms_bridge_enabled"
-                  permissionCheck={canViewLmsTechnicalFields}
-                >
-                  <CoursesPage />
-                </ModuleGuard>
-              }
-            />
-
-            <Route
               path="/trial-lessons"
               element={
                 <ModuleGuard
@@ -120,7 +107,6 @@ function AppContent() {
               element={
                 <ModuleGuard
                   requiredFeature="lms_bridge_enabled"
-                  permissionCheck={canViewLmsTechnicalFields}
                 >
                   <EnrollmentsPage />
                 </ModuleGuard>
