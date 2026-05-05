@@ -36,6 +36,7 @@ import { CommunicationSummary, CommunicationSummary as CommunicationSummaryType 
 import { StructuredSuggestionReview, SuggestionSet, FieldSuggestion } from '@/components/ai/StructuredSuggestionReview';
 import { AiFeedbackControls } from '@/components/ai/AiFeedbackControls';
 import { aiApi, type LeadPriorityScoreResult, type NextBestActionResult, type RiskScoreResult, type TimelineSummaryResult, type ExtractionResult, type FeedbackRequest } from '@/api/ai';
+import { RecordWhatsAppTimelineCard } from '@/components/whatsapp/RecordWhatsAppTimelineCard';
 
 type LeadDetailFormState = {
   fullName: string;
@@ -829,6 +830,12 @@ export default function LeadDetailPage() {
             contactId={lead.contactId || undefined}
             refreshKey={scheduleRefreshKey}
           />
+          {isFeatureEnabled('whatsapp_integration_enabled') ? (
+            <RecordWhatsAppTimelineCard
+              leadId={lead.id}
+              contactId={lead.contactId || undefined}
+            />
+          ) : null}
         </div>
       </div>
 

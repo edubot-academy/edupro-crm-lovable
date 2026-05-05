@@ -29,6 +29,7 @@ import { AiDraftHandoffCard } from '@/components/ai/AiDraftHandoffCard';
 import { AiFeedbackControls } from '@/components/ai/AiFeedbackControls';
 import { CommunicationSummary, CommunicationSummary as CommunicationSummaryType } from '@/components/ai/CommunicationSummary';
 import { aiApi, type TimelineSummaryResult, type FeedbackRequest } from '@/api/ai';
+import { RecordWhatsAppTimelineCard } from '@/components/whatsapp/RecordWhatsAppTimelineCard';
 
 export default function ContactDetailPage() {
   const { id } = useParams();
@@ -518,6 +519,9 @@ export default function ContactDetailPage() {
             contactId={contact.id}
             refreshKey={scheduleRefreshKey}
           />
+          {isFeatureEnabled('whatsapp_integration_enabled') ? (
+            <RecordWhatsAppTimelineCard contactId={contact.id} />
+          ) : null}
         </div>
       </div>
       {isScheduleOpen && (

@@ -446,7 +446,7 @@ export interface Task {
 }
 
 // ==================== COMMUNICATION TIMELINE ====================
-export type TimelineEventType = 'call' | 'email' | 'sms' | 'whatsapp' | 'telegram' | 'note' | 'meeting' | 'system';
+export type TimelineEventType = string;
 
 export interface TimelineEvent {
   id: number;
@@ -459,6 +459,145 @@ export interface TimelineEvent {
   meta?: Record<string, unknown>;
   company?: CompanyRef;
   createdAt: string;
+}
+
+// ==================== WHATSAPP ====================
+export type WhatsAppAccountStatus = 'pending' | 'connected' | 'disabled' | 'failed';
+export type WhatsAppConversationStatus = 'active' | 'archived' | 'closed';
+
+export interface WhatsAppSettings {
+  id: number;
+  whatsapp_business_account_id: string;
+  phone_number_id: string;
+  display_phone_number: string;
+  status: WhatsAppAccountStatus;
+  last_verified_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  access_token_preview: string;
+}
+
+export interface WhatsAppSettingsPayload {
+  whatsapp_business_account_id: string;
+  phone_number_id: string;
+  display_phone_number: string;
+  access_token: string;
+}
+
+export interface UpdateWhatsAppSettingsPayload {
+  whatsapp_business_account_id?: string;
+  display_phone_number?: string;
+  access_token?: string;
+}
+
+export interface WhatsAppConversationStats {
+  total: number;
+  active: number;
+  archived: number;
+  closed: number;
+  unreadCount: number;
+}
+
+export interface WhatsAppMatchedEntity {
+  type: 'contact' | 'lead' | 'deal' | 'none';
+  entity?: {
+    id: number;
+    name: string;
+    email?: string;
+    phone?: string;
+    status?: string;
+    value?: number;
+    contact_id?: number;
+    lead_id?: number;
+  };
+}
+
+export interface WhatsAppConversationSummary {
+  id: number;
+  customer_info: {
+    phone: string;
+    name?: string | null;
+  };
+  matched_entity: WhatsAppMatchedEntity;
+  assigned_user: {
+    id: number;
+    name: string;
+    email: string;
+    role: UserRole;
+  } | null;
+  unread_count: number;
+  status: WhatsAppConversationStatus;
+  last_message_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  whatsapp_account: {
+    id: number;
+    phone_number_id: string;
+    display_phone_number: string;
+    status: WhatsAppAccountStatus;
+  } | null;
+}
+
+export interface WhatsAppConversationDetail {
+  id: number;
+  customer_info: {
+    phone: string;
+    name?: string | null;
+  };
+  matched_entity: WhatsAppMatchedEntity;
+  assigned_user: {
+    id: number;
+    name: string;
+    email: string;
+    role: UserRole;
+  } | null;
+  last_message: {
+    id: number;
+    body?: string | null;
+    message_type: string;
+    direction: string;
+    status: string;
+    created_at: string;
+    sent_at?: string | null;
+    received_at?: string | null;
+  } | null;
+  unread_count: number;
+  status: WhatsAppConversationStatus;
+  last_message_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WhatsAppMessageSummary {
+  id: number;
+  conversation_id: number;
+  direction: string;
+  message_type: string;
+  body?: string | null;
+  status: string;
+  whatsapp_message_id?: string | null;
+  provider_error?: string | null;
+  received_at?: string | null;
+  sent_at?: string | null;
+  delivered_at?: string | null;
+  read_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WhatsAppWebhookEventSummary {
+  id: number;
+  company_id: number;
+  whatsapp_account_id?: number | null;
+  phone_number_id?: string | null;
+  provider_event_id?: string | null;
+  event_type: string;
+  status: string;
+  retry_count: number;
+  processed_at?: string | null;
+  error_message?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 // ==================== RETENTION / RISK ====================

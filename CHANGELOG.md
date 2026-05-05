@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Version bumps are classified by delivery scale; see `VERSIONING.md`.
 
+## [2.4.0] - 2026-05-06
+
+### Added
+- WhatsApp Integration: Complete WhatsApp Business API integration for CRM communication
+  - `whatsappApi` client with comprehensive endpoints for settings, conversations, messaging, and webhook management
+  - WhatsApp settings management with account creation, connection testing, and configuration
+  - Conversation management with status tracking (active, archived, closed) and user assignment
+  - Real-time messaging capabilities with send, receive, and read status tracking
+  - Webhook event handling with retry mechanisms for failed events
+  - Conversation linking to CRM entities (contacts, leads, deals) for unified communication history
+- WhatsApp Components: New UI components for WhatsApp functionality
+  - `RecordWhatsAppTimelineCard` for viewing and managing WhatsApp conversations within entity timelines
+  - `UnmatchedWhatsAppQueueCard` for handling conversations not yet linked to CRM entities
+  - `WhatsAppSettingsPanel` for configuring WhatsApp Business account settings
+  - WhatsApp utility functions for message formatting, direction handling, and event processing
+- Enhanced Timeline: Improved timeline event type handling to support WhatsApp integration
+- WhatsApp Types: Comprehensive TypeScript interfaces for WhatsApp entities
+  - `WhatsAppSettings`, `WhatsAppConversationSummary`, `WhatsAppConversationDetail`
+  - `WhatsAppMessageSummary`, `WhatsAppWebhookEventSummary`
+  - `WhatsAppAccountStatus`, `WhatsAppConversationStatus` enums
+  - `WhatsAppMatchedEntity` for CRM entity linking
+
+### Changed
+- Timeline event type `TimelineEventType` changed from strict union to string for better extensibility
+- Updated detail pages (ContactDetail, DealDetail, LeadDetail) to support WhatsApp timeline integration
+- Enhanced Settings page with WhatsApp configuration panel
+- Timeline API integration with WhatsApp conversation data synchronization
+
 ## [2.3.3] - 2026-05-05
 
 ### Added

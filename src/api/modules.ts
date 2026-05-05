@@ -7,6 +7,14 @@ import type {
   TelegramLinkResponse, TelegramStatusResponse,
   InAppNotification, UnreadNotificationsResponse,
   TrialLessonWritePayload,
+  WhatsAppConversationStats,
+  WhatsAppConversationDetail,
+  WhatsAppConversationSummary,
+  WhatsAppMessageSummary,
+  WhatsAppSettings,
+  WhatsAppSettingsPayload,
+  UpdateWhatsAppSettingsPayload,
+  WhatsAppWebhookEventSummary,
 } from '@/types';
 import type {
   ContactWithStudentMapping,
@@ -201,6 +209,55 @@ export const timelineApi = {
     apiClient.get<PaginatedResponse<TimelineEvent>>('/communication-timeline', params),
   add: (data: { type: string; message: string; leadId?: number; contactId?: number; dealId?: number; retentionCaseId?: number; meta?: Record<string, unknown> }) =>
     apiClient.post<TimelineEvent>('/communication-timeline', data),
+};
+
+export const whatsappApi = {
+  getSettings: () =>
+    apiClient.get<WhatsAppSettings | { message: string }>('/whatsapp/settings'),
+  createSettings: (data: WhatsAppSettingsPayload) =>
+    apiClient.post<{ message: string; account: WhatsAppSettings }>('/whatsapp/settings', data),
+  updateSettings: (data: UpdateWhatsAppSettingsPayload) =>
+    apiClient.patch<{ message: string; account: WhatsAppSettings }>('/whatsapp/settings', data),
+  testConnection: () =>
+    apiClient.post<{ message: string }>('/whatsapp/settings/test'),
+  disableSettings: () =>
+    apiClient.post<{ message: string }>('/whatsapp/settings/disable'),
+  getStats: () =>
+    apiClient.get<{ message: string; stats: WhatsAppConversationStats }>('/whatsapp/stats'),
+  getFailedWebhookEvents: (params?: { limit?: number }) =>
+    apiClient.get<{ message: string; events: WhatsAppWebhookEventSummary[] }>(
+      '/whatsapp/webhook-events/failed',
+      params as Record<string, string | number | undefined>,
+    ),
+  getConversations: (params?: {
+    limit?: number;
+    offset?: number;
+    matched?: boolean;
+    unreadOnly?: boolean;
+    status?: 'active' | 'archived' | 'closed';
+    search?: string;
+  }) =>
+    apiClient.get<{
+      conversations: WhatsAppConversationSummary[];
+      stats: WhatsAppConversationStats;
+      pagination: { limit: number; offset: number; total: number };
+    }>('/whatsapp/conversations', params as Record<string, string | number | undefined>),
+  getConversation: (conversationId: number) =>
+    apiClient.get<WhatsAppConversationDetail>(`/whatsapp/conversations/${conversationId}`),
+  getConversationMessages: (conversationId: number, params?: { limit?: number; offset?: number }) =>
+    apiClient.get<{
+      conversation: WhatsAppConversationSummary;
+      messages: WhatsAppMessageSummary[];
+      pagination: { limit: number; offset: number };
+    }>(`/whatsapp/conversations/${conversationId}/messages`, params as Record<string, string | number | undefined>),
+  sendConversationMessage: (conversationId: number, data: { body: string; message_type?: 'text' }) =>
+    apiClient.post<{ message: string; messageId: number; whatsappMessageId?: string }>(`/whatsapp/conversations/${conversationId}/send`, data),
+  markConversationAsRead: (conversationId: number) =>
+    apiClient.post<{ message: string }>(`/whatsapp/conversations/${conversationId}/read`),
+  linkConversation: (conversationId: number, data: { contactId?: number; leadId?: number; dealId?: number }) =>
+    apiClient.post<{ message: string; conversation: WhatsAppConversationSummary }>(`/whatsapp/conversations/${conversationId}/link`, data),
+  retryWebhookEvent: (eventId: number) =>
+    apiClient.post<{ message: string }>(`/whatsapp/webhook-events/${eventId}/retry`),
 };
 
 // ==================== RETENTION CASES ====================

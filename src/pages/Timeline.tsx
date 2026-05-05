@@ -15,6 +15,15 @@ import { timelineApi } from '@/api/modules';
 import { useToast } from '@/hooks/use-toast';
 import { getFriendlyError } from '@/lib/error-messages';
 import { toDateTimeLocalValue, toIsoFromDateTimeLocal } from '@/lib/datetime';
+import { useFeatureFlags } from '@/components/core/FeatureFlagProvider';
+import { Badge } from '@/components/ui/badge';
+import { UnmatchedWhatsAppQueueCard } from '@/components/whatsapp/UnmatchedWhatsAppQueueCard';
+import {
+  formatWhatsAppMessageType,
+  getWhatsAppEventDirection,
+  getWhatsAppEventLabel,
+  isWhatsAppTimelineEvent,
+} from '@/components/whatsapp/whatsapp-utils';
 
 const iconMap: Record<string, React.ElementType> = {
   call: Phone, email: Mail, sms: MessageSquare, whatsapp: MessageSquare,
@@ -26,6 +35,8 @@ const emptyForm = { type: 'note', message: '', scheduledAt: '', leadId: '', cont
 export default function TimelinePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
+  const { isFeatureEnabled } = useFeatureFlags();
+  const isWhatsAppEnabled = isFeatureEnabled('whatsapp_integration_enabled');
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -64,8 +75,30 @@ export default function TimelinePage() {
 
   const fetchEvents = useCallback(() => {
     setIsLoading(true);
-    timelineApi.list({ search, type: typeFilter === 'all' ? undefined : typeFilter })
-      .then((res) => setEvents(res.items))
+    const load = async () => {
+      if (typeFilter !== 'whatsapp_release3') {
+        const requestedType = typeFilter === 'all' ? undefined : typeFilter;
+        const res = await timelineApi.list({ search, type: requestedType });
+        return res.items;
+      }
+
+      const pageSize = 100;
+      let page = 1;
+      let totalPages = 1;
+      const collected: TimelineEvent[] = [];
+
+      do {
+        const res = await timelineApi.list({ search, page, limit: pageSize });
+        collected.push(...res.items.filter(isWhatsAppTimelineEvent));
+        totalPages = res.totalPages;
+        page += 1;
+      } while (page <= totalPages);
+
+      return collected;
+    };
+
+    load()
+      .then((items) => setEvents(items))
       .catch(() => setEvents([]))
       .finally(() => setIsLoading(false));
   }, [search, typeFilter]);
@@ -139,6 +172,7 @@ export default function TimelinePage() {
         title={ky.timelineLabels.title}
         actions={<Button onClick={() => setShowCreate(true)}><Plus className="mr-2 h-4 w-4" />{ky.timelineLabels.addEvent}</Button>}
       />
+      {isWhatsAppEnabled ? <UnmatchedWhatsAppQueueCard /> : null}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -149,6 +183,7 @@ export default function TimelinePage() {
           <SelectContent>
             <SelectItem value="all">{ky.common.all}</SelectItem>
             {Object.entries(ky.timelineType).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+            {isWhatsAppEnabled ? <SelectItem value="whatsapp_release3">WhatsApp Release 3</SelectItem> : null}
           </SelectContent>
         </Select>
       </div>
@@ -168,6 +203,20 @@ export default function TimelinePage() {
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
                       <div className="space-y-1">
+                        {isWhatsAppTimelineEvent(event) ? (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="secondary">WhatsApp</Badge>
+                            <Badge variant={getWhatsAppEventDirection(event) === 'inbound' ? 'default' : getWhatsAppEventDirection(event) === 'outbound' ? 'outline' : 'secondary'}>
+                              {getWhatsAppEventDirection(event) === 'inbound'
+                                ? 'Кирген'
+                                : getWhatsAppEventDirection(event) === 'outbound'
+                                  ? 'Чыккан'
+                                  : 'Статус'}
+                            </Badge>
+                            <Badge variant="outline">{getWhatsAppEventLabel(event)}</Badge>
+                            <Badge variant="outline">{formatWhatsAppMessageType(event.meta?.messageType)}</Badge>
+                          </div>
+                        ) : null}
                         <p className="text-sm font-medium">{event.message}</p>
                         {typeof event.meta?.scheduledAt === 'string' && event.meta.scheduledAt && (
                           <p className="text-xs text-primary">
@@ -180,7 +229,7 @@ export default function TimelinePage() {
                       </span>
                     </div>
                     <p className="mt-2 text-xs text-muted-foreground">
-                      {ky.timelineType[event.type]}
+                      {isWhatsAppTimelineEvent(event) ? getWhatsAppEventLabel(event) : ky.timelineType[event.type]}
                       {event.leadId ? ` • Лид #${event.leadId}` : ''}
                       {event.contactId ? ` • Байланыш #${event.contactId}` : ''}
                       {event.dealId ? ` • Келишим #${event.dealId}` : ''}

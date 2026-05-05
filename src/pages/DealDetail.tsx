@@ -8,7 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Loader2, ArrowLeft, CreditCard, Workflow, Pencil, Sparkles, MoreHorizontal } from 'lucide-react';
 import { contactApi, dealsApi, paymentsApi, bridgeApi } from '@/api/modules';
-import type { Contact, Deal, Payment } from '@/types';
+import type { Contact, Deal, Lead, Payment } from '@/types';
 import type { ContactWithStudentMapping } from '@/types/bridge';
 import { ky } from '@/lib/i18n';
 import { formatDate } from '@/lib/formatting';
@@ -29,6 +29,7 @@ import { CommunicationSummary, CommunicationSummary as CommunicationSummaryType 
 import { StructuredSuggestionReview, SuggestionSet, FieldSuggestion } from '@/components/ai/StructuredSuggestionReview';
 import { AiFeedbackControls } from '@/components/ai/AiFeedbackControls';
 import { aiApi, type LeadPriorityScoreResult, type NextBestActionResult, type RiskScoreResult, type TimelineSummaryResult, type ExtractionResult, type FeedbackRequest } from '@/api/ai';
+import { RecordWhatsAppTimelineCard } from '@/components/whatsapp/RecordWhatsAppTimelineCard';
 
 type DealEditLmsFormState = {
   lmsCourseId: string;
@@ -627,6 +628,14 @@ export default function DealDetailPage() {
                 />
               </CardContent>
             </Card>
+          ) : null}
+
+          {isFeatureEnabled('whatsapp_integration_enabled') ? (
+            <RecordWhatsAppTimelineCard
+              dealId={deal.id}
+              contactId={contact?.id}
+              leadId={deal.leadId || undefined}
+            />
           ) : null}
         </div>
       </div>
