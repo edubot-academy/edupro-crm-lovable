@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Version bumps are classified by delivery scale; see `VERSIONING.md`.
 
+## [2.4.1] - 2026-05-06
+
+### Removed
+- WhatsApp Settings Panel: Removed `WhatsAppSettingsPanel` component from Settings page
+- Settings Page: Removed WhatsApp integration section and feature flag checks
+
+### Changed
+- Settings.tsx: Simplified WhatsApp integration handling by removing settings panel references
+
 ## [2.4.0] - 2026-05-06
 
 ### Added

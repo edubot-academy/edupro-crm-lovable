@@ -16,7 +16,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, PencilLine, ToggleLeft, Palette, Globe, DollarSign, Tag, CreditCard } from 'lucide-react';
 import { getFriendlyError } from '@/lib/error-messages';
 import { AiUsageSummary } from '@/components/ai/AiUsageSummary';
-import { WhatsAppSettingsPanel } from '@/components/whatsapp/WhatsAppSettingsPanel';
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -24,7 +23,6 @@ export default function SettingsPage() {
   const { featureFlags, isFeatureEnabled, allowedFeatures, sources } = useFeatureFlags();
   const isAiDraftsEnabled =
     isFeatureEnabled('ai_assist_enabled') && isFeatureEnabled('ai_followup_drafts_enabled');
-  const isWhatsAppEnabled = isFeatureEnabled('whatsapp_integration_enabled');
   const { tenantConfig, updateTenantConfig } = useTenantConfig();
   const [fullName, setFullName] = useState(user?.fullName || '');
   const [email, setEmail] = useState(user?.email || '');
@@ -351,21 +349,6 @@ export default function SettingsPage() {
       {isAiDraftsEnabled ? (
         <AiUsageSummary className="shadow-card border-border/50" />
       ) : null}
-
-      {isWhatsAppEnabled ? (
-        <WhatsAppSettingsPanel />
-      ) : (
-        <Card className="shadow-card border-border/50">
-          <CardHeader>
-            <CardTitle className="text-base">WhatsApp каналы</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              WhatsApp интеграциясы бул tenant үчүн азырынча план же платформа деңгээлинде иштетиле элек.
-            </p>
-          </CardContent>
-        </Card>
-      )}
 
       <Card className="shadow-card border-border/50">
         <CardHeader>
